@@ -1,0 +1,8 @@
+# Requirements mínimos para installer.py
+# Apenas dependências essenciais
+
+# Monitoramento de recursos do sistema
+psutil>=5.9.0
+
+# Parsing de arquivos YAML
+PyYAML>=6.0 

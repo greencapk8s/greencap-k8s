@@ -1,0 +1,84 @@
+# Jaeger Values
+# Distributed Tracing
+
+# Query Service
+query:
+  enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - jaeger.local
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 100m
+
+# Collector
+collector:
+  enabled: true
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 100m
+
+# Agent
+agent:
+  enabled: true
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 25m
+    limits:
+      memory: 128Mi
+      cpu: 50m
+
+# Storage
+storage:
+  type: memory
+  options:
+    memory:
+      max-traces: 5000
+
+# Sampling
+sampling:
+  default_strategy:
+    type: probabilistic
+    param: 1.0
+
+# UI Configuration
+ui:
+  enabled: true
+  basePath: /
+  resources:
+    requests:
+      memory: 64Mi
+      cpu: 25m
+    limits:
+      memory: 128Mi
+      cpu: 50m
+
+# Ingress
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - jaeger.local
+    path: /
+    pathType: Prefix
+    annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+
+# Service
+service:
+  type: ClusterIP 

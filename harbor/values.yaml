@@ -1,0 +1,135 @@
+# Harbor Helm Values - Configuration without HTTPS
+# This file contains the configuration to install Harbor via Helm without enabling HTTPS
+
+expose:
+  type: ingress
+  ingress:
+    className: nginx
+    hosts:
+      core: core.harbor.domain
+      notary: notary.harbor.domain
+    annotations:
+      nginx.ingress.kubernetes.io/proxy-body-size: "0"
+      nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+      nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      ingress.kubernetes.io/ssl-redirect: "false"
+  tls:
+    enabled: false
+
+harborAdminPassword: Harbor12345
+
+persistence:
+  persistentVolumeClaim:
+    registry:
+      size: 5Gi
+    chartmuseum:
+      size: 5Gi
+    jobservice:
+      size: 1Gi
+    database:
+      size: 1Gi
+    redis:
+      size: 1Gi
+    trivy:
+      size: 5Gi
+    notary:
+      size: 1Gi
+
+# Resource configurations
+core:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+jobservice:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+registry:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+chartmuseum:
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 100m
+
+trivy:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+notary:
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 100m
+
+database:
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 200m
+
+redis:
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 50m
+    limits:
+      memory: 256Mi
+      cpu: 100m
+
+# Security configurations
+secretKey: not-a-secure-key
+
+# Network configurations
+externalURL: http://core.harbor.domain:30001
+
+# Component configurations
+chartmuseum:
+  enabled: true
+
+trivy:
+  enabled: true
+
+notary:
+  enabled: true
+
+# Metrics configurations
+metrics:
+  enabled: false
+
+# Cache configurations
+cache:
+  enabled: true
+  expireHours: 24 

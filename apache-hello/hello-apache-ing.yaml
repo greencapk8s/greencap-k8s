@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-apache-ing
+  namespace: ns1
+  labels:
+    app: hello-apache
+  annotations:
+    nginx.org/proxy-connect-timeout: "30s"
+    nginx.org/proxy-read-timeout: "20s"
+    nginx.org/client-max-body-size: "4m"
+    nginx.org/use-regex: "true"
+    nginx.org/backend-protocol: "http"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: domain.local # Add in /etc/hosts
+    http:
+      paths:
+      - backend:
+          service:
+            name: hello-apache-svc
+            port:
+              number: 80
+        path: /hello-apache
+        pathType: Prefix

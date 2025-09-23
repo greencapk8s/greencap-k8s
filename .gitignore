@@ -1,0 +1,82 @@
+# OS-specific
+.DS_Store
+
+# Editor swapfiles
+.*.sw?
+*~
+
+# Vagrant stuff
+acceptance_config.yml
+boxes/*
+/.vagrant
+/website/.vagrant
+/website/build
+/vagrant-spec.config.rb
+test/vagrant-spec/.vagrant/
+.vagrant/
+/vagrant
+/pkg
+data.db
+vagrant-restore.db.lock
+cmd/vagrant/Vagrantfile
+binstubs/
+
+# Bundler/Rubygems
+*.gem
+.bundle
+pkg/*
+/Gemfile.lock
+test/tmp/
+/exec
+.ruby-bundle
+vendor/bundle
+
+# Documentation
+_site/*
+.yardoc/
+doc/
+
+# Python
+*.pyc
+
+# Rubinius
+*.rbc
+
+# IDE junk
+.idea/*
+*.iml
+.project
+.vscode
+
+# Ruby Managers
+.rbenv
+.rbenv-gemsets
+.ruby-gemset
+.ruby-version
+.rvmrc
+
+# Box storage for spec
+test/vagrant-spec/boxes/*.box
+
+simple_speed.py
+cover.out
+
+# nektos/act secrets file
+.secrets
+
+# delve debug binary
+__debug_bin
+
+# solargraph (ruby lsp) & rubocop
+.solargraph.yml
+.rubocop.yml
+
+# Ignore generated binaries
+bin/vagrant-go*
+
+# extension
+tmp*
+lib/vagrant/vagrant_ssl.so
+
+# direnv directory
+.direnv

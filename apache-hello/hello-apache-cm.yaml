@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hello-apache-cm
+  namespace: ns1
+  labels:
+    app: hello-apache
+data:
+  index.html: |+
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>Hello Apache App</title>
+      <link href="https://fonts.googleapis.com/css2?family=Amazon+Ember:wght@400;700&display=swap" rel="stylesheet">
+      <style>
+        body {
+          font-family: 'Amazon Ember', 'Roboto', Arial, sans-serif;
+          background: linear-gradient(135deg, #232f3e 0%, #37475a 100%);
+          color: #232f3e;
+          min-height: 100vh;
+          margin: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .aws-card {
+          background: #fff;
+          border-radius: 10px;
+          box-shadow: 0 4px 24px 0 rgba(35,47,62,0.15);
+          padding: 2.5rem 3.5rem;
+          text-align: center;
+          max-width: 420px;
+          border-top: 6px solid #ff9900;
+        }
+        .aws-logo {
+          width: 80px;
+          margin-bottom: 1.2rem;
+        }
+        h2 {
+          color: #232f3e;
+          font-size: 1.8rem;
+          margin-bottom: 0.7rem;
+          font-weight: 700;
+        }
+        p {
+          color: #37475a;
+          font-size: 1.1rem;
+          margin-bottom: 0.5rem;
+        }
+        .footer {
+          margin-top: 1.5rem;
+          color: #aab7b8;
+          font-size: 0.95rem;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="aws-card">
+        <img class="aws-logo" src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/kubernetes-icon.png" alt="Kind/Kubernetes Logo" />
+        <h2>Conexão via nginx-ingress bem sucedida <span style="vertical-align:middle; margin-left:6px;">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2l4-4"/></svg>
+        </span></h2>
+        <p>Hello Apache App.</p>
+        <p>Container image: <b>httpd:alpine</b></p>
+        <div class="footer">Kubernetes Playground com Kind + Ingress Nginx</div>
+      </div>
+    </body>
+    </html>

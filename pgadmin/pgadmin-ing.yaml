@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pgadmin-ing
+  namespace: postgresql
+  labels:
+    app: pgadmin
+  annotations:
+    nginx.org/proxy-connect-timeout: "30s"
+    nginx.org/proxy-read-timeout: "20s"
+    nginx.org/client-max-body-size: "4m"
+    nginx.org/use-regex: "true"
+    nginx.org/backend-protocol: "http"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: pgadmin.local
+    http:
+      paths:
+      - backend:
+          service:
+            name: pgadmin-pgadmin4
+            port:
+              number: 80
+        path: /
+        pathType: Prefix

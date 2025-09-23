@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-apache-dpl
+  namespace: ns1
+  labels:
+    app: hello-apache
+spec:
+  selector:
+    matchLabels:
+      app: hello-apache
+  template:
+    metadata:
+      labels:
+        app: hello-apache
+    spec:
+      containers:
+      - image: httpd:alpine
+        imagePullPolicy: Always
+        name: httpd
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: static-page
+          mountPath: /usr/local/apache2/htdocs/hello-apache/index.html
+          subPath: index.html
+      volumes:
+      - name: static-page
+        configMap: 
+          name: hello-apache-cm

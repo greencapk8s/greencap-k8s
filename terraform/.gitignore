@@ -1,0 +1,76 @@
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tf.bak
+
+# Generated Terraform files (should not be versioned)
+main.tf
+variables.tf
+terraform.tfvars
+
+# Terraform variables (may contain sensitive data)
+*.auto.tfvars
+
+# Terraform logs
+*.log
+
+# Terraform plan files
+*.tfplan
+*.tfplan.*
+
+# Terraform crash log
+crash.log
+
+# Terraform override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform CLI configuration
+.terraformrc
+terraform.rc
+
+# Local .terraform directories
+**/.terraform/*
+
+# Terraform lock files
+.terraform.lock.hcl
+
+# Terraform backend files
+backend.tf
+backend.tf.json
+
+# Terraform provider files
+providers.tf
+providers.tf.json
+
+# Terraform workspace files
+.terraform/environment
+
+# Terraform cache
+.terraform/cache/
+
+# Terraform plugin cache
+.terraform/plugins/
+
+# Terraform data
+.terraform/data/
+
+# Terraform modules
+.terraform/modules/
+
+# Terraform workspaces
+.terraform/workspaces/
+
+# Terraform variables (sensitive)
+secrets.tfvars
+*.secret.tfvars
+
+# AWS credentials (if accidentally committed)
+.aws/
+aws-credentials.txt 
+user_data.sh
+*.pem
