@@ -5,6 +5,15 @@
 
 set -e
 
+# Check if the --local-debug parameter was passed
+MONITORING_DIR="./playground/monitoring"
+for arg in "$@"; do
+  if [ "$arg" == "--local-debug" ]; then
+    MONITORING_DIR="./monitoring"
+    break
+  fi
+done
+
 echo "=========================================="
 echo "Monitoring Stack Installation"
 echo "=========================================="
@@ -25,7 +34,7 @@ echo "🚀 Installing Prometheus Stack..."
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 helm install prometheus prometheus-community/kube-prometheus-stack \
     --namespace monitoring \
-    --values ./playground/monitoring/prometheus-values.yaml \
+    --values $MONITORING_DIR/prometheus-values.yaml \
     --wait \
     --timeout 10m
 

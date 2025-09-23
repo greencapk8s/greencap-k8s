@@ -3,11 +3,20 @@
 
 set -e
 
+# Check if the --local-debug parameter was passed
+INGRESS_PATH="./playground/ingress-nginx/ingress.yaml"
+for arg in "$@"; do
+  if [ "$arg" == "--local-debug" ]; then
+    INGRESS_PATH="./ingress-nginx/ingress.yaml"
+    break
+  fi
+done
+
 echo "=========================================="
 echo "🔧 Installing ingress controller"
 echo "=========================================="
 
-kubectl apply -f ./playground/ingress-nginx/ingress.yaml
+kubectl apply -f "$INGRESS_PATH"
 kubectl wait --namespace ingress-nginx \
   --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller \

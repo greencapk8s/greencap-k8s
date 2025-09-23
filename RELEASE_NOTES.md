@@ -1,9 +1,17 @@
-# Release Notes - K8S Playground
+# Release Notes - GreenCap K8s
 
 ## Visão Geral
 
-Este documento contém as notas de lançamento para o projeto K8S Playground, um ambiente completo de estudos, desenvolvimento e testes para Kubernetes.
+Este documento contém as notas de lançamento para o projeto GreenCap K8s, um ambiente completo de estudos, desenvolvimento e testes para Kubernetes.
 
+## [v0.4.1] - 2024-09-23
+
+### Adicionado novo parametro ao instalador.
+
+#### ✨ Novas Funcionalidades:
+- **Local Debug**: Novo parametro(--local-debug) para instalação local sem VM. Recomendado para agilizar o desenvolvimento de novas funcionalidades. 
+
+---
 
 ## [v0.4.0] - 2024-08-XX
 

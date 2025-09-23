@@ -279,11 +279,11 @@ data "aws_subnet" "default" {
   }
 }
 
-# Security group for K8S Playground
+# Security group for GreenCap K8s
 resource "aws_security_group" "k8s_playground" {
   name_prefix = "k8s-playground-"
   vpc_id      = data.aws_vpc.default.id
-  description = "Security group for K8S Playground"
+  description = "Security group for GreenCap K8s"
 
   # RDP access
   ingress {
@@ -368,7 +368,7 @@ resource "aws_instance" "k8s_playground" {
 
 # Outputs
 output "setup_instructions" {
-  description = "Instructions to setup K8S Playground"
+  description = "Instructions to setup GreenCap K8s"
   value = <<-EOT
     ==========================================
     ✅ AWS deployment completed!
@@ -503,7 +503,7 @@ generate_user_data() {
     cat > user_data.sh << 'EOF'
 #!/bin/bash
 
-# User data script for K8S Playground EC2 instance
+# User data script for GreenCap K8s EC2 instance
 # This script runs when the instance first boots
 
 set -e
@@ -545,7 +545,7 @@ apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 usermod -aG docker ubuntu
 
 echo "=========================================="
-echo "🚀 K8S Playground - AWS Instance Ready!"
+echo "🚀 GreenCap K8s - AWS Instance Ready!"
 echo "=========================================="
 
 echo "🔄 Rebooting in 30 seconds to apply all changes..."

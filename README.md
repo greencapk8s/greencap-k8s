@@ -1,4 +1,4 @@
-# K8S Playground
+# GreenCap K8s
 
 ## Descrição
 

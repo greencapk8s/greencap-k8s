@@ -1,3 +1,7 @@
+# Project specific
+kind-config.yaml
+dash-token
+
 # OS-specific
 .DS_Store
 

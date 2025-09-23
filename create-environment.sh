@@ -1,9 +1,10 @@
 #!/bin/bash
 
 # Unified script to create environment with or without GUI
-# Usage: ./create-environment.sh --gui --memory 8192 --cpus 4
-# Usage: ./create-environment.sh --no-gui --memory 4096 --cpus 2
+# Usage: ./create-environment.sh --vagrant --gui --memory 8192 --cpus 4
+# Usage: ./create-environment.sh --vagrant --no-gui --memory 4096 --cpus 2
 # Usage: ./create-environment.sh --aws --instance-type t3a.medium --region us-east-1
+# Usage: ./create-environment.sh --local-debug
 
 set -e
 
@@ -13,7 +14,7 @@ CPUS=2
 GUI=false
 WITH_GUI=""
 INSTALL_BROWSER=""
-PROVIDER="local"
+PROVIDER="vagrant"
 AWS_INSTANCE_TYPE="t3a.medium"
 AWS_REGION="us-east-1"
 AWS_KEY_NAME=""
@@ -22,12 +23,14 @@ AWS_SUBNET_ID=""
 AWS_SECURITY_GROUP_ID=""
 AWS_AUTO_APPROVE=false
 AWS_PUBLIC_IP=""
+USER_NAME_INSTALL="vagrant"
 
 # Function to show usage
 show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
-    echo "Local Environment Options:"
+    echo "Vagrant Environment Options (default):"
+    echo "  --vagrant               Install environment using Vagrant (default)"
     echo "  --gui                   Install environment with GUI (Xubuntu + Firefox)"
     echo "  --no-gui                Install environment without GUI (terminal only)"
     echo "  --memory MB             Memory in MB (default: 4096)"
@@ -44,11 +47,16 @@ show_usage() {
     echo "  --public-ip IP          Your public IP address for AWS security group access (required for AWS)"
     echo "  --auto-approve          Auto-approve terraform apply (default: false)"
     echo ""
+    echo "Local Debug Options:"
+    echo "  --local-debug           Execute local setup script for debugging"
+    echo "  --user-name NAME        User name for local debug installation (default: vagrant)"
+    echo ""
     echo "General Options:"
     echo "  --help                  Show this help message"
     echo ""
     echo "Examples:"
-    echo "  Local with GUI:"
+    echo "  Vagrant with GUI (default):"
+    echo "    $0 --vagrant --gui --memory 8192 --cpus 4"
     echo "    $0 --gui --memory 8192 --cpus 4"
     echo "    $0 --no-gui --memory 2048 --cpus 1"
     echo ""
@@ -66,6 +74,9 @@ show_usage() {
     echo ""
     echo "  AWS with auto-approve:"
     echo "    $0 --aws --instance-type t3a.medium --key-name my-key --auto-approve"
+    echo ""
+    echo "  Local debug setup:"
+    echo "    $0 --local-debug"
 }
 
 # Function to validate AWS prerequisites
@@ -186,9 +197,84 @@ deploy_to_aws() {
     cd ..
 }
 
+# Function to deploy to Vagrant
+deploy_to_vagrant() {
+    # Vagrant deployment
+    echo "🛑 Stopping and destroying existing VM..."
+    vagrant halt
+    vagrant destroy -f
+    sleep 2
+
+    echo "🚀 Creating new VM..."
+    if [ "$GUI" = true ]; then
+        echo "📺 Installing with GUI (Xubuntu + Firefox)..."
+        WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
+    else
+        echo "💻 Installing without GUI (terminal only)..."
+        vagrant up
+    fi
+    sleep 2
+
+    echo "⏸️  Stopping VM for configuration..."
+    vagrant halt
+    sleep 2
+
+    echo "⚙️  Configuring VM resources..."
+    VM_NAME=$(VBoxManage list vms | grep "kind-nginx" | awk -F\" '{print $2}')
+    VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
+
+    echo "🔄 Reloading VM with Kind/K8s setup..."
+    SETUP_KIND_K8S=1 vagrant reload --provision
+
+    echo ""
+    echo "=========================================="
+    echo "✅ Environment created successfully!"
+    echo "=========================================="
+    echo "VM Configuration:"
+    echo "  - GUI Mode: $([ "$GUI" = true ] && echo "Enabled" || echo "Disabled")"
+    echo "  - Memory: ${MEMORY}MB"
+    echo "  - CPUs: ${CPUS}"
+    echo "  - Kind/K8s: Installed and configured"
+    echo ""
+    if [ "$GUI" = true ]; then
+        echo "🌐 Access URLs (after VM is ready):"
+        echo "  - Hello Apache: http://domain.local:30001/hello-apache/"
+        echo "  - Kubernetes Dashboard: https://domain.local:30002/"
+        echo "  - Harbor Registry: http://core.harbor.domain:30001/"
+        echo "  - pgAdmin: http://pgadmin.local:30001/"
+        echo "  - Grafana: http://grafana.local:30001/"
+        echo "  - Jaeger: http://jaeger.local:30001/"
+    else
+        echo "💻 Terminal Access:"
+        echo "  - SSH: vagrant ssh"
+        echo "  - Test: curl http://domain.local:30001/hello-apache/"
+    fi
+    echo "=========================================="
+}
+
+# Function to execute local debug setup
+deploy_local_debug() {
+    echo "🔧 Executing local debug setup..."
+    echo "👤 Using user name: $USER_NAME_INSTALL"
+    USER_NAME_INSTALL="$USER_NAME_INSTALL" ./local/local-setup.sh
+    
+    echo ""
+    echo "=========================================="
+    echo "✅ Local debug setup completed successfully!"
+    echo "=========================================="
+    echo "Local environment is now configured for debugging."
+    echo "User name used: $USER_NAME_INSTALL"
+    echo "Check the output above for any errors or warnings."
+    echo "=========================================="
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --vagrant)
+            PROVIDER="vagrant"
+            shift
+            ;;
         --gui)
             GUI=true
             WITH_GUI="1"
@@ -204,6 +290,14 @@ while [[ $# -gt 0 ]]; do
         --aws)
             PROVIDER="aws"
             shift
+            ;;
+        --local-debug)
+            PROVIDER="local-debug"
+            shift
+            ;;
+        --user-name)
+            USER_NAME_INSTALL="$2"
+            shift 2
             ;;
         --instance-type)
             AWS_INSTANCE_TYPE="$2"
@@ -258,9 +352,9 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validate required parameters
-if [ "$PROVIDER" = "local" ]; then
+if [ "$PROVIDER" = "vagrant" ]; then
     if [ "$GUI" != true ] && [ "$GUI" != false ]; then
-        echo "❌ Error: You must specify either --gui or --no-gui for local deployment"
+        echo "❌ Error: You must specify either --gui or --no-gui for vagrant deployment"
         show_usage
         exit 1
     fi
@@ -278,13 +372,16 @@ elif [ "$PROVIDER" = "aws" ]; then
         show_usage
         exit 1
     fi
+elif [ "$PROVIDER" = "local-debug" ]; then
+    # No additional validation needed for local-debug
+    :
 fi
 
 echo "=========================================="
 echo "Creating Environment"
 echo "=========================================="
 echo "Provider: $PROVIDER"
-if [ "$PROVIDER" = "local" ]; then
+if [ "$PROVIDER" = "vagrant" ]; then
     echo "GUI Mode: $([ "$GUI" = true ] && echo "Enabled" || echo "Disabled")"
     echo "Memory: ${MEMORY}MB"
     echo "CPUs: ${CPUS}"
@@ -297,66 +394,16 @@ elif [ "$PROVIDER" = "aws" ]; then
         echo "AMI ID: $AWS_AMI_ID"
     fi
     echo "Your Public IP: $AWS_PUBLIC_IP"
+elif [ "$PROVIDER" = "local-debug" ]; then
+    echo "Local Debug Setup: Enabled"
+    echo "User Name: $USER_NAME_INSTALL"
 fi
 echo "=========================================="
 
-# Function to deploy to AWS
-deploy_to_local_vagrant() {
-    # Local deployment (existing logic)
-    echo "🛑 Stopping and destroying existing VM..."
-    vagrant halt
-    vagrant destroy -f
-    sleep 2
-
-    echo "🚀 Creating new VM..."
-    if [ "$GUI" = true ]; then
-        echo "📺 Installing with GUI (Xubuntu + Firefox)..."
-        WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
-    else
-        echo "💻 Installing without GUI (terminal only)..."
-        vagrant up
-    fi
-    sleep 2
-
-    echo "⏸️  Stopping VM for configuration..."
-    vagrant halt
-    sleep 2
-
-    echo "⚙️  Configuring VM resources..."
-    VM_NAME=$(VBoxManage list vms | grep "greencap-k8s" | awk -F\" '{print $2}')
-    VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
-
-    echo "🔄 Reloading VM with Kind/K8s setup..."
-    SETUP_KIND_K8S=1 vagrant reload --provision
-
-    echo ""
-    echo "=========================================="
-    echo "✅ Environment created successfully!"
-    echo "=========================================="
-    echo "VM Configuration:"
-    echo "  - GUI Mode: $([ "$GUI" = true ] && echo "Enabled" || echo "Disabled")"
-    echo "  - Memory: ${MEMORY}MB"
-    echo "  - CPUs: ${CPUS}"
-    echo "  - Kind/K8s: Installed and configured"
-    echo ""
-    if [ "$GUI" = true ]; then
-        echo "🌐 Access URLs (after VM is ready):"
-        echo "  - Hello Apache: http://domain.local:30001/hello-apache/"
-        echo "  - Kubernetes Dashboard: https://domain.local:30002/"
-        echo "  - Harbor Registry: http://core.harbor.domain:30001/"
-        echo "  - pgAdmin: http://pgadmin.local:30001/"
-        echo "  - Grafana: http://grafana.local:30001/"
-        echo "  - Jaeger: http://jaeger.local:30001/"
-    else
-        echo "💻 Terminal Access:"
-        echo "  - SSH: vagrant ssh"
-        echo "  - Test: curl http://domain.local:30001/hello-apache/"
-    fi
-    echo "=========================================="
-}
-
 if [ "$PROVIDER" = "aws" ]; then
     deploy_to_aws
+elif [ "$PROVIDER" = "local-debug" ]; then
+    deploy_local_debug
 else
-    deploy_to_local_vagrant
+    deploy_to_vagrant
 fi 

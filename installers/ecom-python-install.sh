@@ -3,6 +3,15 @@
 
 set -e
 
+# Check if the --local-debug parameter was passed
+ECOM_PYTHON_DIR="./playground/projects/ecom-python"
+for arg in "$@"; do
+  if [ "$arg" == "--local-debug" ]; then
+    ECOM_PYTHON_DIR="./projects/ecom-python"
+    break
+  fi
+done
+
 echo "=========================================="
 echo "🔧 Installing ecom-python"
 echo "=========================================="
@@ -13,7 +22,7 @@ sudo bash -c 'echo "127.0.0.1 ecom-python.local" >> /etc/hosts'
 
 # Build and load docker image.
 echo "🚀 Building and loading docker image..."
-docker build -t ecom-python-api:latest -f ./playground/projects/ecom-python/Dockerfile ./playground/projects/ecom-python
+docker build -t ecom-python-api:latest -f $ECOM_PYTHON_DIR/Dockerfile $ECOM_PYTHON_DIR
 kind load docker-image ecom-python-api:latest --name k8s-nginx
 
 # Create database.
@@ -23,10 +32,10 @@ kubectl run postgres-17-postgresql-client --rm --tty -i --restart='Never' --name
 
 # Deploy ecom-python.
 echo "🚀 Deploying ecom-python..."
-kubectl apply -f ./playground/projects/ecom-python/infra/namespace.yaml
-envsubst < ./playground/projects/ecom-python/infra/deployment.yaml | kubectl apply -f -
-kubectl apply -f ./playground/projects/ecom-python/infra/service.yaml
-kubectl apply -f ./playground/projects/ecom-python/infra/ingress.yaml
+kubectl apply -f $ECOM_PYTHON_DIR/infra/namespace.yaml
+envsubst < $ECOM_PYTHON_DIR/infra/deployment.yaml | kubectl apply -f -
+kubectl apply -f $ECOM_PYTHON_DIR/infra/service.yaml
+kubectl apply -f $ECOM_PYTHON_DIR/infra/ingress.yaml
 
 echo ""
 echo "=========================================="

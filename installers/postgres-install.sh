@@ -1,6 +1,15 @@
 #!/bin/bash
 # Script to install postgres.
 
+# Check if the --local-debug parameter was passed
+POSTGRES_DIR="./playground/pgadmin"
+for arg in "$@"; do
+  if [ "$arg" == "--local-debug" ]; then
+    POSTGRES_DIR="./pgadmin"
+    break
+  fi
+done
+
 set -e
 
 echo "=========================================="
@@ -13,9 +22,15 @@ helm repo add runix https://helm.runix.net
 helm repo update
 
 # Install postgres.
-echo "🚀 Installing postgres..."
+echo "Creating namespace for postgres..."
 kubectl create namespace postgresql
-helm install postgres-17 bitnami/postgresql --namespace postgresql --set image.tag=17.5.0
+
+echo "🚀 Installing postgres..."
+helm install postgres-17 bitnami/postgresql \
+    --namespace postgresql \
+    --set image.tag=17.5.0 \
+    --wait \
+    --timeout 3m
 
 echo "*************************."
 echo "==> Password to access postgres."
@@ -30,7 +45,7 @@ sudo bash -c 'echo "127.0.0.1 pgadmin.local" >> /etc/hosts'
 # Install pgadmin.
 echo "🚀 Installing pgadmin..."
 helm install pgadmin runix/pgadmin4 --set env.email=admin@admin.com --set env.password=admin-user --set service.type=ClusterIP --namespace postgresql
-kubectl apply -f ./playground/pgadmin/pgadmin-ing.yaml
+kubectl apply -f $POSTGRES_DIR/pgadmin-ing.yaml
 
 echo ""
 echo "=========================================="

@@ -3,6 +3,15 @@
 
 set -e
 
+# Check if the --local-debug parameter was passed
+HARBOR_DIR="./playground/harbor"
+for arg in "$@"; do
+  if [ "$arg" == "--local-debug" ]; then
+    HARBOR_DIR="./harbor"
+    break
+  fi
+done
+
 echo "=========================================="
 echo "🔧 Installing Harbor"
 echo "=========================================="
@@ -20,7 +29,7 @@ helm repo update
 # Install harbor.
 echo "🚀 Installing Harbor..."
 kubectl create namespace harbor
-helm install harbor harbor/harbor --namespace harbor --values ./playground/harbor/values.yaml
+helm install harbor harbor/harbor --namespace harbor --values $HARBOR_DIR/values.yaml
 
 echo ""
 echo "=========================================="
