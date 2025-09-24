@@ -27,7 +27,7 @@ echo "✅ kubectl installed successfully!"
 echo "🔧 Configuring kubectl to use Kind cluster..."
 mkdir -p /home/$kubectl_install_user/.kube/
 sudo chown -R $kubectl_install_user:$kubectl_install_user /home/$kubectl_install_user/.kube/
-kind get kubeconfig --name k8s-nginx > /home/$kubectl_install_user/.kube/config
+kind get kubeconfig --name greencap-k8s > /home/$kubectl_install_user/.kube/config
 ls -la /home/$kubectl_install_user/.kube
 echo "✅ kubectl configured for Kind cluster!"
 

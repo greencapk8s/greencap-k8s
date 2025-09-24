@@ -220,7 +220,7 @@ deploy_to_vagrant() {
     sleep 2
 
     echo "⚙️  Configuring VM resources..."
-    VM_NAME=$(VBoxManage list vms | grep "kind-nginx" | awk -F\" '{print $2}')
+    VM_NAME=$(VBoxManage list vms | grep "greencap-k8s" | awk -F\" '{print $2}')
     VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
 
     echo "🔄 Reloading VM with Kind/K8s setup..."

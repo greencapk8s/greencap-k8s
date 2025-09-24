@@ -26,8 +26,8 @@ O ambiente é ideal para desenvolvedores que precisam de um playground completo 
 
 1. **Clone o repositório:**
    ```sh
-   git clone git@github.com:joseafilho/k8s-kind-nginx-playground.git
-   cd k8s-kind-nginx-playground
+   git clone git@github.com:greencapk8s/greencap-k8s.git
+   cd greencap-k8s
    ```
 
 2. **Suba o ambiente:**

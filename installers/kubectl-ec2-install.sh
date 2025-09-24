@@ -19,7 +19,7 @@ echo "✅ kubectl installed successfully!"
 echo "🔧 Configuring kubectl to use Kind cluster..."
 mkdir -p /home/ubuntu/.kube/
 sudo chown -R ubuntu:ubuntu /home/ubuntu/.kube/
-kind get kubeconfig --name k8s-nginx > /home/ubuntu/.kube/config
+kind get kubeconfig --name greencap-k8s > /home/ubuntu/.kube/config
 ls -la /home/ubuntu/.kube
 echo "✅ kubectl configured for Kind cluster!"
 

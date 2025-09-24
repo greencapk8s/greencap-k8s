@@ -40,7 +40,7 @@ echo "✅ Kind configuration file created!"
 
 # Create cluster
 echo "🚀 Creating Kind cluster..."
-kind create cluster --name k8s-nginx --config kind-config.yaml
+kind create cluster --name greencap-k8s --config kind-config.yaml
 echo "✅ Kind cluster created successfully!"
 
 echo ""

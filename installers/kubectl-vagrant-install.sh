@@ -19,7 +19,7 @@ echo "✅ kubectl installed successfully!"
 echo "🔧 Configuring kubectl to use Kind cluster..."
 mkdir -p /home/vagrant/.kube/
 sudo chown -R vagrant:vagrant /home/vagrant/.kube/
-kind get kubeconfig --name k8s-nginx > /home/vagrant/.kube/config
+kind get kubeconfig --name greencap-k8s > /home/vagrant/.kube/config
 ls -la /home/vagrant/.kube
 echo "✅ kubectl configured for Kind cluster!"
 

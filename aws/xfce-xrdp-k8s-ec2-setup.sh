@@ -20,8 +20,8 @@ sudo reboot
 # Setup python and project virtual environment.
 sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-venv
 sudo apt install -y apt-transport-https
-git clone https://github.com/joseafilho/k8s-kind-nginx-playground.git
-mv k8s-kind-nginx-playground playground
+git clone https://github.com/greencapk8s/greencap-k8s.git
+mv greencap-k8s playground
 cd playground
 git checkout developer
 cd ..

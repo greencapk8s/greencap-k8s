@@ -23,7 +23,7 @@ sudo bash -c 'echo "127.0.0.1 ecom-python.local" >> /etc/hosts'
 # Build and load docker image.
 echo "🚀 Building and loading docker image..."
 docker build -t ecom-python-api:latest -f $ECOM_PYTHON_DIR/Dockerfile $ECOM_PYTHON_DIR
-kind load docker-image ecom-python-api:latest --name k8s-nginx
+kind load docker-image ecom-python-api:latest --name greencap-k8s
 
 # Create database.
 echo "🔍 Creating database..."
