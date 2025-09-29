@@ -39,7 +39,7 @@ show_usage() {
 
 # Function to validate AWS profile
 validate_aws_profile() {
-    echo "🔍 Validating AWS profile: k8s_playground"
+    echo "🔍 Validating AWS profile: k8s_greencap"
 
     # Check if AWS CLI is installed
     if ! command -v aws &> /dev/null; then
@@ -53,16 +53,16 @@ validate_aws_profile() {
         echo "❌ Error: AWS credentials directory not found at ~/.aws"
         echo "Please configure AWS credentials first:"
         echo ""
-        echo "Run: aws configure --profile k8s_playground"
+        echo "Run: aws configure --profile k8s_greencap"
         echo "Or create the files manually:"
         echo ""
         echo "Create ~/.aws/credentials:"
-        echo "  [k8s_playground]"
+        echo "  [k8s_greencap]"
         echo "  aws_access_key_id = YOUR_ACCESS_KEY"
         echo "  aws_secret_access_key = YOUR_SECRET_KEY"
         echo ""
         echo "Create ~/.aws/config:"
-        echo "  [profile k8s_playground]"
+        echo "  [profile k8s_greencap]"
         echo "  region = us-east-1"
         echo "  output = json"
         exit 1
@@ -73,9 +73,9 @@ validate_aws_profile() {
         echo "❌ Error: AWS credentials file not found at ~/.aws/credentials"
         echo "Please configure AWS credentials first:"
         echo ""
-        echo "Run: aws configure --profile k8s_playground"
+        echo "Run: aws configure --profile k8s_greencap"
         echo "Or create ~/.aws/credentials manually:"
-        echo "  [k8s_playground]"
+        echo "  [k8s_greencap]"
         echo "  aws_access_key_id = YOUR_ACCESS_KEY"
         echo "  aws_secret_access_key = YOUR_SECRET_KEY"
         exit 1
@@ -85,31 +85,31 @@ validate_aws_profile() {
     if [ ! -f ~/.aws/config ]; then
         echo "❌ Error: AWS config file not found at ~/.aws/config"
         echo "Please create ~/.aws/config:"
-        echo "  [profile k8s_playground]"
+        echo "  [profile k8s_greencap]"
         echo "  region = us-east-1"
         echo "  output = json"
         exit 1
     fi
 
-    # Check if k8s_playground profile exists in credentials
-    if ! grep -q "\[k8s_playground\]" ~/.aws/credentials; then
-        echo "❌ Error: Profile 'k8s_playground' not found in ~/.aws/credentials"
+    # Check if k8s_greencap profile exists in credentials
+    if ! grep -q "\[k8s_greencap\]" ~/.aws/credentials; then
+        echo "❌ Error: Profile 'k8s_greencap' not found in ~/.aws/credentials"
         echo "Please add the profile to your credentials file:"
         echo ""
         echo "Add to ~/.aws/credentials:"
-        echo "  [k8s_playground]"
+        echo "  [k8s_greencap]"
         echo "  aws_access_key_id = YOUR_ACCESS_KEY"
         echo "  aws_secret_access_key = YOUR_SECRET_KEY"
         exit 1
     fi
 
-    # Check if k8s_playground profile exists in config
-    if ! grep -q "\[profile k8s_playground\]" ~/.aws/config; then
-        echo "❌ Error: Profile 'k8s_playground' not found in ~/.aws/config"
+    # Check if k8s_greencap profile exists in config
+    if ! grep -q "\[profile k8s_greencap\]" ~/.aws/config; then
+        echo "❌ Error: Profile 'k8s_greencap' not found in ~/.aws/config"
         echo "Please add the profile to your config file:"
         echo ""
         echo "Add to ~/.aws/config:"
-        echo "  [profile k8s_playground]"
+        echo "  [profile k8s_greencap]"
         echo "  region = us-east-1"
         echo "  output = json"
         exit 1
@@ -117,16 +117,16 @@ validate_aws_profile() {
 
     # Test if the profile is working
     echo "🧪 Testing AWS profile authentication..."
-    if ! aws sts get-caller-identity --profile k8s_playground &> /dev/null; then
-        echo "❌ Error: AWS profile 'k8s_playground' authentication failed"
+    if ! aws sts get-caller-identity --profile k8s_greencap &> /dev/null; then
+        echo "❌ Error: AWS profile 'k8s_greencap' authentication failed"
         echo "Please check your AWS credentials and permissions"
         echo ""
-        echo "Test manually: aws sts get-caller-identity --profile k8s_playground"
+        echo "Test manually: aws sts get-caller-identity --profile k8s_greencap"
         exit 1
     fi
 
     # Get account info
-    ACCOUNT_INFO=$(aws sts get-caller-identity --profile k8s_playground --output json 2>/dev/null)
+    ACCOUNT_INFO=$(aws sts get-caller-identity --profile k8s_greencap --output json 2>/dev/null)
     if [ $? -eq 0 ]; then
         ACCOUNT_ID=$(echo "$ACCOUNT_INFO" | grep -o '"Account": "[^"]*"' | cut -d'"' -f4)
         USER_ARN=$(echo "$ACCOUNT_INFO" | grep -o '"Arn": "[^"]*"' | cut -d'"' -f4)
@@ -246,11 +246,11 @@ terraform {
 
 provider "aws" {
   region = "${REGION}"
-  profile = "k8s_playground"
+  profile = "k8s_greencap"
 
   default_tags {
     tags = {
-      Project     = "k8s-playground"
+      Project     = "k8s-greencap"
       Environment = "development"
       ManagedBy   = "terraform"
       category    = "k8s"
@@ -280,8 +280,8 @@ data "aws_subnet" "default" {
 }
 
 # Security group for GreenCap K8s
-resource "aws_security_group" "k8s_playground" {
-  name_prefix = "k8s-playground-"
+resource "aws_security_group" "k8s_greencap" {
+  name_prefix = "k8s-greencap-"
   vpc_id      = data.aws_vpc.default.id
   description = "Security group for GreenCap K8s"
 
@@ -303,7 +303,7 @@ resource "aws_security_group" "k8s_playground" {
   }
 
   tags = {
-    Name = "k8s-playground-sg"
+    Name = "k8s-greencap-sg"
   }
 }
 
@@ -331,14 +331,14 @@ data "aws_ami" "ubuntu" {
 }
 
 # EC2 instance
-resource "aws_instance" "k8s_playground" {
+resource "aws_instance" "k8s_greencap" {
   ami           = var.ami_id != null ? var.ami_id : data.aws_ami.ubuntu[0].id
   instance_type = "${INSTANCE_TYPE}"
   key_name      = "${KEY_NAME}"
   subnet_id     = data.aws_subnet.default.id
   iam_instance_profile = "ssm-access-role"
 
-  vpc_security_group_ids = [aws_security_group.k8s_playground.id]
+  vpc_security_group_ids = [aws_security_group.k8s_greencap.id]
 
   root_block_device {
     volume_size = ${VOLUME_SIZE}
@@ -346,7 +346,7 @@ resource "aws_instance" "k8s_playground" {
     encrypted   = true
 
     tags = {
-      Name = "k8s-playground-root"
+      Name = "k8s-greencap-root"
     }
   }
 
@@ -358,7 +358,7 @@ resource "aws_instance" "k8s_playground" {
   monitoring = true
 
   tags = {
-    Name = "k8s-playground"
+    Name = "k8s-greencap"
   }
 
   lifecycle {
@@ -468,7 +468,7 @@ variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)
   default = {
-    Project     = "k8s-playground"
+    Project     = "k8s-greencap"
     Environment = "development"
     ManagedBy   = "terraform"
   }

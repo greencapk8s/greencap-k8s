@@ -4,13 +4,7 @@
 set -e
 
 # Check if the --local-debug parameter was passed
-ECOM_PYTHON_DIR="./playground/projects/ecom-python"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    ECOM_PYTHON_DIR="./projects/ecom-python"
-    break
-  fi
-done
+ECOM_PYTHON_DIR="./projects/ecom-python"
 
 echo "=========================================="
 echo "🔧 Installing ecom-python"

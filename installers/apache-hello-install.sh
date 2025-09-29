@@ -4,13 +4,7 @@
 set -e
 
 # Check if the --local-debug parameter was passed
-APACHE_HELLO_DIR="./playground/apache-hello"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    APACHE_HELLO_DIR="./apache-hello"
-    break
-  fi
-done
+APACHE_HELLO_DIR="./apache-hello"
 
 echo "=========================================="
 echo "🔧 Installing apache hello"

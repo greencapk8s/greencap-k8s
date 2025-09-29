@@ -4,13 +4,7 @@
 set -e
 
 # Check if the --local-debug parameter was passed
-HARBOR_DIR="./playground/harbor"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    HARBOR_DIR="./harbor"
-    break
-  fi
-done
+HARBOR_DIR="./harbor"
 
 echo "=========================================="
 echo "🔧 Installing Harbor"

@@ -1,0 +1,37 @@
+global:
+  edition: ce
+  hosts:
+    domain: gitlab.local
+    externalIP: ""
+    https: false
+    gitlab:
+      name: gitlab.local
+      https: false
+  ingress:
+    configureCertmanager: false
+    class: nginx
+    enabled: true
+    tls:
+      enabled: false
+    annotations:
+      kubernetes.io/ingress.class: "nginx"
+      nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  initialRootPassword:
+    secret: gitlab-root-password
+    key: password
+  shell:
+      # Configure the clone link in the UI to include the high-numbered NodePort
+      # value from below (`gitlab.gitlab-shell.service.nodePort`)
+      port: 32022
+installCertmanager: false
+nginx-ingress:
+  enabled: false
+gitlab:
+  gitlab-shell:
+    service:
+      type: NodePort
+      nodePort: 32022
+gitlab-runner:
+  install: false
+
+
