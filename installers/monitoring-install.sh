@@ -6,13 +6,7 @@
 set -e
 
 # Check if the --local-debug parameter was passed
-MONITORING_DIR="./playground/monitoring"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    MONITORING_DIR="./monitoring"
-    break
-  fi
-done
+MONITORING_DIR="./monitoring"
 
 echo "=========================================="
 echo "Monitoring Stack Installation"

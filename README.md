@@ -15,7 +15,7 @@ Este projeto fornece um ambiente completo de estudos, desenvolvimento e testes p
 - **Stack de Observabilidade**: Prometheus + Grafana + Jaeger para monitoramento completo
 - **Automação**: Scripts de provisionamento e configuração
 
-O ambiente é ideal para desenvolvedores que precisam de um playground completo para testar aplicações Kubernetes, incluindo registry de containers, banco de dados, aplicações de exemplo e monitoramento avançado com métricas, logs e traces distribuídos.
+O ambiente é ideal para desenvolvedores que precisam de um greencap completo para testar aplicações Kubernetes, incluindo registry de containers, banco de dados, aplicações de exemplo e monitoramento avançado com métricas, logs e traces distribuídos.
 
 ## Pré-requisitos
 
@@ -65,7 +65,7 @@ O ambiente é ideal para desenvolvedores que precisam de um playground completo 
      - Você deve ver a página de boas-vindas do Hello Apache App
      - ![Exemplo Hello Apache App](./apache-hello/hello-apache-app.png)
   3. **Kubernetes Dashboard**: Acesse https://domain.local:30002/
-     - Token de acesso: `/home/vagrant/playground/dash-token` na VM
+     - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
      - ![Kubernetes Dashboard](./kubernetes-dashboard/kube-dashboard.png)
 
 - **Somente terminal (sem GUI):**

@@ -1,16 +1,9 @@
 #!/bin/bash
 # Script to install postgres.
+set -e
 
 # Check if the --local-debug parameter was passed
-POSTGRES_DIR="./playground/pgadmin"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    POSTGRES_DIR="./pgadmin"
-    break
-  fi
-done
-
-set -e
+POSTGRES_DIR="./pgadmin"
 
 echo "=========================================="
 echo "🔧 Installing postgres"
@@ -30,7 +23,7 @@ helm install postgres-17 bitnami/postgresql \
     --namespace postgresql \
     --set image.tag=17.5.0 \
     --wait \
-    --timeout 3m
+    --timeout 10m
 
 echo "*************************."
 echo "==> Password to access postgres."

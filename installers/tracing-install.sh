@@ -23,7 +23,7 @@ echo "🔍 Installing Jaeger..."
 kubectl create namespace jaeger --dry-run=client -o yaml | kubectl apply -f -
 helm install jaeger jaegertracing/jaeger \
     --namespace jaeger \
-    --values ./playground/tracing/jaeger-values.yaml \
+    --values ./greencap/tracing/jaeger-values.yaml \
     --wait \
     --timeout 5m
 

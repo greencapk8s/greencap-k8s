@@ -4,13 +4,7 @@
 set -e
 
 # Check if the --local-debug parameter was passed
-INGRESS_PATH="./playground/ingress-nginx/ingress.yaml"
-for arg in "$@"; do
-  if [ "$arg" == "--local-debug" ]; then
-    INGRESS_PATH="./ingress-nginx/ingress.yaml"
-    break
-  fi
-done
+INGRESS_PATH="./ingress-nginx/ingress.yaml"
 
 echo "=========================================="
 echo "🔧 Installing ingress controller"

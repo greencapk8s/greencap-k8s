@@ -64,7 +64,7 @@ data:
         </span></h2>
         <p>Hello Apache App.</p>
         <p>Container image: <b>httpd:alpine</b></p>
-        <div class="footer">Kubernetes Playground com Kind + Ingress Nginx</div>
+        <div class="footer">Kubernetes greencap com Kind + Ingress Nginx</div>
       </div>
     </body>
     </html>

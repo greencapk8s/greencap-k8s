@@ -84,3 +84,13 @@ lib/vagrant/vagrant_ssl.so
 
 # direnv directory
 .direnv
+
+# Terraform
+.terraform
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.*
+terraform.tfvars
+terraform.tfvars.*
+terraform.tfvars.json
+terraform.tfvars.json.*

@@ -48,44 +48,25 @@ Vagrant.configure("2") do |config|
 
   if setup_kind_k8s
     config.vm.provision "shell", inline: <<-SHELL
-      mkdir -p $HOME/playground
+      mkdir -p $HOME/greencap
     SHELL
 
     # Copy files.
-    config.vm.provision "file", source: "./installers", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./apache-hello", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./ingress-nginx", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./kubernetes-dashboard", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./projects", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./harbor", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./monitoring", destination: "$HOME/playground/"
-    config.vm.provision "file", source: "./pgadmin", destination: "$HOME/playground/"
+    config.vm.provision "file", source: "./installers", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./apache-hello", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./ingress-nginx", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./kubernetes-dashboard", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./projects", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./harbor", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./monitoring", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./helm-values", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./pgadmin", destination: "$HOME/greencap/"
 
     # Run install tools.
     config.vm.provision "shell", inline: <<-SHELL
-      echo "Creating virtual environment..."
-      python3 -m venv ./playground/installers/.venv
-      sudo chown -R vagrant:vagrant ./playground/installers/.venv/
-      source ./playground/installers/.venv/bin/activate
-      
-      echo "Installing python3 packages..."
-      pip3 install -r ./playground/installers/requirements.txt
-
       echo "🚗 Running installer scripts..."
-      ./playground/installers/configure-docker-daemon.sh
-      ./playground/installers/configure-hosts.sh
-      ./playground/installers/kind-vagrant-install.sh
-      ./playground/installers/kubectl-vagrant-install.sh
-      ./playground/installers/helm-install.sh
-      ./playground/installers/cilium-install.sh
-      ./playground/installers/kubectl-top-install.sh
-      ./playground/installers/ingress-controller-install.sh
-      ./playground/installers/kube-dash-install.sh
-      ./playground/installers/monitoring-install.sh
-      ./playground/installers/apache-hello-install.sh
-      ./playground/installers/harbor-install.sh
-      ./playground/installers/postgres-install.sh
-      ./playground/installers/ecom-python-install.sh
+      cd /home/vagrant/greencap
+      USER_NAME_INSTALL="vagrant" ./installers/run-installers.sh
     SHELL
   end
 end

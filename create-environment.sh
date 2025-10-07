@@ -223,7 +223,7 @@ deploy_to_vagrant() {
     VM_NAME=$(VBoxManage list vms | grep "greencap-k8s" | awk -F\" '{print $2}')
     VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
 
-    echo "🔄 Reloading VM with Kind/K8s setup..."
+    echo "🔄 Reloading VM setup..."
     SETUP_KIND_K8S=1 vagrant reload --provision
 
     echo ""
@@ -234,7 +234,7 @@ deploy_to_vagrant() {
     echo "  - GUI Mode: $([ "$GUI" = true ] && echo "Enabled" || echo "Disabled")"
     echo "  - Memory: ${MEMORY}MB"
     echo "  - CPUs: ${CPUS}"
-    echo "  - Kind/K8s: Installed and configured"
+    echo "  - GreenCap K8s installed and configured"
     echo ""
     if [ "$GUI" = true ]; then
         echo "🌐 Access URLs (after VM is ready):"
@@ -256,7 +256,7 @@ deploy_to_vagrant() {
 deploy_local_debug() {
     echo "🔧 Executing local debug setup..."
     echo "👤 Using user name: $USER_NAME_INSTALL"
-    USER_NAME_INSTALL="$USER_NAME_INSTALL" ./local/local-setup.sh
+    USER_NAME_INSTALL="$USER_NAME_INSTALL" ./installers/run-installers.sh
     
     echo ""
     echo "=========================================="
