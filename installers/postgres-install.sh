@@ -23,7 +23,7 @@ helm install postgres-17 bitnami/postgresql \
     --namespace postgresql \
     --set image.tag=17.5.0 \
     --wait \
-    --timeout 3m
+    --timeout 10m
 
 echo "*************************."
 echo "==> Password to access postgres."

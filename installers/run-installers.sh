@@ -10,10 +10,10 @@ set -e
 ./installers/cilium-install.sh
 ./installers/kubectl-top-install.sh
 ./installers/ingress-controller-install.sh
-# ./installers/kube-dash-install.sh # --local-debug
-# ./installers/monitoring-install.sh --local-debug
-# ./installers/apache-hello-install.sh --local-debug
-# ./installers/harbor-install.sh --local-debug
-./installers/gitlab-install.sh # --local-debug
-# ./installers/postgres-install.sh --local-debug
-# ./installers/ecom-python-install.sh --local-debug
+./installers/kube-dash-install.sh
+./installers/monitoring-install.sh
+./installers/apache-hello-install.sh
+./installers/harbor-install.sh
+./installers/gitlab-install.sh
+./installers/postgres-install.sh
+./installers/ecom-python-install.sh
