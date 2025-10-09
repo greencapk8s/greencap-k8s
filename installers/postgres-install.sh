@@ -2,33 +2,32 @@
 # Script to install postgres.
 set -e
 
-# Check if the --local-debug parameter was passed
 POSTGRES_DIR="./pgadmin"
+POSTGRES_HELM_VALUES_DIR="./helm-values/postgres"
 
 echo "=========================================="
 echo "🔧 Installing postgres"
 echo "=========================================="
 
 echo "🔍 Adding bitnami repository to helm..."
-helm repo add bitnami https://charts.bitnami.com/bitnami
+helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
 helm repo add runix https://helm.runix.net
 helm repo update
 
 # Install postgres.
-echo "Creating namespace for postgres..."
-kubectl create namespace postgresql
-
 echo "🚀 Installing postgres..."
-helm install postgres-17 bitnami/postgresql \
+helm install postgres-17 groundhog2k/postgres \
     --namespace postgresql \
-    --set image.tag=17.5.0 \
+    --set image.tag=17.6 \
+    -f $POSTGRES_HELM_VALUES_DIR/values.yaml \
+    --create-namespace \
     --wait \
     --timeout 10m
 
 echo "*************************."
 echo "==> Password to access postgres."
 echo "*************************."
-kubectl get secret --namespace postgresql postgres-17-postgresql -o jsonpath="{.data.postgres-password}" | base64 -d; echo
+kubectl get secret postgres-17 -n postgresql -o jsonpath="{.data.POSTGRES_PASSWORD}" | base64 -d; echo
 echo "*************************."
 
 # Add entries to /etc/hosts.

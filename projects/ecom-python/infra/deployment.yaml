@@ -21,4 +21,4 @@ spec:
             - containerPort: 8000
           env:
             - name: DATABASE_URL
-              value: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres-17-postgresql.postgresql:5432/ecom_python" 
+              value: "postgresql://postgres:${POSTGRES_PASSWORD}@postgres-17.postgresql:5432/ecom_python" 

@@ -1,0 +1,4 @@
+settings:
+  superuserPassword:
+    secretKey: POSTGRES_PASSWORD
+    value: user-root123
