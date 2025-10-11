@@ -4,6 +4,16 @@
 
 Este documento contém as notas de lançamento para o projeto GreenCap K8s, um ambiente completo de estudos, desenvolvimento e testes para Kubernetes.
 
+## [v0.4.2] - 2024-10-11
+
+###  Suporte ao GitLab.
+
+#### ✨ Novas Funcionalidades:
+- **GitLab**: GitLab é uma plataforma DevSecOps completa que ajuda as equipes a gerenciar todo o ciclo de vida do desenvolvimento de software, desde o controle de versão e colaboração de código até a automação, testes e implantação.
+- **Idioma inglês no portal**: Adicionado suporte ao idioma inglês no portal https://www.greencapk8s.dev/.
+
+---
+
 ## [v0.4.1] - 2024-09-23
 
 ### Adicionado novo parametro ao instalador.
