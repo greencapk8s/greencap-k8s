@@ -2,7 +2,7 @@
 # Script to install postgres.
 set -e
 
-POSTGRES_DIR="./pgadmin"
+POSTGRES_DIR="./infra-code-manifests/pgadmin"
 POSTGRES_HELM_VALUES_DIR="./helm-values/postgres"
 
 echo "=========================================="

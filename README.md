@@ -63,10 +63,10 @@ O ambiente é ideal para desenvolvedores que precisam de um greencap completo pa
      - Senha padrão da VM: **vagrant**
   2. **Hello Apache App**: Acesse http://domain.local:30001/hello-apache/
      - Você deve ver a página de boas-vindas do Hello Apache App
-     - ![Exemplo Hello Apache App](./apache-hello/hello-apache-app.png)
+     - ![Exemplo Hello Apache App](./images/hello-apache-app.png)
   3. **Kubernetes Dashboard**: Acesse https://domain.local:30002/
      - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
-     - ![Kubernetes Dashboard](./kubernetes-dashboard/kube-dashboard.png)
+     - ![Kubernetes Dashboard](./images/kube-dashboard.png)
 
 - **Somente terminal (sem GUI):**
   1. Acesse a VM com `vagrant ssh`

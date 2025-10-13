@@ -3,8 +3,7 @@
 
 set -e
 
-# Check if the --local-debug parameter was passed
-INGRESS_PATH="./ingress-nginx/ingress.yaml"
+INGRESS_PATH="./infra-code-manifests/ingress-nginx/ingress.yaml"
 
 echo "=========================================="
 echo "🔧 Installing ingress controller"

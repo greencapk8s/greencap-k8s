@@ -3,8 +3,7 @@
 
 set -e
 
-# Check if the --local-debug parameter was passed
-APACHE_HELLO_DIR="./apache-hello"
+APACHE_HELLO_DIR="./infra-code-manifests/apache-hello"
 
 echo "=========================================="
 echo "🔧 Installing apache hello"
