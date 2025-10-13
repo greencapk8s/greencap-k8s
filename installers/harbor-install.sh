@@ -3,8 +3,7 @@
 
 set -e
 
-# Check if the --local-debug parameter was passed
-HARBOR_DIR="./harbor"
+HARBOR_DIR="./helm-values/harbor"
 
 echo "=========================================="
 echo "🔧 Installing Harbor"

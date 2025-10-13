@@ -5,8 +5,7 @@
 
 set -e
 
-# Check if the --local-debug parameter was passed
-MONITORING_DIR="./monitoring"
+MONITORING_DIR="./helm-values/monitoring"
 
 echo "=========================================="
 echo "Monitoring Stack Installation"
