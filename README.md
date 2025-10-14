@@ -37,10 +37,10 @@ Algumas ferramentas que compõe a plataforma:
    - **Local com Vagrant:**
      ```sh
      # Com GUI
-     ./greencap.sh --gui --memory 8192 --cpus 4
+     ./greencap.sh --vagrant --gui --memory 8192 --cpus 4
      
      # Sem GUI
-     ./greencap.sh --no-gui --memory 4096 --cpus 2
+     ./greencap.sh --vagrant --no-gui --memory 4096 --cpus 2
      ```
 
      Acesso a máquina virtual via ssh:
@@ -49,6 +49,15 @@ Algumas ferramentas que compõe a plataforma:
      ```
    
    - **AWS EC2 (via Terraform):**
+     
+     Por padrão é executado o terraform plan:
+     
+     ```sh
+     ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami>
+     ```
+
+     Para aplicar, adicionar o parametro(--clean) no final do comando:
+
      ```sh
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
      ```
@@ -101,7 +110,6 @@ Se você realizou a instalação diretamente em sua máquina local (fora do Vagr
 ```
 
 Esse comando irá deletar o cluster criado com o Kind.
-**Atenção:** O uso do `--clean` apagará todos os dados persistidos na VM.
 
 ## Referências
 
