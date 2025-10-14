@@ -1,11 +1,11 @@
 global:
   edition: ce
   hosts:
-    domain: gitlab.local
+    domain: gitlab.greencap
     externalIP: ""
     https: false
     gitlab:
-      name: gitlab.local
+      name: gitlab.greencap
       https: false
   ingress:
     configureCertmanager: false

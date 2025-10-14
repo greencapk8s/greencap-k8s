@@ -12,8 +12,8 @@ echo "📝 Creating Docker daemon configuration..."
 sudo cat > /etc/docker/daemon.json << 'EOF'
 {
   "insecure-registries": [
-    "core.harbor.domain:30001",
-    "notary.harbor.domain:30001",
+    "core.harbor.greencap:30001",
+    "notary.harbor.greencap:30001",
     "harbor-core.harbor.svc.cluster.local"
   ]
 }

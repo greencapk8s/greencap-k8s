@@ -16,7 +16,7 @@ helm repo update
 
 # Add entries to /etc/hosts
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 jaeger.local" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 jaeger.greencap" >> /etc/hosts'
 
 # Install Jaeger
 echo "🔍 Installing Jaeger..."
@@ -41,6 +41,6 @@ echo "✅ Tracing Stack installed successfully!"
 echo "=========================================="
 echo ""
 echo "🌐 Access URLs:"
-echo "  - Jaeger: http://jaeger.local:30001"
+echo "  - Jaeger: http://jaeger.greencap:30001"
 echo ""
 echo "==========================================" 

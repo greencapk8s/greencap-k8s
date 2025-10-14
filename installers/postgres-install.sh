@@ -32,7 +32,7 @@ echo "*************************."
 
 # Add entries to /etc/hosts.
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 pgadmin.local" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 pgadmin.greencap" >> /etc/hosts'
 
 # Install pgadmin.
 echo "🚀 Installing pgadmin..."

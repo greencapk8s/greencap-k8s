@@ -1,11 +1,5 @@
 #!/bin/bash
 
-# Unified script to create environment with or without GUI
-# Usage: ./create-environment.sh --vagrant --gui --memory 8192 --cpus 4
-# Usage: ./create-environment.sh --vagrant --no-gui --memory 4096 --cpus 2
-# Usage: ./create-environment.sh --aws --instance-type t3a.medium --region us-east-1
-# Usage: ./create-environment.sh --local-debug
-
 set -e
 
 # Default values
@@ -24,6 +18,7 @@ AWS_SECURITY_GROUP_ID=""
 AWS_AUTO_APPROVE=false
 AWS_PUBLIC_IP=""
 USER_NAME_INSTALL="vagrant"
+CLEAN_MODE=false
 
 # Function to show usage
 show_usage() {
@@ -53,12 +48,12 @@ show_usage() {
     echo ""
     echo "General Options:"
     echo "  --help                  Show this help message"
+    echo "  --clean                 Clean the environment"
     echo ""
     echo "Examples:"
     echo "  Vagrant with GUI (default):"
     echo "    $0 --vagrant --gui --memory 8192 --cpus 4"
-    echo "    $0 --gui --memory 8192 --cpus 4"
-    echo "    $0 --no-gui --memory 2048 --cpus 1"
+    echo "    $0 --vagrant --no-gui --memory 4096 --cpus 2"
     echo ""
     echo "  AWS deployment:"
     echo "    $0 --aws --instance-type t3a.large --key-name my-key"
@@ -77,6 +72,11 @@ show_usage() {
     echo ""
     echo "  Local debug setup:"
     echo "    $0 --local-debug"
+    echo ""
+    echo "  Clean/Destroy environment:"
+    echo "    $0 --clean --local-debug      # Clean local debug environment"
+    echo "    $0 --clean --vagrant          # Clean Vagrant environment"
+    echo "    $0 --clean --aws              # Clean AWS environment"
 }
 
 # Function to validate AWS prerequisites
@@ -238,16 +238,13 @@ deploy_to_vagrant() {
     echo ""
     if [ "$GUI" = true ]; then
         echo "🌐 Access URLs (after VM is ready):"
-        echo "  - Hello Apache: http://domain.local:30001/hello-apache/"
-        echo "  - Kubernetes Dashboard: https://domain.local:30002/"
-        echo "  - Harbor Registry: http://core.harbor.domain:30001/"
-        echo "  - pgAdmin: http://pgadmin.local:30001/"
-        echo "  - Grafana: http://grafana.local:30001/"
-        echo "  - Jaeger: http://jaeger.local:30001/"
+        echo "  - Hello Apache: http://hello-apache.greencap:30001/"
+        echo "  - Kubernetes Dashboard: https://kubernetes-dashboard.greencap:30002/"
+        echo "  - Grafana: http://grafana.greencap:30001/"
     else
         echo "💻 Terminal Access:"
         echo "  - SSH: vagrant ssh"
-        echo "  - Test: curl http://domain.local:30001/hello-apache/"
+        echo "  - Test: curl http://hello-apache.greencap:30001/"
     fi
     echo "=========================================="
 }
@@ -266,6 +263,97 @@ deploy_local_debug() {
     echo "User name used: $USER_NAME_INSTALL"
     echo "Check the output above for any errors or warnings."
     echo "=========================================="
+}
+
+# Function to clean environment
+clean_environment() {
+    echo "=========================================="
+    echo "🧹 Cleaning Environment"
+    echo "=========================================="
+    
+    # Auto-detect provider if not specified
+    if [ "$PROVIDER" = "vagrant" ]; then
+        echo "Provider: Vagrant"
+        clean_vagrant
+    elif [ "$PROVIDER" = "aws" ]; then
+        echo "Provider: AWS"
+        clean_aws
+    elif [ "$PROVIDER" = "local-debug" ]; then
+        echo "Provider: Local Debug"
+        clean_local_debug
+    else
+        echo "❌ Provider not found"
+        exit 1
+    fi
+}
+
+# Function to clean Vagrant environment
+clean_vagrant() {
+    echo "🗑️  Cleaning Vagrant environment..."
+    
+    echo "🛑 Stopping VM..."
+    vagrant halt 2>/dev/null || true
+    
+    echo "🗑️  Destroying VM..."
+    vagrant destroy -f
+    
+    echo ""
+    echo "=========================================="
+    echo "✅ Vagrant environment cleaned successfully!"
+    echo "=========================================="
+}
+
+# Function to clean AWS environment
+clean_aws() {
+    echo "🗑️  Cleaning AWS environment..."
+        
+    cd terraform
+    
+    if [ ! -f "terraform.tfstate" ] || [ ! -s "terraform.tfstate" ]; then
+        echo "⚠️  No Terraform state found. No AWS resources to destroy."
+        cd ..
+        return
+    fi
+    
+    echo "🔧 Initializing Terraform..."
+    terraform init
+    
+    echo "📋 Planning destruction..."
+    terraform plan -destroy
+    
+    echo ""
+    echo "⚠️  WARNING: This will destroy all AWS resources created by Terraform!"
+    echo "   This action cannot be undone."
+    echo ""
+    
+    if [ "$AWS_AUTO_APPROVE" = true ]; then
+        echo "⚠️  Auto-approve enabled - destroying resources without confirmation"
+        terraform destroy -auto-approve
+    else
+        read -p "Are you sure you want to destroy the AWS environment? (yes/no): " -r
+        echo
+        if [[ $REPLY =~ ^[Yy][Ee][Ss]$ ]]; then
+            terraform destroy
+        else
+            echo "❌ Destruction cancelled."
+            cd ..
+            exit 0
+        fi
+    fi
+    
+    cd ..
+    
+    echo ""
+    echo "=========================================="
+    echo "✅ AWS environment cleaned successfully!"
+    echo "=========================================="
+}
+
+# Function to clean local debug environment
+clean_local_debug() {
+    echo "🗑️  Cleaning local debug environment..."
+    kind delete cluster --name greencap-k8s
+    echo "✅ Local debug environment cleaned successfully!"
 }
 
 # Parse command line arguments
@@ -339,6 +427,10 @@ while [[ $# -gt 0 ]]; do
             CPUS="$2"
             shift 2
             ;;
+        --clean)
+            CLEAN_MODE=true
+            shift
+            ;;
         --help)
             show_usage
             exit 0
@@ -350,6 +442,12 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# Check if we're in clean mode
+if [ "$CLEAN_MODE" = true ]; then
+    clean_environment
+    exit 0
+fi
 
 # Validate required parameters
 if [ "$PROVIDER" = "vagrant" ]; then

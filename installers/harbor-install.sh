@@ -11,8 +11,8 @@ echo "=========================================="
 
 # Add entries to /etc/hosts.
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 core.harbor.domain" >> /etc/hosts'
-sudo bash -c 'echo "127.0.0.1 notary.harbor.domain" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 core.harbor.greencap" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 notary.harbor.greencap" >> /etc/hosts'
 
 # Add harbor repository to helm.
 echo "🔍 Adding harbor repository to helm..."

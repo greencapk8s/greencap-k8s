@@ -9,7 +9,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-    - host: kubernetes-dashboard.local
+    - host: kubernetes-dashboard.greencap
       http:
         paths:
           - backend:

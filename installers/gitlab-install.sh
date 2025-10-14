@@ -10,7 +10,7 @@ echo "Installing GitLab"
 echo "=========================================="
 
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 gitlab.local" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 gitlab.greencap" >> /etc/hosts'
 
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
