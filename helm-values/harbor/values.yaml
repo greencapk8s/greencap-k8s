@@ -6,8 +6,8 @@ expose:
   ingress:
     className: nginx
     hosts:
-      core: core.harbor.domain
-      notary: notary.harbor.domain
+      core: core.harbor.greencap
+      notary: notary.harbor.greencap
     annotations:
       nginx.ingress.kubernetes.io/proxy-body-size: "0"
       nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
@@ -113,7 +113,7 @@ redis:
 secretKey: not-a-secure-key
 
 # Network configurations
-externalURL: http://core.harbor.domain:30001
+externalURL: http://core.harbor.greencap:30001
 
 # Component configurations
 chartmuseum:

@@ -53,14 +53,16 @@ Vagrant.configure("2") do |config|
 
     # Copy files.
     config.vm.provision "file", source: "./installers", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./apache-hello", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./ingress-nginx", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./kubernetes-dashboard", destination: "$HOME/greencap/"
     config.vm.provision "file", source: "./projects", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./harbor", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./monitoring", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./helm-values", destination: "$HOME/greencap/"
-    config.vm.provision "file", source: "./pgadmin", destination: "$HOME/greencap/"
+    # Infra code manifests.
+    config.vm.provision "file", source: "./infra-code-manifests/apache-hello", destination: "$HOME/greencap/infra-code-manifests/"
+    config.vm.provision "file", source: "./infra-code-manifests/ingress-nginx", destination: "$HOME/greencap/infra-code-manifests/"
+    config.vm.provision "file", source: "./infra-code-manifests/kubernetes-dashboard", destination: "$HOME/greencap/infra-code-manifests/"
+    config.vm.provision "file", source: "./infra-code-manifests/pgadmin", destination: "$HOME/greencap/infra-code-manifests/"
+    # Helm values.
+    config.vm.provision "file", source: "./helm-values/harbor", destination: "$HOME/greencap/helm-values/"
+    config.vm.provision "file", source: "./helm-values/monitoring", destination: "$HOME/greencap/helm-values/"
+    config.vm.provision "file", source: "./helm-values/postgres", destination: "$HOME/greencap/helm-values/"
 
     # Run install tools.
     config.vm.provision "shell", inline: <<-SHELL

@@ -15,12 +15,12 @@ Stack de monitoramento do cluster Kubernetes.
 ## Acesso
 
 ### Grafana
-- **URL**: http://grafana.local:30001
+- **URL**: http://grafana.greencap:30001
 - **Usuário**: admin
 - **Senha**: prom-operator
 
 ### Prometheus
-- **URL**: http://prometheus.local:30001
+- **URL**: http://prometheus.greencap:30001
 
 ## Referências
 

@@ -16,7 +16,7 @@ kubectl apply -f $ECOM_PYTHON_DIR/infra/create-db-job.yaml
 
 # Add entries to /etc/hosts.
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 ecom-python.local" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 ecom-python.greencap" >> /etc/hosts'
 
 # Build and load docker image.
 echo "🚀 Building and loading docker image..."

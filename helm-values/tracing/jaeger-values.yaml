@@ -8,7 +8,7 @@ query:
     enabled: true
     ingressClassName: nginx
     hosts:
-      - jaeger.local
+      - jaeger.greencap
     path: /
     pathType: Prefix
     annotations:
@@ -73,7 +73,7 @@ ui:
     enabled: true
     ingressClassName: nginx
     hosts:
-      - jaeger.local
+      - jaeger.greencap
     path: /
     pathType: Prefix
     annotations:

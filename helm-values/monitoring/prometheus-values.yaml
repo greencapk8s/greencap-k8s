@@ -12,7 +12,7 @@ grafana:
     enabled: true
     ingressClassName: nginx
     hosts:
-      - grafana.local
+      - grafana.greencap
     path: /
     pathType: Prefix
     annotations:

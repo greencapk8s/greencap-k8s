@@ -19,8 +19,8 @@ helm repo update
 
 # Add entries to /etc/hosts
 echo "📝 Adding entries to /etc/hosts..."
-sudo bash -c 'echo "127.0.0.1 grafana.local" >> /etc/hosts'
-sudo bash -c 'echo "127.0.0.1 prometheus.local" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 grafana.greencap" >> /etc/hosts'
+sudo bash -c 'echo "127.0.0.1 prometheus.greencap" >> /etc/hosts'
 
 # 1. Install Prometheus Stack
 echo "🚀 Installing Prometheus Stack..."
@@ -45,9 +45,9 @@ echo "✅ Monitoring Stack installed successfully!"
 echo "=========================================="
 echo ""
 echo "🌐 Access URLs:"
-echo "  - Grafana: http://grafana.local:30001"
+echo "  - Grafana: http://grafana.greencap:30001"
 echo "    User: admin, Password: prom-operator"
 echo ""
-echo "  - Prometheus: http://prometheus.local:30001"
+echo "  - Prometheus: http://prometheus.greencap:30001"
 echo ""
 echo "==========================================" 

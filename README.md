@@ -2,9 +2,12 @@
 
 ## Descrição
 
-Este projeto fornece um ambiente completo de estudos, desenvolvimento e testes para Kubernetes:
+GreenCap é um projeto que fornece um ambiente completo de estudos, desenvolvimento e testes para Kubernetes:
 
-- **Vagrant**: Provisionamento da VM
+Ele é ideal para desenvolvedores que precisam de um playground completo para testar aplicações Kubernetes incluindo: registry de containers, banco de dados, monitoramento, logs, ci/cd(gitlab) e muito mais.
+
+Algumas ferramentas que compõe a plataforma:
+
 - **Kind**: Kubernetes in Docker
 - **Ingress**: Nginx
 - **Container Registry**: Harbor para gerenciamento de imagens Docker
@@ -13,9 +16,8 @@ Este projeto fornece um ambiente completo de estudos, desenvolvimento e testes p
 - **Dashboard**: Kubernetes Dashboard para monitoramento
 - **Aplicação Web**: Hello Apache App para demonstração
 - **Stack de Observabilidade**: Prometheus + Grafana + Jaeger para monitoramento completo
-- **Automação**: Scripts de provisionamento e configuração
-
-O ambiente é ideal para desenvolvedores que precisam de um greencap completo para testar aplicações Kubernetes, incluindo registry de containers, banco de dados, aplicações de exemplo e monitoramento avançado com métricas, logs e traces distribuídos.
+- **Git**: GitLab
+- **CI/CD**: GitLab
 
 ## Pré-requisitos
 
@@ -35,10 +37,10 @@ O ambiente é ideal para desenvolvedores que precisam de um greencap completo pa
    - **Local com Vagrant:**
      ```sh
      # Com GUI
-     ./create-environment.sh --gui --memory 8192 --cpus 4
+     ./greencap.sh --gui --memory 8192 --cpus 4
      
      # Sem GUI
-     ./create-environment.sh --no-gui --memory 4096 --cpus 2
+     ./greencap.sh --no-gui --memory 4096 --cpus 2
      ```
 
      Acesso a máquina virtual via ssh:
@@ -48,23 +50,19 @@ O ambiente é ideal para desenvolvedores que precisam de um greencap completo pa
    
    - **AWS EC2 (via Terraform):**
      ```sh
-     # Deploy simples
-     ./create-environment.sh --aws --key-name my-key
-     
-     # Deploy com recursos personalizados
-     ./create-environment.sh --aws --instance-type t3a.large --region us-east-1 --key-name my-key
+     ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
      ```
 
 ## Validação de Funcionamento
 
 - **Com interface gráfica (GUI):**
-  1. Após acessar a máquina virtual via VirtualBox, abra o navegador Firefox instalado na VM.
+  1. Acessar a máquina virtual via VirtualBox.
      - Usuário padrão da VM: **vagrant**
      - Senha padrão da VM: **vagrant**
   2. **Hello Apache App**: Acesse http://domain.local:30001/hello-apache/
      - Você deve ver a página de boas-vindas do Hello Apache App
      - ![Exemplo Hello Apache App](./images/hello-apache-app.png)
-  3. **Kubernetes Dashboard**: Acesse https://domain.local:30002/
+  3. **Kubernetes Dashboard**: Acesse https://kubernetes-dashboard.greencap:30002/
      - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
      - ![Kubernetes Dashboard](./images/kube-dashboard.png)
 
@@ -75,6 +73,36 @@ O ambiente é ideal para desenvolvedores que precisam de um greencap completo pa
      curl -v http://domain.local:30001/hello-apache/
      ```
      
+## Limpeza do Ambiente
+
+Para remover/limpar completamente o ambiente criado (máquina virtual, arquivos, imagens), utilize o parâmetro `--clean`:
+
+#### **Ambiente Vagrant**
+
+```sh
+./greencap.sh --clean --vagrant
+```
+
+Esse comando irá destruir a VM.
+
+#### **Ambiente AWS (Terraform/EC2)**
+
+```sh
+./greencap.sh --clean --aws
+```
+
+Esse comando irá executar o Terraform destroy e remover recursos provisionados na AWS (instâncias, discos, etc).
+
+#### **Ambiente Local (sem Vagrant/AWS)**
+Se você realizou a instalação diretamente em sua máquina local (fora do Vagrant ou AWS), limpe com:
+
+```sh
+./greencap.sh --clean --local-debug
+```
+
+Esse comando irá deletar o cluster criado com o Kind.
+**Atenção:** O uso do `--clean` apagará todos os dados persistidos na VM.
+
 ## Referências
 
 - [Kind - Kubernetes IN Docker](https://kind.sigs.k8s.io/)
@@ -83,4 +111,7 @@ O ambiente é ideal para desenvolvedores que precisam de um greencap completo pa
 - [Prometheus](https://prometheus.io/)
 - [Grafana](https://grafana.com/)
 - [Jaeger](https://www.jaegertracing.io/)
-- Projeto inspirado em: [README.md original de mascosta](https://github.com/mascosta/docs/blob/main/kind-ingress-nginx/README.md)
+- [Postgres](https://www.postgresql.org/docs/)
+- [pgAdmin](https://www.pgadmin.org/docs/)
+- [Gitlab](https://docs.gitlab.com/)
+- [mascosta](https://github.com/mascosta/docs/blob/main/kind-ingress-nginx/README.md)

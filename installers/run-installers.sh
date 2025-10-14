@@ -10,9 +10,9 @@ set -e
 ./installers/cilium-install.sh
 ./installers/kubectl-top-install.sh
 ./installers/ingress-controller-install.sh
+./installers/apache-hello-install.sh
 ./installers/kube-dash-install.sh
 ./installers/monitoring-install.sh
-./installers/apache-hello-install.sh
 ./installers/harbor-install.sh
 ./installers/gitlab-install.sh
 ./installers/postgres-install.sh
