@@ -4,7 +4,17 @@
 
 Este documento contém as notas de lançamento para o projeto GreenCap K8s, um ambiente completo de estudos, desenvolvimento e testes para Kubernetes.
 
-## [v0.4.2] - 2024-10-11
+## [v0.4.3] - 2025-10-14
+
+###  Novo gerenciador de instalação.
+
+#### ✨ Novas Funcionalidades(Focado em DevEx):
+- **greencap.sh**: Criado um novo gerenciador de instalação melhorando o DevEx.
+- **Novo parametro --clean**: Novo parametro para limpeza dos ambientes(vagrant, aws, local) após os estudos e testes. 
+
+---
+
+## [v0.4.2] - 2025-10-11
 
 ###  Suporte ao GitLab.
 
@@ -14,7 +24,7 @@ Este documento contém as notas de lançamento para o projeto GreenCap K8s, um a
 
 ---
 
-## [v0.4.1] - 2024-09-23
+## [v0.4.1] - 2025-09-23
 
 ### Adicionado novo parametro ao instalador.
 
@@ -23,7 +33,7 @@ Este documento contém as notas de lançamento para o projeto GreenCap K8s, um a
 
 ---
 
-## [v0.4.0] - 2024-08-XX
+## [v0.4.0] - 2025-08-XX
 
 ### ☁️ Suporte a AWS(BETA) e Melhorias de Observabilidade.
 
@@ -36,7 +46,7 @@ Este documento contém as notas de lançamento para o projeto GreenCap K8s, um a
 
 ---
 
-## [v0.3.0] - 2024-07-XX
+## [v0.3.0] - 2025-07-XX
 
 #### ✨ Funcionalidades Adicionadas:
 - **Container Registry**: Harbor para gerenciamento de imagens Docker
@@ -44,7 +54,7 @@ Este documento contém as notas de lançamento para o projeto GreenCap K8s, um a
 
 ---
 
-## [v0.2.0] - 2024-07-XX
+## [v0.2.0] - 2025-07-XX
 
 #### ✨ Funcionalidades Adicionadas:
 - **Kubernetes Dashboard**: Interface web para gerenciamento do cluster
@@ -54,7 +64,7 @@ Este documento contém as notas de lançamento para o projeto GreenCap K8s, um a
 
 ---
 
-## [v0.0.1] - 2024-07-XX
+## [v0.0.1] - 2025-07-XX
 
 ### 🎉 Lançamento Inicial
 
