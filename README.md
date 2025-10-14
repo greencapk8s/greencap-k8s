@@ -56,7 +56,7 @@ Algumas ferramentas que compõe a plataforma:
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami>
      ```
 
-     Para aplicar, adicionar o parametro(--clean) no final do comando:
+     Para aplicar, adicionar o parametro(`--auto-approve`) no final do comando:
 
      ```sh
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
