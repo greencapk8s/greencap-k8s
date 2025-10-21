@@ -1,55 +1,57 @@
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](../../docs/readme-translations/harbor/pt-br/README.md)
+
 # Harbor - Container Registry
 
-Este documento explica como acessar o Harbor pela primeira vez após a instalação via Helm.
+This document explains how to access Harbor for the first time after installation via Helm.
 
-## Endereço de acesso
+## Access Address
 
-O Harbor está exposto via Ingress no endereço:
+Harbor is exposed via Ingress at the address:
 
 ```
 https://core.harbor.greencap:30002
 ```
 
-## Credenciais padrão
+## Default Credentials
 
-- **Usuário:** `admin`
-- **Senha:** `Harbor12345`
+- **Username:** `admin`
+- **Password:** `Harbor12345`
 
-> **Observação:** Se você personalizou a senha durante a instalação do Helm, use a senha definida no arquivo de valores.
+> **Note:** If you customized the password during Helm installation, use the password defined in the values file.
 
-## Primeiro acesso
+## First Access
 
-1. Abra o navegador e acesse: `https://core.harbor.greencap:30002`
-2. Faça login com as credenciais acima
-3. Na primeira vez, o Harbor pode solicitar que você altere a senha do usuário `admin`
+1. Open the browser and access: `https://core.harbor.greencap:30002`
+2. Log in with the credentials above
+3. On the first login, Harbor may request that you change the `admin` user password
 
-## 5. Operações Docker
+## 5. Docker Operations
 
-### Exemplos Simples
+### Simple Examples
 
-#### Login no Harbor
+#### Login to Harbor
 ```bash
 docker login core.harbor.greencap:30001
-# Usuário: admin
-# Senha: Harbor12345
+# Username: admin
+# Password: Harbor12345
 ```
 
-#### Fazer push de uma imagem para o Harbor
+#### Push an image to Harbor
 ```bash
-# Fazer tag da sua imagem
+# Tag your image
 docker tag hello-world:latest core.harbor.greencap:30001/library/hello-world:latest
 
-# Fazer push para o Harbor
+# Push to Harbor
 docker push core.harbor.greencap:30001/library/hello-world:latest
 ```
 
-#### Fazer pull de uma imagem do Harbor
+#### Pull an image from Harbor
 ```bash
-# Fazer pull do Harbor
+# Pull from Harbor
 docker pull core.harbor.greencap:30001/library/hello-world:latest
 ```
 
-## Referências
+## References
 
-- [Documentação oficial do Harbor](https://goharbor.io/docs/)
-- [Helm Chart Harbor](https://artifacthub.io/packages/helm/harbor/harbor) 
+- [Harbor Official Documentation](https://goharbor.io/docs/)
+- [Harbor Helm Chart](https://artifacthub.io/packages/helm/harbor/harbor) 

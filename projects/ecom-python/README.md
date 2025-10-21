@@ -1,8 +1,10 @@
-# API FastAPI - ecom-python
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](../../docs/readme-translations/ecom-python/pt-br/README.md)
 
-Esta API lista produtos de uma base PostgreSQL chamada `ecom_python`.
+# FastAPI API - ecom-python
 
-## Acesso:
+This API lists products from a PostgreSQL database named `ecom_python`.
+
+## Access:
 
 ```
 http://ecom-python.greencap:30001/products

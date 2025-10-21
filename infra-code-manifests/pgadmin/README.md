@@ -1,10 +1,8 @@
-# Acessando o pgAdmin no Kubernetes
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](../../docs/readme-translations/pgadmin/pt-br/README.md)
 
-Este documento explica como acessar o pgAdmin4 instalado no cluster Kubernetes via Helm e Ingress.
+# Accessing pgAdmin on Kubernetes
 
-## Endereço de acesso
-
-O pgAdmin está exposto via Ingress no endereço:
+This document explains how to access pgAdmin4 installed on the Kubernetes cluster via Helm and Ingress.
 
 ```
 http://pgadmin.greencap:30001/
@@ -12,17 +10,17 @@ http://pgadmin.greencap:30001/
 
 ## Login
 
-- **Usuário:** O e-mail definido na instalação do Helm (ex: `admin@admin.com`)
-- **Senha:** A senha definida na instalação do Helm (ex: `admin-user`)
+- **Username:** The email defined in the Helm installation (e.g., `admin@admin.com`)
+- **Password:** The password defined in the Helm installation (e.g., `admin-user`)
 
-## Conectar ao banco ecom-python pelo pgadmin
+## Connect to ecom-python database via pgadmin
 
 Add New Server:
 
-- **Hostname/address:** Service do postgres (ex: postgres-17)
-- **Usermame:** postgres
-- **Password:** Password informado na instalação (ex: user-root123)
+- **Hostname/address:** Postgres service (e.g., postgres-17)
+- **Username:** postgres
+- **Password:** Password provided during installation (e.g., user-root123)
 
-## Referências
-- [Chart Helm pgadmin4 (runix)](https://artifacthub.io/packages/helm/runix/pgadmin4)
-- [Documentação oficial do pgAdmin](https://www.pgadmin.org/)
+## References
+- [pgadmin4 Helm Chart (runix)](https://artifacthub.io/packages/helm/runix/pgadmin4)
+- [pgAdmin Official Documentation](https://www.pgadmin.org/)

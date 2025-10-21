@@ -1,15 +1,17 @@
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](../../docs/readme-translations/monitoring/pt-br/README.md)
+
 # Monitoring Stack
 
-Stack de monitoramento do cluster Kubernetes.
+Kubernetes cluster monitoring stack.
 
-## Acesso
+## Access
 
 ### Grafana
 - **URL**: http://grafana.greencap:30001
-- **Usuário**: admin
-- **Senha**: prom-operator
+- **Username**: admin
+- **Password**: prom-operator
 
-## Referências
+## References
 
 - [Prometheus Documentation](https://prometheus.io/docs/)
 - [Grafana Documentation](https://grafana.com/docs/)
