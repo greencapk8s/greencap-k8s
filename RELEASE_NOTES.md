@@ -6,6 +6,16 @@
 
 This document contains the release notes for the GreenCap K8s project, a complete environment for Kubernetes studies, development and testing.
 
+## [v0.4.4] - 2025-10-22
+
+### Minor improvements and documentation updates.
+
+#### ✨ Updates:
+- **README.md**: Improved usage instructions and details for English and Portuguese users.
+- **Documentation PT-BR**: Docs and installation/cleanup flows improved and aligned with the main README.
+
+---
+
 ## [v0.4.3] - 2025-10-14
 
 ###  New installation manager.
