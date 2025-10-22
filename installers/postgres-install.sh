@@ -9,7 +9,7 @@ echo "=========================================="
 echo "🔧 Installing postgres"
 echo "=========================================="
 
-echo "🔍 Adding bitnami repository to helm..."
+echo "🔍 Adding groundhog2k repository to helm..."
 helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
 helm repo add runix https://helm.runix.net
 helm repo update

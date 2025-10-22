@@ -18,6 +18,7 @@ AWS_SECURITY_GROUP_ID=""
 AWS_AUTO_APPROVE=false
 AWS_PUBLIC_IP=""
 USER_NAME_INSTALL="vagrant"
+SETUP_TYPE="minimal"
 CLEAN_MODE=false
 
 # Function to show usage
@@ -45,6 +46,7 @@ show_usage() {
     echo "Local Debug Options:"
     echo "  --local-debug           Execute local setup script for debugging"
     echo "  --user-name NAME        User name for local debug installation (default: vagrant)"
+    echo "  --setup-type TYPE       Setup type: minimal, full, or custom (default: minimal)"
     echo ""
     echo "General Options:"
     echo "  --help                  Show this help message"
@@ -72,6 +74,8 @@ show_usage() {
     echo ""
     echo "  Local debug setup:"
     echo "    $0 --local-debug"
+    echo "    $0 --local-debug --setup-type full"
+    echo "    $0 --local-debug --setup-type minimal --user-name myuser"
     echo ""
     echo "  Clean/Destroy environment:"
     echo "    $0 --clean --local-debug      # Clean local debug environment"
@@ -253,7 +257,8 @@ deploy_to_vagrant() {
 deploy_local_debug() {
     echo "🔧 Executing local debug setup..."
     echo "👤 Using user name: $USER_NAME_INSTALL"
-    USER_NAME_INSTALL="$USER_NAME_INSTALL" ./installers/run-installers.sh
+    echo "📦 Using setup type: $SETUP_TYPE"
+    USER_NAME_INSTALL="$USER_NAME_INSTALL" SETUP_TYPE="$SETUP_TYPE" ./installers/run-installers.sh
     
     echo ""
     echo "=========================================="
@@ -261,6 +266,7 @@ deploy_local_debug() {
     echo "=========================================="
     echo "Local environment is now configured for debugging."
     echo "User name used: $USER_NAME_INSTALL"
+    echo "Setup type used: $SETUP_TYPE"
     echo "Check the output above for any errors or warnings."
     echo "=========================================="
 }
@@ -387,6 +393,10 @@ while [[ $# -gt 0 ]]; do
             USER_NAME_INSTALL="$2"
             shift 2
             ;;
+        --setup-type)
+            SETUP_TYPE="$2"
+            shift 2
+            ;;
         --instance-type)
             AWS_INSTANCE_TYPE="$2"
             shift 2
@@ -471,8 +481,12 @@ elif [ "$PROVIDER" = "aws" ]; then
         exit 1
     fi
 elif [ "$PROVIDER" = "local-debug" ]; then
-    # No additional validation needed for local-debug
-    :
+    # Validate setup type
+    if [[ ! "$SETUP_TYPE" =~ ^(minimal|full|custom)$ ]]; then
+        echo "❌ Error: Invalid setup type '$SETUP_TYPE'. Must be one of: minimal, full, custom"
+        show_usage
+        exit 1
+    fi
 fi
 
 echo "=========================================="
@@ -496,6 +510,7 @@ elif [ "$PROVIDER" = "local-debug" ]; then
     echo "Local Debug Setup: Enabled"
     echo "User Name: $USER_NAME_INSTALL"
 fi
+echo "Setup Type: $SETUP_TYPE"
 echo "=========================================="
 
 if [ "$PROVIDER" = "aws" ]; then
