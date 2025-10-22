@@ -1,117 +1,119 @@
+[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](./docs/readme-translations/index/pt-br/README.md)
+
 # GreenCap K8s
 
-## Descrição
+## Description
 
-GreenCap é um projeto que fornece um ambiente completo de estudos, desenvolvimento e testes para Kubernetes:
+GreenCap is a project that provides a complete environment for Kubernetes studies, development and testing:
 
-Ele é ideal para desenvolvedores que precisam de um playground completo para testar aplicações Kubernetes incluindo: registry de containers, banco de dados, monitoramento, logs, ci/cd(gitlab) e muito mais.
+It is ideal for developers who need a complete playground to test Kubernetes applications including: container registry, database, monitoring, logs, ci/cd(gitlab) and much more.
 
-Algumas ferramentas que compõe a plataforma:
+Some tools that make up the platform:
 
 - **Kind**: Kubernetes in Docker
 - **Ingress**: Nginx
-- **Container Registry**: Harbor para gerenciamento de imagens Docker
-- **Banco de Dados**: PostgreSQL com interface pgAdmin
-- **Aplicação de Exemplo**: API FastAPI em Python conectando ao PostgreSQL
-- **Dashboard**: Kubernetes Dashboard para monitoramento
-- **Aplicação Web**: Hello Apache App para demonstração
-- **Stack de Observabilidade**: Prometheus + Grafana + Jaeger para monitoramento completo
+- **Container Registry**: Harbor for Docker image management
+- **Database**: PostgreSQL with pgAdmin interface
+- **Sample Application**: FastAPI Python API connecting to PostgreSQL
+- **Dashboard**: Kubernetes Dashboard for monitoring
+- **Web Application**: Hello Apache App for demonstration
+- **Observability Stack**: Prometheus + Grafana + Jaeger for complete monitoring
 - **Git**: GitLab
 - **CI/CD**: GitLab
 
-## Pré-requisitos
+## Pre-requirements:
 
 - [Vagrant](https://www.vagrantup.com/)
-- [VirtualBox](https://www.virtualbox.org/) (ou outro provider compatível com Vagrant)
+- [VirtualBox](https://www.virtualbox.org/) (or another Vagrant-compatible provider)
 
-## Como usar
+## How to Use:
 
-1. **Clone o repositório:**
+1. **Clone the repository:**
    ```sh
    git clone git@github.com:greencapk8s/greencap-k8s.git
    cd greencap-k8s
    ```
 
-2. **Suba o ambiente:**
+2. **Start the environment:**
 
-   - **Local com Vagrant:**
+   - **Local with Vagrant:**
      ```sh
-     # Com GUI
+     # With GUI
      ./greencap.sh --vagrant --gui --memory 8192 --cpus 4
      
-     # Sem GUI
+     # Without GUI
      ./greencap.sh --vagrant --no-gui --memory 4096 --cpus 2
      ```
 
-     Acesso a máquina virtual via ssh:
+     Access the virtual machine via ssh:
      ```sh
      vagrant ssh
      ```
    
    - **AWS EC2 (via Terraform):**
      
-     Por padrão é executado o terraform plan:
+     By default, terraform plan is executed:
      
      ```sh
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami>
      ```
 
-     Para aplicar, adicionar o parametro(`--auto-approve`) no final do comando:
+     To apply, add the parameter(`--auto-approve`) at the end of the command:
 
      ```sh
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
      ```
 
-## Validação de Funcionamento
+## Operation Validation:
 
-- **Com interface gráfica (GUI):**
-  1. Acessar a máquina virtual via VirtualBox.
-     - Usuário padrão da VM: **vagrant**
-     - Senha padrão da VM: **vagrant**
-  2. **Hello Apache App**: Acesse http://domain.local:30001/hello-apache/
-     - Você deve ver a página de boas-vindas do Hello Apache App
-     - ![Exemplo Hello Apache App](./images/hello-apache-app.png)
-  3. **Kubernetes Dashboard**: Acesse https://kubernetes-dashboard.greencap:30002/
-     - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
+- **With graphical interface (GUI):**
+  1. Access the virtual machine via VirtualBox.
+     - Default VM user: **vagrant**
+     - Default VM password: **vagrant**
+  2. **Hello Apache App**: Access http://domain.local:30001/hello-apache/
+     - You should see the Hello Apache App welcome page
+     - ![Hello Apache App Example](./images/hello-apache-app.png)
+  3. **Kubernetes Dashboard**: Access https://kubernetes-dashboard.greencap:30002/
+     - Access token: `/home/vagrant/greencap/dash-token` on the VM
      - ![Kubernetes Dashboard](./images/kube-dashboard.png)
 
-- **Somente terminal (sem GUI):**
-  1. Acesse a VM com `vagrant ssh`
-  2. **Teste Hello Apache App**:
+- **Terminal only (without GUI):**
+  1. Access the VM with `vagrant ssh`
+  2. **Test Hello Apache App**:
      ```sh
      curl -v http://domain.local:30001/hello-apache/
      ```
      
-## Limpeza do Ambiente
+## Environment Cleanup:
 
-Para remover/limpar completamente o ambiente criado (máquina virtual, arquivos, imagens), utilize o parâmetro `--clean`:
+To completely remove/clean the created environment (virtual machine, files, images), use the `--clean` parameter:
 
-#### **Ambiente Vagrant**
+#### **Vagrant Environment:**
 
 ```sh
 ./greencap.sh --clean --vagrant
 ```
 
-Esse comando irá destruir a VM.
+This command will destroy the VM.
 
-#### **Ambiente AWS (Terraform/EC2)**
+#### **AWS Environment (Terraform/EC2)**
 
 ```sh
 ./greencap.sh --clean --aws
 ```
 
-Esse comando irá executar o Terraform destroy e remover recursos provisionados na AWS (instâncias, discos, etc).
+This command will execute Terraform destroy and remove provisioned AWS resources (instances, disks, etc).
 
-#### **Ambiente Local (sem Vagrant/AWS)**
-Se você realizou a instalação diretamente em sua máquina local (fora do Vagrant ou AWS), limpe com:
+#### **Local Environment (without Vagrant/AWS)**
+If you performed the installation directly on your local machine (outside of Vagrant or AWS), clean it with:
 
 ```sh
 ./greencap.sh --clean --local-debug
 ```
 
-Esse comando irá deletar o cluster criado com o Kind.
+This command will delete the cluster created with Kind.
 
-## Referências
+## References
 
 - [Kind - Kubernetes IN Docker](https://kind.sigs.k8s.io/)
 - [Ingress Nginx Controller](https://kubernetes.github.io/ingress-nginx/)
