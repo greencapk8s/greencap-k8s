@@ -18,7 +18,11 @@ kubectl apply -f ./infra-code-manifests/kubernetes-dashboard/dash-ing.yaml
 echo "*************************"
 echo "==> Token to access kubernetes dashboard."
 echo "*************************"
-# kubectl get secret admin-user -n kubernetes-dashboard -o jsonpath={".data.token"} | base64 -d >> ./kubernetes-dashboard/dash-token; echo
+
+if [ -f ./infra-code-manifests/kubernetes-dashboard/dash-token ]; then
+    rm ./infra-code-manifests/kubernetes-dashboard/dash-token
+fi
+
 kubectl describe secrets admin-user -n kubernetes-dashboard >> ./infra-code-manifests/kubernetes-dashboard/dash-token; echo
 cat ./infra-code-manifests/kubernetes-dashboard/dash-token; echo
 echo "*************************"
