@@ -1,3 +1,5 @@
+[![en](https://img.shields.io/badge/lang-en-red.svg)](../../../../RELEASE_NOTES.md)
+
 # Release Notes - GreenCap K8s
 
 ## Visão Geral

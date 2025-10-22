@@ -1,3 +1,5 @@
+[![en](https://img.shields.io/badge/lang-en-red.svg)](../../../../infra-code-manifests/pgadmin/README.md)
+
 # Acessando o pgAdmin no Kubernetes
 
 Este documento explica como acessar o pgAdmin4 instalado no cluster Kubernetes via Helm e Ingress.

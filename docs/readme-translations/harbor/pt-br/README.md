@@ -1,3 +1,5 @@
+[![en](https://img.shields.io/badge/lang-en-red.svg)](../../../../helm-values/harbor/README.md)
+
 # Harbor - Container Registry
 
 Este documento explica como acessar o Harbor pela primeira vez após a instalação via Helm.
