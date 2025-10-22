@@ -70,10 +70,10 @@ Algumas ferramentas que compõe a plataforma:
      - Senha padrão da VM: **vagrant**
   2. **Hello Apache App**: Acesse http://domain.local:30001/hello-apache/
      - Você deve ver a página de boas-vindas do Hello Apache App
-     - ![Exemplo Hello Apache App](./images/hello-apache-app.png)
+     - ![Exemplo Hello Apache App](../../../../images/hello-apache-app.png)
   3. **Kubernetes Dashboard**: Acesse https://kubernetes-dashboard.greencap:30002/
      - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
-     - ![Kubernetes Dashboard](./images/kube-dashboard.png)
+     - ![Kubernetes Dashboard](../../../../images/kube-dashboard.png)
 
 - **Somente terminal (sem GUI):**
   1. Acesse a VM com `vagrant ssh`
