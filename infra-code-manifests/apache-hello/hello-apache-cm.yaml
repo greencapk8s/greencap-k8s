@@ -59,12 +59,12 @@ data:
     <body>
       <div class="aws-card">
         <img class="aws-logo" src="https://uxwing.com/wp-content/themes/uxwing/download/brands-and-social-media/kubernetes-icon.png" alt="Kind/Kubernetes Logo" />
-        <h2>Conexão via nginx-ingress bem sucedida <span style="vertical-align:middle; margin-left:6px;">
+        <h2>Connection to nginx-ingress successful <span style="vertical-align:middle; margin-left:6px;">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2l4-4"/></svg>
         </span></h2>
         <p>Hello Apache App.</p>
         <p>Container image: <b>httpd:alpine</b></p>
-        <div class="footer">Kubernetes greencap com Kind + Ingress Nginx</div>
+        <div class="footer">GreenCap K8s with Kind + Ingress Nginx</div>
       </div>
     </body>
     </html>
