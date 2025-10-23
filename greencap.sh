@@ -5,9 +5,9 @@ set -e
 # Default values
 MEMORY=4096
 CPUS=2
-GUI=false
-WITH_GUI=""
-INSTALL_BROWSER=""
+GUI=true
+WITH_GUI="1"
+INSTALL_BROWSER="1"
 PROVIDER="vagrant"
 AWS_INSTANCE_TYPE="t3a.medium"
 AWS_REGION="us-east-1"
@@ -26,9 +26,7 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Vagrant Environment Options (default):"
-    echo "  --vagrant               Install environment using Vagrant (default)"
-    echo "  --gui                   Install environment with GUI (Xubuntu + Firefox)"
-    echo "  --no-gui                Install environment without GUI (terminal only)"
+    echo "  --vagrant               Install environment using Vagrant with GUI (default)"
     echo "  --memory MB             Memory in MB (default: 4096)"
     echo "  --cpus NUM              Number of CPUs (default: 2)"
     echo ""
@@ -53,9 +51,9 @@ show_usage() {
     echo "  --clean                 Clean the environment"
     echo ""
     echo "Examples:"
-    echo "  Vagrant with GUI (default):"
-    echo "    $0 --vagrant --gui --memory 8192 --cpus 4"
-    echo "    $0 --vagrant --no-gui --memory 4096 --cpus 2"
+    echo "  Vagrant with GUI:"
+    echo "    $0 --vagrant --memory 8192 --cpus 4"
+    echo "    $0 --vagrant --memory 4096 --cpus 2"
     echo ""
     echo "  AWS deployment:"
     echo "    $0 --aws --instance-type t3a.large --key-name my-key"
@@ -203,20 +201,14 @@ deploy_to_aws() {
 
 # Function to deploy to Vagrant
 deploy_to_vagrant() {
-    # Vagrant deployment
     echo "🛑 Stopping and destroying existing VM..."
     vagrant halt
     vagrant destroy -f
     sleep 2
 
     echo "🚀 Creating new VM..."
-    if [ "$GUI" = true ]; then
-        echo "📺 Installing with GUI (Xubuntu + Firefox)..."
-        WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
-    else
-        echo "💻 Installing without GUI (terminal only)..."
-        vagrant up
-    fi
+    echo "📺 Installing with GUI (Xubuntu + Firefox)..."
+    WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
     sleep 2
 
     echo "⏸️  Stopping VM for configuration..."
@@ -228,7 +220,7 @@ deploy_to_vagrant() {
     VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
 
     echo "🔄 Reloading VM setup..."
-    SETUP_KIND_K8S=1 vagrant reload --provision
+    SETUP_KIND_K8S=1 SETUP_TYPE="$SETUP_TYPE" vagrant reload --provision
 
     echo ""
     echo "=========================================="
@@ -369,18 +361,6 @@ while [[ $# -gt 0 ]]; do
             PROVIDER="vagrant"
             shift
             ;;
-        --gui)
-            GUI=true
-            WITH_GUI="1"
-            INSTALL_BROWSER="1"
-            shift
-            ;;
-        --no-gui)
-            GUI=false
-            WITH_GUI=""
-            INSTALL_BROWSER=""
-            shift
-            ;;
         --aws)
             PROVIDER="aws"
             shift
@@ -460,13 +440,7 @@ if [ "$CLEAN_MODE" = true ]; then
 fi
 
 # Validate required parameters
-if [ "$PROVIDER" = "vagrant" ]; then
-    if [ "$GUI" != true ] && [ "$GUI" != false ]; then
-        echo "❌ Error: You must specify either --gui or --no-gui for vagrant deployment"
-        show_usage
-        exit 1
-    fi
-elif [ "$PROVIDER" = "aws" ]; then
+if [ "$PROVIDER" = "aws" ]; then
     if [ -z "$AWS_KEY_NAME" ]; then
         echo "❌ Error: AWS key name is required. Use --key-name option."
         show_usage

@@ -36,13 +36,12 @@ Algumas ferramentas que compõe a plataforma:
 
 2. **Suba o ambiente:**
 
-   - **Local com Vagrant:**
+   - **Local com Vagrant (com GUI por padrão):**
      ```sh
-     # Com GUI
-     ./greencap.sh --vagrant --gui --memory 8192 --cpus 4
+     ./greencap.sh --vagrant --memory 8192 --cpus 4
      
-     # Sem GUI
-     ./greencap.sh --vagrant --no-gui --memory 4096 --cpus 2
+     # Ou com configurações padrão (4GB RAM, 2 CPUs)
+     ./greencap.sh --vagrant
      ```
 
      Acesso a máquina virtual via ssh:
@@ -66,7 +65,7 @@ Algumas ferramentas que compõe a plataforma:
 
 ## Validação de Funcionamento
 
-- **Com interface gráfica (GUI):**
+- **Via Interface Gráfica (GUI):**
   1. Acessar a máquina virtual via VirtualBox.
      - Usuário padrão da VM: **vagrant**
      - Senha padrão da VM: **vagrant**
@@ -77,7 +76,7 @@ Algumas ferramentas que compõe a plataforma:
      - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
      - ![Kubernetes Dashboard](../../../../images/kube-dashboard.png)
 
-- **Somente terminal (sem GUI):**
+- **Via Terminal (SSH):**
   1. Acesse a VM com `vagrant ssh`
   2. **Teste Hello Apache App**:
      ```sh

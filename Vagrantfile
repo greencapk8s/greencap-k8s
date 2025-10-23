@@ -23,14 +23,11 @@ Vagrant.configure("2") do |config|
     d.run "hello-world"
   end
 
-  config.vm.provision "shell", inline: <<-SHELL
-    sudo apt update
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-venv
-    sudo apt install -y apt-transport-https
-  SHELL
-
   if with_gui
     config.vm.provision "shell", inline: <<-SHELL
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-venv
+      sudo apt install -y apt-transport-https
       echo "[GUI] Installing Xubuntu Core + LightDM..."
       echo "lightdm shared/default-x-display-manager select lightdm" | sudo debconf-set-selections
       sudo DEBIAN_FRONTEND=noninteractive apt install -y xubuntu-core lightdm
@@ -52,23 +49,22 @@ Vagrant.configure("2") do |config|
     SHELL
 
     # Copy files.
+    if File.exist?("./greencap.ini")
+      config.vm.provision "file", source: "./greencap.ini", destination: "$HOME/greencap/"
+    end
+
+    config.vm.provision "file", source: "./greencap.sh", destination: "$HOME/greencap/"
     config.vm.provision "file", source: "./installers", destination: "$HOME/greencap/"
     config.vm.provision "file", source: "./projects", destination: "$HOME/greencap/"
-    # Infra code manifests.
-    config.vm.provision "file", source: "./infra-code-manifests/apache-hello", destination: "$HOME/greencap/infra-code-manifests/"
-    config.vm.provision "file", source: "./infra-code-manifests/ingress-nginx", destination: "$HOME/greencap/infra-code-manifests/"
-    config.vm.provision "file", source: "./infra-code-manifests/kubernetes-dashboard", destination: "$HOME/greencap/infra-code-manifests/"
-    config.vm.provision "file", source: "./infra-code-manifests/pgadmin", destination: "$HOME/greencap/infra-code-manifests/"
-    # Helm values.
-    config.vm.provision "file", source: "./helm-values/harbor", destination: "$HOME/greencap/helm-values/"
-    config.vm.provision "file", source: "./helm-values/monitoring", destination: "$HOME/greencap/helm-values/"
-    config.vm.provision "file", source: "./helm-values/postgres", destination: "$HOME/greencap/helm-values/"
+    config.vm.provision "file", source: "./infra-code-manifests", destination: "$HOME/greencap/"
+    config.vm.provision "file", source: "./helm-values", destination: "$HOME/greencap/"
 
     # Run install tools.
-    config.vm.provision "shell", inline: <<-SHELL
+    config.vm.provision "shell", inline: <<-SHELL, env: { "SETUP_TYPE" => ENV['SETUP_TYPE'] }
       echo "🚗 Running installer scripts..."
       cd /home/vagrant/greencap
-      USER_NAME_INSTALL="vagrant" ./installers/run-installers.sh
+      ./installers/configure-shortcuts.sh
+      ./greencap.sh --local-debug --setup-type $SETUP_TYPE --user-name "vagrant"
     SHELL
   end
 end

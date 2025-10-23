@@ -1,6 +1,6 @@
 [installation]
 monitoring=false
-harbor=true
+harbor=false
 gitlab=false
 postgres=false
 ecom-python=false
