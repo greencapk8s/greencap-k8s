@@ -120,11 +120,6 @@ validate_aws_prerequisites() {
 # Function to create Terraform configuration
 create_terraform_config() {
     echo "📝 Creating Terraform configuration..."
-    
-    # Create terraform directory if it doesn't exist
-    mkdir -p terraform
-    
-    # Generate configuration using the dedicated script
     cd terraform
     
     # Build command with all parameters
@@ -162,10 +157,7 @@ deploy_to_aws() {
     
     # Validate prerequisites
     validate_aws_prerequisites
-    
-    # Create terraform directory if it doesn't exist
-    mkdir -p terraform
-    
+        
     # Create Terraform configuration
     create_terraform_config
     

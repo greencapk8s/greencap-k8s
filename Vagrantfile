@@ -63,7 +63,6 @@ Vagrant.configure("2") do |config|
     config.vm.provision "shell", inline: <<-SHELL, env: { "SETUP_TYPE" => ENV['SETUP_TYPE'] }
       echo "🚗 Running installer scripts..."
       cd /home/vagrant/greencap
-      ./installers/configure-shortcuts.sh
       ./greencap.sh --local-debug --setup-type $SETUP_TYPE --user-name "vagrant"
     SHELL
   end

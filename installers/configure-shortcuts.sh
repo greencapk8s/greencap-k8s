@@ -2,6 +2,10 @@
 
 set -e
 
+mkdir -p /home/vagrant/Desktop
+chown vagrant:vagrant /home/vagrant/Desktop
+
+# [begin] Minimal setup.
 touch /home/vagrant/Desktop/kube-dashboard.desktop
 echo "[Desktop Entry]
 Name=Kubernetes Dashboard
@@ -25,15 +29,18 @@ Categories=Network;WebBrowser;
 " > /home/vagrant/Desktop/hello-apache.desktop
 chmod +x /home/vagrant/Desktop/hello-apache.desktop
 chown vagrant:vagrant /home/vagrant/Desktop/hello-apache.desktop
+# [end] Minimal setup.
 
-touch /home/vagrant/Desktop/grafana.desktop
-echo "[Desktop Entry]
-Name=Grafana
-Exec=firefox http://grafana.greencap:30001/
-Icon=firefox
-Terminal=false
-Type=Application
-Categories=Network;WebBrowser;
-" > /home/vagrant/Desktop/grafana.desktop
-chmod +x /home/vagrant/Desktop/grafana.desktop
-chown vagrant:vagrant /home/vagrant/Desktop/grafana.desktop
+if [ "$MONITORING_INSTALL" = "true" ]; then
+    touch /home/vagrant/Desktop/grafana.desktop
+    echo "[Desktop Entry]
+    Name=Grafana
+    Exec=firefox http://grafana.greencap:30001/
+    Icon=firefox
+    Terminal=false
+    Type=Application
+    Categories=Network;WebBrowser;
+    " > /home/vagrant/Desktop/grafana.desktop
+    chmod +x /home/vagrant/Desktop/grafana.desktop
+    chown vagrant:vagrant /home/vagrant/Desktop/grafana.desktop
+fi

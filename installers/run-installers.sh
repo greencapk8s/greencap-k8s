@@ -13,6 +13,7 @@ set -e
 ./installers/ingress-controller-install.sh
 ./installers/apache-hello-install.sh
 ./installers/kube-dash-install.sh
+./installers/configure-shortcuts.sh
 # [end] Minimal setup.
 
 if [ -f ./greecap.ini ]; then
@@ -25,6 +26,7 @@ fi
 
 if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$MONITORING_INSTALL" = "true" ]; then
     ./installers/monitoring-install.sh
+    MONITORING_INSTALL="true" ./installers/configure-shortcuts.sh
 fi
 
 if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$HARBOR_INSTALL" = "true" ]; then
