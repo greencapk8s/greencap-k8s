@@ -1,5 +1,4 @@
 #!/bin/bash
-# Script to install Helm
 
 set -e
 
@@ -7,19 +6,9 @@ echo "=========================================="
 echo "Installing Helm"
 echo "=========================================="
 
-# Install helm
-echo "📦 Installing Helm..."
-curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
-chmod +x get_helm.sh
-./get_helm.sh
-
-# Verify installation
-echo "🔍 Verifying Helm installation..."
+curl -fsSL https://packages.buildkite.com/helm-linux/helm-debian/gpgkey | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/helm.gpg] https://packages.buildkite.com/helm-linux/helm-debian/any/ any main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list
+sudo apt update
+sudo apt install helm
 helm version
-rm get_helm.sh
-echo "✅ Helm installed successfully!"
-
-echo ""
-echo "=========================================="
-echo "✅ Helm installation completed!"
-echo "==========================================" 
+echo "==> Helm installed successfully!"

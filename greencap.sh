@@ -7,7 +7,6 @@ MEMORY=4096
 CPUS=2
 GUI=true
 WITH_GUI="1"
-INSTALL_BROWSER="1"
 PROVIDER="vagrant"
 AWS_INSTANCE_TYPE="t3a.medium"
 AWS_REGION="us-east-1"
@@ -200,7 +199,7 @@ deploy_to_vagrant() {
 
     echo "🚀 Creating new VM..."
     echo "📺 Installing with GUI (Xubuntu + Firefox)..."
-    WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
+    WITH_GUI=1 vagrant up
     sleep 2
 
     echo "⏸️  Stopping VM for configuration..."

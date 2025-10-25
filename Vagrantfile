@@ -15,7 +15,6 @@ Vagrant.configure("2") do |config|
 
   # Declare environment variables.
   with_gui = ENV["WITH_GUI"] == "1"
-  install_browser = ENV["INSTALL_BROWSER"] == "1"
   setup_kind_k8s = ENV["SETUP_KIND_K8S"] == "1"
 
   # Install docker and running simple hello-world.
@@ -26,20 +25,10 @@ Vagrant.configure("2") do |config|
   if with_gui
     config.vm.provision "shell", inline: <<-SHELL
       sudo apt update
-      sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-pip python3-venv
-      sudo apt install -y apt-transport-https
-      echo "[GUI] Installing Xubuntu Core + LightDM..."
-      echo "lightdm shared/default-x-display-manager select lightdm" | sudo debconf-set-selections
-      sudo DEBIAN_FRONTEND=noninteractive apt install -y xubuntu-core lightdm
-      sudo systemctl enable lightdm
-      sudo systemctl set-default graphical.target
-    SHELL
-  end
-
-  if install_browser
-    config.vm.provision "shell", inline: <<-SHELL
-      echo "[Browser] Installing firefox..."
-      sudo apt install -y firefox
+      sudo apt install -y xfce4 xfce4-goodies xrdp firefox
+      echo xfce4-session > ~/.xsession
+      sudo usermod -aG ssl-cert vagrant
+      sudo systemctl restart xrdp
     SHELL
   end
 
