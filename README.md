@@ -63,6 +63,49 @@ Some tools that make up the platform:
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
      ```
 
+## Installation Customization:
+
+GreenCap supports three installation types via the `--setup-type` parameter:
+
+- **minimal** (default): Installs only essential components (Kind, kubectl, Helm, Ingress, Hello Apache app, and Kubernetes Dashboard)
+- **full**: Installs all available components
+- **custom**: Allows selective installation of additional components via `greencap.ini` configuration file
+
+### Custom Installation:
+
+To customize your installation, create a `greencap.ini` file from the provided example:
+
+```sh
+cp greecap.ini.example greencap.ini
+```
+
+Then edit `greencap.ini` to enable/disable components:
+
+```ini
+[installation]
+monitoring=false    # Prometheus + Grafana + Jaeger
+harbor=false       # Container Registry
+gitlab=false       # Git & CI/CD
+postgres=false     # PostgreSQL + pgAdmin
+ecom-python=false  # Sample Python application
+```
+
+Set `true` for components you want to install, and `false` for those you don't.
+
+**Usage with Vagrant:**
+
+```sh
+./greencap.sh --vagrant --setup-type custom --memory 8192 --cpus 4
+```
+
+**Usage with Local Debug:**
+
+```sh
+./greencap.sh --local-debug --setup-type custom
+```
+
+> **Note:** The `greencap.ini` file is only used when `--setup-type custom` is specified. For AWS deployments, the configuration file must be manually transferred to the instance and the installation re-run with the custom setup type.
+
 ## Operation Validation:
 
 - **Via Graphical Interface (GUI):**

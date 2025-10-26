@@ -537,19 +537,15 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docke
 apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
-# Start and enable Docker
-# systemctl start docker
-# systemctl enable docker
-
 # Add ubuntu user to docker group
 usermod -aG docker ubuntu
 
 echo "=========================================="
-echo "🚀 GreenCap K8s - AWS Instance Ready!"
+echo "GreenCap K8s - AWS Instance Ready!"
 echo "=========================================="
 
-echo "🔄 Rebooting in 30 seconds to apply all changes..."
-sleep 30
+echo "Rebooting in 10 seconds to apply all changes..."
+sleep 10
 reboot
 EOF
 
