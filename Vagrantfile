@@ -25,10 +25,12 @@ Vagrant.configure("2") do |config|
   if with_gui
     config.vm.provision "shell", inline: <<-SHELL
       sudo apt update
-      sudo apt install -y xfce4 xfce4-goodies xrdp firefox
+      sudo apt install -y xfce4 xfce4-goodies xrdp firefox lightdm lightdm-gtk-greeter
       echo xfce4-session > ~/.xsession
       sudo usermod -aG ssl-cert vagrant
       sudo systemctl restart xrdp
+      sudo dpkg-reconfigure lightdm
+      sudo systemctl enable lightdm --now
     SHELL
   end
 
@@ -50,7 +52,7 @@ Vagrant.configure("2") do |config|
 
     # Run install tools.
     config.vm.provision "shell", inline: <<-SHELL, env: { "SETUP_TYPE" => ENV['SETUP_TYPE'] }
-      echo "🚗 Running installer scripts..."
+      echo "Running installer scripts with setup type: $SETUP_TYPE"
       cd /home/vagrant/greencap
       ./greencap.sh --local-debug --setup-type $SETUP_TYPE --user-name "vagrant"
     SHELL

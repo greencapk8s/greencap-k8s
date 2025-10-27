@@ -2,9 +2,17 @@
 
 # Release Notes - GreenCap K8s
 
-## Visão Geral
+## [v0.4.5] - 26/10/2025
 
-Este documento contém as notas de lançamento para o projeto GreenCap K8s, um ambiente completo de estudos, desenvolvimento e testes para Kubernetes.
+### Sistema de Instalação Personalizável.
+
+#### ✨ Atualizações:
+- **Adicionado** o parâmetro `--setup-type` ao `greencap.sh` com três modos:
+    - `minimal`: instala apenas os componentes principais (kind, kubectl, cilium, ingress, apache-hello, kube-dashboard).
+    - `full`: instala todos os componentes disponíveis, incluindo monitoring, harbor, gitlab, postgres e ecom-python,
+    - `custom`: lê o arquivo `greencap.ini` para instalação seletiva de componentes.
+- Remoção de duplicação de código e melhorias na manutenibilidade.
+- Atalhos na área de trabalho para as url: Dashboard, Hello Apache e Monitoramento.
 
 ## [v0.4.4] - 2025-10-22
 

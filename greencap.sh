@@ -198,19 +198,19 @@ deploy_to_vagrant() {
     sleep 2
 
     echo "🚀 Creating new VM..."
-    echo "📺 Installing with GUI (Xubuntu + Firefox)..."
+    echo "Installing with GUI (Ubuntu + Xfce)..."
     WITH_GUI=1 vagrant up
     sleep 2
 
-    echo "⏸️  Stopping VM for configuration..."
+    echo "Stopping VM for configuration..."
     vagrant halt
     sleep 2
 
-    echo "⚙️  Configuring VM resources..."
+    echo "Configuring VM resources..."
     VM_NAME=$(VBoxManage list vms | grep "greencap-k8s" | awk -F\" '{print $2}')
     VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
 
-    echo "🔄 Reloading VM setup..."
+    echo "Reloading VM setup..."
     SETUP_KIND_K8S=1 SETUP_TYPE="$SETUP_TYPE" vagrant reload --provision
 
     echo ""

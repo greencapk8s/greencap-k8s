@@ -16,12 +16,12 @@ set -e
 ./installers/configure-shortcuts.sh
 # [end] Minimal setup.
 
-if [ -f ./greecap.ini ]; then
-    MONITORING_INSTALL=$(grep '^monitoring=' ./greecap.ini | cut -d'=' -f2)
-    HARBOR_INSTALL=$(grep '^harbor=' ./greecap.ini | cut -d'=' -f2)
-    GITLAB_INSTALL=$(grep '^gitlab=' ./greecap.ini | cut -d'=' -f2)
-    POSTGRES_INSTALL=$(grep '^postgres=' ./greecap.ini | cut -d'=' -f2)
-    ECOM_PYTHON_INSTALL=$(grep '^ecom-python=' ./greecap.ini | cut -d'=' -f2)
+if [ -f ./greencap.ini ]; then
+    MONITORING_INSTALL=$(grep '^monitoring=' ./greencap.ini | cut -d'=' -f2)
+    HARBOR_INSTALL=$(grep '^harbor=' ./greencap.ini | cut -d'=' -f2)
+    GITLAB_INSTALL=$(grep '^gitlab=' ./greencap.ini | cut -d'=' -f2)
+    POSTGRES_INSTALL=$(grep '^postgres=' ./greencap.ini | cut -d'=' -f2)
+    ECOM_PYTHON_INSTALL=$(grep '^ecom-python=' ./greencap.ini | cut -d'=' -f2)
 fi
 
 if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$MONITORING_INSTALL" = "true" ]; then
