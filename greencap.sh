@@ -5,9 +5,8 @@ set -e
 # Default values
 MEMORY=4096
 CPUS=2
-GUI=false
-WITH_GUI=""
-INSTALL_BROWSER=""
+GUI=true
+WITH_GUI="1"
 PROVIDER="vagrant"
 AWS_INSTANCE_TYPE="t3a.medium"
 AWS_REGION="us-east-1"
@@ -18,6 +17,7 @@ AWS_SECURITY_GROUP_ID=""
 AWS_AUTO_APPROVE=false
 AWS_PUBLIC_IP=""
 USER_NAME_INSTALL="vagrant"
+SETUP_TYPE="minimal"
 CLEAN_MODE=false
 
 # Function to show usage
@@ -25,9 +25,7 @@ show_usage() {
     echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Vagrant Environment Options (default):"
-    echo "  --vagrant               Install environment using Vagrant (default)"
-    echo "  --gui                   Install environment with GUI (Xubuntu + Firefox)"
-    echo "  --no-gui                Install environment without GUI (terminal only)"
+    echo "  --vagrant               Install environment using Vagrant with GUI (default)"
     echo "  --memory MB             Memory in MB (default: 4096)"
     echo "  --cpus NUM              Number of CPUs (default: 2)"
     echo ""
@@ -45,15 +43,16 @@ show_usage() {
     echo "Local Debug Options:"
     echo "  --local-debug           Execute local setup script for debugging"
     echo "  --user-name NAME        User name for local debug installation (default: vagrant)"
+    echo "  --setup-type TYPE       Setup type: minimal, full, or custom (default: minimal)"
     echo ""
     echo "General Options:"
     echo "  --help                  Show this help message"
     echo "  --clean                 Clean the environment"
     echo ""
     echo "Examples:"
-    echo "  Vagrant with GUI (default):"
-    echo "    $0 --vagrant --gui --memory 8192 --cpus 4"
-    echo "    $0 --vagrant --no-gui --memory 4096 --cpus 2"
+    echo "  Vagrant with GUI:"
+    echo "    $0 --vagrant --memory 8192 --cpus 4"
+    echo "    $0 --vagrant --memory 4096 --cpus 2"
     echo ""
     echo "  AWS deployment:"
     echo "    $0 --aws --instance-type t3a.large --key-name my-key"
@@ -72,6 +71,8 @@ show_usage() {
     echo ""
     echo "  Local debug setup:"
     echo "    $0 --local-debug"
+    echo "    $0 --local-debug --setup-type full"
+    echo "    $0 --local-debug --setup-type minimal --user-name myuser"
     echo ""
     echo "  Clean/Destroy environment:"
     echo "    $0 --clean --local-debug      # Clean local debug environment"
@@ -118,11 +119,6 @@ validate_aws_prerequisites() {
 # Function to create Terraform configuration
 create_terraform_config() {
     echo "📝 Creating Terraform configuration..."
-    
-    # Create terraform directory if it doesn't exist
-    mkdir -p terraform
-    
-    # Generate configuration using the dedicated script
     cd terraform
     
     # Build command with all parameters
@@ -160,10 +156,7 @@ deploy_to_aws() {
     
     # Validate prerequisites
     validate_aws_prerequisites
-    
-    # Create terraform directory if it doesn't exist
-    mkdir -p terraform
-    
+        
     # Create Terraform configuration
     create_terraform_config
     
@@ -199,32 +192,26 @@ deploy_to_aws() {
 
 # Function to deploy to Vagrant
 deploy_to_vagrant() {
-    # Vagrant deployment
     echo "🛑 Stopping and destroying existing VM..."
     vagrant halt
     vagrant destroy -f
     sleep 2
 
     echo "🚀 Creating new VM..."
-    if [ "$GUI" = true ]; then
-        echo "📺 Installing with GUI (Xubuntu + Firefox)..."
-        WITH_GUI=1 INSTALL_BROWSER=1 vagrant up
-    else
-        echo "💻 Installing without GUI (terminal only)..."
-        vagrant up
-    fi
+    echo "Installing with GUI (Ubuntu + Xfce)..."
+    WITH_GUI=1 vagrant up
     sleep 2
 
-    echo "⏸️  Stopping VM for configuration..."
+    echo "Stopping VM for configuration..."
     vagrant halt
     sleep 2
 
-    echo "⚙️  Configuring VM resources..."
+    echo "Configuring VM resources..."
     VM_NAME=$(VBoxManage list vms | grep "greencap-k8s" | awk -F\" '{print $2}')
     VBoxManage modifyvm $VM_NAME --memory $MEMORY --cpus $CPUS
 
-    echo "🔄 Reloading VM setup..."
-    SETUP_KIND_K8S=1 vagrant reload --provision
+    echo "Reloading VM setup..."
+    SETUP_KIND_K8S=1 SETUP_TYPE="$SETUP_TYPE" vagrant reload --provision
 
     echo ""
     echo "=========================================="
@@ -253,7 +240,8 @@ deploy_to_vagrant() {
 deploy_local_debug() {
     echo "🔧 Executing local debug setup..."
     echo "👤 Using user name: $USER_NAME_INSTALL"
-    USER_NAME_INSTALL="$USER_NAME_INSTALL" ./installers/run-installers.sh
+    echo "📦 Using setup type: $SETUP_TYPE"
+    USER_NAME_INSTALL="$USER_NAME_INSTALL" SETUP_TYPE="$SETUP_TYPE" ./installers/run-installers.sh
     
     echo ""
     echo "=========================================="
@@ -261,6 +249,7 @@ deploy_local_debug() {
     echo "=========================================="
     echo "Local environment is now configured for debugging."
     echo "User name used: $USER_NAME_INSTALL"
+    echo "Setup type used: $SETUP_TYPE"
     echo "Check the output above for any errors or warnings."
     echo "=========================================="
 }
@@ -363,18 +352,6 @@ while [[ $# -gt 0 ]]; do
             PROVIDER="vagrant"
             shift
             ;;
-        --gui)
-            GUI=true
-            WITH_GUI="1"
-            INSTALL_BROWSER="1"
-            shift
-            ;;
-        --no-gui)
-            GUI=false
-            WITH_GUI=""
-            INSTALL_BROWSER=""
-            shift
-            ;;
         --aws)
             PROVIDER="aws"
             shift
@@ -385,6 +362,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --user-name)
             USER_NAME_INSTALL="$2"
+            shift 2
+            ;;
+        --setup-type)
+            SETUP_TYPE="$2"
             shift 2
             ;;
         --instance-type)
@@ -450,13 +431,7 @@ if [ "$CLEAN_MODE" = true ]; then
 fi
 
 # Validate required parameters
-if [ "$PROVIDER" = "vagrant" ]; then
-    if [ "$GUI" != true ] && [ "$GUI" != false ]; then
-        echo "❌ Error: You must specify either --gui or --no-gui for vagrant deployment"
-        show_usage
-        exit 1
-    fi
-elif [ "$PROVIDER" = "aws" ]; then
+if [ "$PROVIDER" = "aws" ]; then
     if [ -z "$AWS_KEY_NAME" ]; then
         echo "❌ Error: AWS key name is required. Use --key-name option."
         show_usage
@@ -471,8 +446,12 @@ elif [ "$PROVIDER" = "aws" ]; then
         exit 1
     fi
 elif [ "$PROVIDER" = "local-debug" ]; then
-    # No additional validation needed for local-debug
-    :
+    # Validate setup type
+    if [[ ! "$SETUP_TYPE" =~ ^(minimal|full|custom)$ ]]; then
+        echo "❌ Error: Invalid setup type '$SETUP_TYPE'. Must be one of: minimal, full, custom"
+        show_usage
+        exit 1
+    fi
 fi
 
 echo "=========================================="
@@ -496,6 +475,7 @@ elif [ "$PROVIDER" = "local-debug" ]; then
     echo "Local Debug Setup: Enabled"
     echo "User Name: $USER_NAME_INSTALL"
 fi
+echo "Setup Type: $SETUP_TYPE"
 echo "=========================================="
 
 if [ "$PROVIDER" = "aws" ]; then

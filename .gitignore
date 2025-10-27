@@ -1,6 +1,7 @@
 # Project specific
 kind-config.yaml
 dash-token
+*.ini
 
 # OS-specific
 .DS_Store

@@ -36,13 +36,12 @@ Algumas ferramentas que compõe a plataforma:
 
 2. **Suba o ambiente:**
 
-   - **Local com Vagrant:**
+   - **Local com Vagrant (com GUI por padrão):**
      ```sh
-     # Com GUI
-     ./greencap.sh --vagrant --gui --memory 8192 --cpus 4
+     ./greencap.sh --vagrant --memory 8192 --cpus 4
      
-     # Sem GUI
-     ./greencap.sh --vagrant --no-gui --memory 4096 --cpus 2
+     # Ou com configurações padrão (4GB RAM, 2 CPUs)
+     ./greencap.sh --vagrant
      ```
 
      Acesso a máquina virtual via ssh:
@@ -64,9 +63,52 @@ Algumas ferramentas que compõe a plataforma:
      ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
      ```
 
+## Customização da Instalação
+
+O GreenCap suporta três tipos de instalação através do parâmetro `--setup-type`:
+
+- **minimal** (padrão): Instala apenas componentes essenciais (Kind, kubectl, Helm, Ingress, Hello Apache app e Kubernetes Dashboard)
+- **full**: Instala todos os componentes disponíveis
+- **custom**: Permite instalação seletiva de componentes adicionais através do arquivo de configuração `greencap.ini`
+
+### Instalação Customizada
+
+Para customizar sua instalação, crie um arquivo `greencap.ini` a partir do exemplo fornecido:
+
+```sh
+cp greecap.ini.example greencap.ini
+```
+
+Em seguida, edite o `greencap.ini` para habilitar/desabilitar componentes:
+
+```ini
+[installation]
+monitoring=false    # Prometheus + Grafana + Jaeger
+harbor=false       # Container Registry
+gitlab=false       # Git & CI/CD
+postgres=false     # PostgreSQL + pgAdmin
+ecom-python=false  # Aplicação Python de exemplo
+```
+
+Defina `true` para os componentes que deseja instalar e `false` para os que não deseja.
+
+**Uso com Vagrant:**
+
+```sh
+./greencap.sh --vagrant --setup-type custom --memory 8192 --cpus 4
+```
+
+**Uso com Local Debug:**
+
+```sh
+./greencap.sh --local-debug --setup-type custom
+```
+
+> **Nota:** O arquivo `greencap.ini` é usado apenas quando `--setup-type custom` é especificado. Para deployments na AWS, o arquivo de configuração deve ser transferido manualmente para a instância e a instalação deve ser executada novamente com o tipo de setup custom.
+
 ## Validação de Funcionamento
 
-- **Com interface gráfica (GUI):**
+- **Via Interface Gráfica (GUI):**
   1. Acessar a máquina virtual via VirtualBox.
      - Usuário padrão da VM: **vagrant**
      - Senha padrão da VM: **vagrant**
@@ -77,7 +119,7 @@ Algumas ferramentas que compõe a plataforma:
      - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
      - ![Kubernetes Dashboard](../../../../images/kube-dashboard.png)
 
-- **Somente terminal (sem GUI):**
+- **Via Terminal (SSH):**
   1. Acesse a VM com `vagrant ssh`
   2. **Teste Hello Apache App**:
      ```sh
