@@ -98,10 +98,10 @@ Set `true` for components you want to install, and `false` for those you don't.
 ./greencap.sh --vagrant --setup-type custom --memory 8192 --cpus 4
 ```
 
-**Usage with Local Debug:**
+**Usage with Local:**
 
 ```sh
-./greencap.sh --local-debug --setup-type custom
+./greencap.sh --local --setup-type custom
 ```
 
 > **Note:** The `greencap.ini` file is only used when `--setup-type custom` is specified. For AWS deployments, the configuration file must be manually transferred to the instance and the installation re-run with the custom setup type.
@@ -150,7 +150,7 @@ This command will execute Terraform destroy and remove provisioned AWS resources
 If you performed the installation directly on your local machine (outside of Vagrant or AWS), clean it with:
 
 ```sh
-./greencap.sh --clean --local-debug
+./greencap.sh --clean --local
 ```
 
 This command will delete the cluster created with Kind.

@@ -2,11 +2,11 @@
 
 set -e
 
-mkdir -p /home/vagrant/Desktop
-chown vagrant:vagrant /home/vagrant/Desktop
+mkdir -p /home/$USER_NAME_INSTALL/Desktop
+chown $USER_NAME_INSTALL:$USER_NAME_INSTALL /home/$USER_NAME_INSTALL/Desktop
 
 # [begin] Minimal setup.
-touch /home/vagrant/Desktop/kube-dashboard.desktop
+touch /home/$USER_NAME_INSTALL/Desktop/kube-dashboard.desktop
 echo "[Desktop Entry]
 Name=Kubernetes Dashboard
 Exec=firefox https://kubernetes-dashboard.greencap:30002/
@@ -14,11 +14,11 @@ Icon=firefox
 Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
-" > /home/vagrant/Desktop/kube-dashboard.desktop
+" > /home/$USER_NAME_INSTALL/Desktop/kube-dashboard.desktop
 chmod +x /home/vagrant/Desktop/kube-dashboard.desktop
-chown vagrant:vagrant /home/vagrant/Desktop/kube-dashboard.desktop
+chown $USER_NAME_INSTALL:$USER_NAME_INSTALL /home/$USER_NAME_INSTALL/Desktop/kube-dashboard.desktop
 
-touch /home/vagrant/Desktop/hello-apache.desktop
+touch /home/$USER_NAME_INSTALL/Desktop/hello-apache.desktop
 echo "[Desktop Entry]
 Name=Hello Apache
 Exec=firefox http://domain.local:30001/hello-apache/
@@ -27,12 +27,12 @@ Terminal=false
 Type=Application
 Categories=Network;WebBrowser;
 " > /home/vagrant/Desktop/hello-apache.desktop
-chmod +x /home/vagrant/Desktop/hello-apache.desktop
-chown vagrant:vagrant /home/vagrant/Desktop/hello-apache.desktop
+chmod +x /home/$USER_NAME_INSTALL/Desktop/hello-apache.desktop
+chown $USER_NAME_INSTALL:$USER_NAME_INSTALL /home/$USER_NAME_INSTALL/Desktop/hello-apache.desktop
 # [end] Minimal setup.
 
-if [ "$MONITORING_INSTALL" = "true" ]; then
-    touch /home/vagrant/Desktop/grafana.desktop
+if [[ "$MONITORING_INSTALL" == "true" ]]; then
+    touch /home/$USER_NAME_INSTALL/Desktop/grafana.desktop
     echo "[Desktop Entry]
     Name=Grafana
     Exec=firefox http://grafana.greencap:30001/
@@ -40,7 +40,7 @@ if [ "$MONITORING_INSTALL" = "true" ]; then
     Terminal=false
     Type=Application
     Categories=Network;WebBrowser;
-    " > /home/vagrant/Desktop/grafana.desktop
-    chmod +x /home/vagrant/Desktop/grafana.desktop
-    chown vagrant:vagrant /home/vagrant/Desktop/grafana.desktop
+    " > /home/$USER_NAME_INSTALL/Desktop/grafana.desktop
+    chmod +x /home/$USER_NAME_INSTALL/Desktop/grafana.desktop
+    chown $USER_NAME_INSTALL:$USER_NAME_INSTALL /home/$USER_NAME_INSTALL/Desktop/grafana.desktop
 fi
