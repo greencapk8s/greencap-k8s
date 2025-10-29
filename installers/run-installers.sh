@@ -13,7 +13,6 @@ set -e
 ./installers/ingress-controller-install.sh
 ./installers/apache-hello-install.sh
 ./installers/kube-dash-install.sh
-./installers/configure-shortcuts.sh
 # [end] Minimal setup.
 
 if [ -f ./greencap.ini ]; then
@@ -24,23 +23,26 @@ if [ -f ./greencap.ini ]; then
     ECOM_PYTHON_INSTALL=$(grep '^ecom-python=' ./greencap.ini | cut -d'=' -f2)
 fi
 
-if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$MONITORING_INSTALL" = "true" ]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$MONITORING_INSTALL" == "true" ]]; then
     ./installers/monitoring-install.sh
-    MONITORING_INSTALL="true" ./installers/configure-shortcuts.sh
 fi
 
-if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$HARBOR_INSTALL" = "true" ]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$HARBOR_INSTALL" == "true" ]]; then
     ./installers/harbor-install.sh
 fi
 
-if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$GITLAB_INSTALL" = "true" ]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$GITLAB_INSTALL" == "true" ]]; then
     ./installers/gitlab-install.sh
 fi
 
-if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$POSTGRES_INSTALL" = "true" ]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$POSTGRES_INSTALL" == "true" ]]; then
     ./installers/postgres-install.sh
 fi
 
-if [ "$SETUP_TYPE" = "full" ] || [ "$SETUP_TYPE" = "custom" ] && [ "$ECOM_PYTHON_INSTALL" = "true" ]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$ECOM_PYTHON_INSTALL" == "true" ]]; then
     ./installers/ecom-python-install.sh
+fi
+
+if [[ "$PROVIDER" != "local" ]]; then
+    USER_NAME_INSTALL="$USER_NAME_INSTALL" MONITORING_INSTALL="$MONITORING_INSTALL" ./installers/configure-shortcuts.sh
 fi

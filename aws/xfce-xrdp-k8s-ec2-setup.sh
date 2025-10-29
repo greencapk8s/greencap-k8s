@@ -18,4 +18,4 @@ sudo reboot
 git clone https://github.com/greencapk8s/greencap-k8s.git
 cd greencap-k8s
 SETUP_TYPE="minimal" # minimal, full, custom
-sudo ./greencap.sh --local-debug --setup-type $SETUP_TYPE --user-name "ubuntu"
+sudo ./greencap.sh --local --setup-type $SETUP_TYPE --user-name "ubuntu"

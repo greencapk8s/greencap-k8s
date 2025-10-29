@@ -40,9 +40,9 @@ show_usage() {
     echo "  --public-ip IP          Your public IP address for AWS security group access (required for AWS)"
     echo "  --auto-approve          Auto-approve terraform apply (default: false)"
     echo ""
-    echo "Local Debug Options:"
-    echo "  --local-debug           Execute local setup script for debugging"
-    echo "  --user-name NAME        User name for local debug installation (default: vagrant)"
+    echo "Local Options:"
+    echo "  --local                 Execute local setup script"
+    echo "  --user-name NAME        User name for local installation (default: vagrant)"
     echo "  --setup-type TYPE       Setup type: minimal, full, or custom (default: minimal)"
     echo ""
     echo "General Options:"
@@ -69,13 +69,13 @@ show_usage() {
     echo "  AWS with auto-approve:"
     echo "    $0 --aws --instance-type t3a.medium --key-name my-key --auto-approve"
     echo ""
-    echo "  Local debug setup:"
-    echo "    $0 --local-debug"
-    echo "    $0 --local-debug --setup-type full"
-    echo "    $0 --local-debug --setup-type minimal --user-name myuser"
+    echo "  Local setup:"
+    echo "    $0 --local"
+    echo "    $0 --local --setup-type full"
+    echo "    $0 --local --setup-type minimal --user-name myuser"
     echo ""
     echo "  Clean/Destroy environment:"
-    echo "    $0 --clean --local-debug      # Clean local debug environment"
+    echo "    $0 --clean --local            # Clean local environment"
     echo "    $0 --clean --vagrant          # Clean Vagrant environment"
     echo "    $0 --clean --aws              # Clean AWS environment"
 }
@@ -83,27 +83,27 @@ show_usage() {
 # Function to validate AWS prerequisites
 validate_aws_prerequisites() {
     echo "🔍 Validating AWS prerequisites..."
-    
+
     # Check if AWS CLI is installed
     if ! command -v aws &> /dev/null; then
         echo "❌ AWS CLI not found. Please install it first:"
         echo "   https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html"
         exit 1
     fi
-    
+
     # Check if Terraform is installed
     if ! command -v terraform &> /dev/null; then
         echo "❌ Terraform not found. Please install it first:"
         echo "   https://developer.hashicorp.com/terraform/downloads"
         exit 1
     fi
-        
+
     # Check if key name is provided
     if [ -z "$AWS_KEY_NAME" ]; then
         echo "❌ AWS key name is required. Use --key-name option."
         exit 1
     fi
-    
+
     # Warn about auto-approve if enabled
     if [ "$AWS_AUTO_APPROVE" = true ]; then
         echo "⚠️  WARNING: Auto-approve is enabled!"
@@ -112,7 +112,7 @@ validate_aws_prerequisites() {
         echo ""
         read -p "Press Enter to continue or Ctrl+C to cancel..."
     fi
-    
+
     echo "✅ AWS prerequisites validated!"
 }
 
@@ -120,55 +120,55 @@ validate_aws_prerequisites() {
 create_terraform_config() {
     echo "📝 Creating Terraform configuration..."
     cd terraform
-    
+
     # Build command with all parameters
     GENERATE_CMD="./play-terraform.sh \
         --instance-type \"$AWS_INSTANCE_TYPE\" \
         --region \"$AWS_REGION\" \
         --key-name \"$AWS_KEY_NAME\" \
         --volume-size 50"
-    
+
     if [ -n "$AWS_AMI_ID" ]; then
         GENERATE_CMD="$GENERATE_CMD --ami-id \"$AWS_AMI_ID\""
     fi
-    
+
     if [ -n "$AWS_SUBNET_ID" ]; then
         GENERATE_CMD="$GENERATE_CMD --subnet-id \"$AWS_SUBNET_ID\""
     fi
-    
+
     if [ -n "$AWS_SECURITY_GROUP_ID" ]; then
         GENERATE_CMD="$GENERATE_CMD --security-group \"$AWS_SECURITY_GROUP_ID\""
     fi
-    
+
     GENERATE_CMD="$GENERATE_CMD --public-ip \"$AWS_PUBLIC_IP\""
-    
+
     # Execute the command
     eval $GENERATE_CMD
-    
+
     cd ..
-    
+
     echo "✅ Terraform configuration created!"
 }
 
 # Function to deploy to AWS
-deploy_to_aws() {
+deploy_aws() {
     echo "🚀 Deploying to AWS EC2..."
-    
+
     # Validate prerequisites
     validate_aws_prerequisites
-        
+
     # Create Terraform configuration
     create_terraform_config
-    
+
     # Initialize Terraform
     echo "🔧 Initializing Terraform..."
     cd terraform
     terraform init
-    
+
     # Plan deployment
     echo "📋 Planning deployment..."
     terraform plan
-    
+
     # Deploy
     echo "🚀 Deploying infrastructure..."
     if [ "$AWS_AUTO_APPROVE" = true ]; then
@@ -186,12 +186,12 @@ deploy_to_aws() {
         echo "=========================================="
         echo ""
     fi
-    
+
     cd ..
 }
 
 # Function to deploy to Vagrant
-deploy_to_vagrant() {
+deploy_vagrant() {
     echo "🛑 Stopping and destroying existing VM..."
     vagrant halt
     vagrant destroy -f
@@ -236,18 +236,15 @@ deploy_to_vagrant() {
     echo "=========================================="
 }
 
-# Function to execute local debug setup
-deploy_local_debug() {
-    echo "🔧 Executing local debug setup..."
-    echo "👤 Using user name: $USER_NAME_INSTALL"
-    echo "📦 Using setup type: $SETUP_TYPE"
-    USER_NAME_INSTALL="$USER_NAME_INSTALL" SETUP_TYPE="$SETUP_TYPE" ./installers/run-installers.sh
-    
+# Function to execute local setup
+deploy_local() {
+    PROVIDER="$PROVIDER" USER_NAME_INSTALL="$USER_NAME_INSTALL" SETUP_TYPE="$SETUP_TYPE" ./installers/run-installers.sh
+
     echo ""
     echo "=========================================="
-    echo "✅ Local debug setup completed successfully!"
+    echo "✅ Local setup completed successfully!"
     echo "=========================================="
-    echo "Local environment is now configured for debugging."
+    echo "Local environment is now configured."
     echo "User name used: $USER_NAME_INSTALL"
     echo "Setup type used: $SETUP_TYPE"
     echo "Check the output above for any errors or warnings."
@@ -259,7 +256,7 @@ clean_environment() {
     echo "=========================================="
     echo "🧹 Cleaning Environment"
     echo "=========================================="
-    
+
     # Auto-detect provider if not specified
     if [ "$PROVIDER" = "vagrant" ]; then
         echo "Provider: Vagrant"
@@ -267,9 +264,9 @@ clean_environment() {
     elif [ "$PROVIDER" = "aws" ]; then
         echo "Provider: AWS"
         clean_aws
-    elif [ "$PROVIDER" = "local-debug" ]; then
-        echo "Provider: Local Debug"
-        clean_local_debug
+    elif [ "$PROVIDER" = "local" ]; then
+        echo "Provider: Local"
+        clean_local
     else
         echo "❌ Provider not found"
         exit 1
@@ -279,13 +276,13 @@ clean_environment() {
 # Function to clean Vagrant environment
 clean_vagrant() {
     echo "🗑️  Cleaning Vagrant environment..."
-    
+
     echo "🛑 Stopping VM..."
     vagrant halt 2>/dev/null || true
-    
+
     echo "🗑️  Destroying VM..."
     vagrant destroy -f
-    
+
     echo ""
     echo "=========================================="
     echo "✅ Vagrant environment cleaned successfully!"
@@ -295,26 +292,26 @@ clean_vagrant() {
 # Function to clean AWS environment
 clean_aws() {
     echo "🗑️  Cleaning AWS environment..."
-        
+
     cd terraform
-    
+
     if [ ! -f "terraform.tfstate" ] || [ ! -s "terraform.tfstate" ]; then
         echo "⚠️  No Terraform state found. No AWS resources to destroy."
         cd ..
         return
     fi
-    
+
     echo "🔧 Initializing Terraform..."
     terraform init
-    
+
     echo "📋 Planning destruction..."
     terraform plan -destroy
-    
+
     echo ""
     echo "⚠️  WARNING: This will destroy all AWS resources created by Terraform!"
     echo "   This action cannot be undone."
     echo ""
-    
+
     if [ "$AWS_AUTO_APPROVE" = true ]; then
         echo "⚠️  Auto-approve enabled - destroying resources without confirmation"
         terraform destroy -auto-approve
@@ -329,20 +326,20 @@ clean_aws() {
             exit 0
         fi
     fi
-    
+
     cd ..
-    
+
     echo ""
     echo "=========================================="
     echo "✅ AWS environment cleaned successfully!"
     echo "=========================================="
 }
 
-# Function to clean local debug environment
-clean_local_debug() {
-    echo "🗑️  Cleaning local debug environment..."
+# Function to clean local environment
+clean_local() {
+    echo "🗑️  Cleaning local environment..."
     kind delete cluster --name greencap-k8s
-    echo "✅ Local debug environment cleaned successfully!"
+    echo "✅ Local environment cleaned successfully!"
 }
 
 # Parse command line arguments
@@ -356,8 +353,8 @@ while [[ $# -gt 0 ]]; do
             PROVIDER="aws"
             shift
             ;;
-        --local-debug)
-            PROVIDER="local-debug"
+        --local)
+            PROVIDER="local"
             shift
             ;;
         --user-name)
@@ -437,7 +434,7 @@ if [ "$PROVIDER" = "aws" ]; then
         show_usage
         exit 1
     fi
-    
+
     if [ -z "$AWS_PUBLIC_IP" ]; then
         echo "❌ Error: Your public IP address is required for AWS deployment."
         echo "   This IP will be used to allow your access to the AWS instance."
@@ -445,7 +442,7 @@ if [ "$PROVIDER" = "aws" ]; then
         show_usage
         exit 1
     fi
-elif [ "$PROVIDER" = "local-debug" ]; then
+elif [ "$PROVIDER" = "local" ]; then
     # Validate setup type
     if [[ ! "$SETUP_TYPE" =~ ^(minimal|full|custom)$ ]]; then
         echo "❌ Error: Invalid setup type '$SETUP_TYPE'. Must be one of: minimal, full, custom"
@@ -471,17 +468,17 @@ elif [ "$PROVIDER" = "aws" ]; then
         echo "AMI ID: $AWS_AMI_ID"
     fi
     echo "Your Public IP: $AWS_PUBLIC_IP"
-elif [ "$PROVIDER" = "local-debug" ]; then
-    echo "Local Debug Setup: Enabled"
+elif [ "$PROVIDER" = "local" ]; then
+    echo "Local Setup: Enabled"
     echo "User Name: $USER_NAME_INSTALL"
 fi
 echo "Setup Type: $SETUP_TYPE"
 echo "=========================================="
 
 if [ "$PROVIDER" = "aws" ]; then
-    deploy_to_aws
-elif [ "$PROVIDER" = "local-debug" ]; then
-    deploy_local_debug
+    deploy_aws
+elif [ "$PROVIDER" = "vagrant" ]; then
+    deploy_vagrant
 else
-    deploy_to_vagrant
-fi 
+    deploy_local
+fi
