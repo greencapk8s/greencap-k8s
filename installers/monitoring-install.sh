@@ -23,9 +23,11 @@ sudo bash -c 'echo "127.0.0.1 grafana.greencap" >> /etc/hosts'
 sudo bash -c 'echo "127.0.0.1 prometheus.greencap" >> /etc/hosts'
 
 # 1. Install Prometheus Stack
+PROMETHEUS_CHART_VERSION="79.0.1"
 echo "🚀 Installing Prometheus Stack..."
 kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 helm install prometheus prometheus-community/kube-prometheus-stack \
+    --version=${PROMETHEUS_CHART_VERSION} \
     --namespace monitoring \
     --values $MONITORING_DIR/prometheus-values.yaml \
     --wait \

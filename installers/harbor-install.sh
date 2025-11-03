@@ -20,9 +20,10 @@ helm repo add harbor https://helm.goharbor.io
 helm repo update
 
 # Install harbor.
+HARBOR_CHART_VERSION="1.18.0"
 echo "🚀 Installing Harbor..."
 kubectl create namespace harbor
-helm install harbor harbor/harbor --namespace harbor --values $HARBOR_DIR/values.yaml
+helm install harbor harbor/harbor --version=${HARBOR_CHART_VERSION} --namespace harbor --values $HARBOR_DIR/values.yaml
 
 echo ""
 echo "=========================================="

@@ -15,12 +15,14 @@ sudo bash -c 'echo "127.0.0.1 gitlab.greencap" >> /etc/hosts'
 helm repo add gitlab https://charts.gitlab.io/
 helm repo update
 
+GITLAB_CHART_VERSION="9.5.1"
 echo "Installing GitLab..."
 helm upgrade --install gitlab gitlab/gitlab \
+  --version=${GITLAB_CHART_VERSION} \
   --namespace gitlab --create-namespace \
   -f $GITLAB_DIR/values.yaml \
   --wait \
-  --timeout 10m
+  --timeout 20m
 
 kubectl wait --for=condition=Ready pod -l app=toolbox -n gitlab --timeout=5m || true
 

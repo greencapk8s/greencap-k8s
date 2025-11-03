@@ -17,8 +17,9 @@ rm cilium-linux-${CLI_ARCH}.tar.gz{,.sha256sum}
 echo "==> Cilium CLI installed successfully!"
 
 # Install Cilium in cluster
+CILIUM_VERSION="1.18.3"
 echo "Installing Cilium in cluster..."
-cilium install --version=1.18.3
+cilium install --version=${CILIUM_VERSION}
 kubectl get pods -A
 cilium version
 cilium status --wait
