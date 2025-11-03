@@ -15,7 +15,7 @@ spec:
         app: hello-apache
     spec:
       containers:
-      - image: httpd:alpine
+      - image: ${APACHE_IMAGE_VERSION:-httpd:2.4-alpine}
         imagePullPolicy: Always
         name: httpd
         ports:

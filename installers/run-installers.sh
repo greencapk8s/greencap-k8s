@@ -16,6 +16,7 @@ set -e
 # [end] Minimal setup.
 
 if [ -f ./greencap.ini ]; then
+    echo "Reading greencap.ini file..."
     MONITORING_INSTALL=$(grep '^monitoring=' ./greencap.ini | cut -d'=' -f2)
     HARBOR_INSTALL=$(grep '^harbor=' ./greencap.ini | cut -d'=' -f2)
     GITLAB_INSTALL=$(grep '^gitlab=' ./greencap.ini | cut -d'=' -f2)
@@ -23,23 +24,23 @@ if [ -f ./greencap.ini ]; then
     ECOM_PYTHON_INSTALL=$(grep '^ecom-python=' ./greencap.ini | cut -d'=' -f2)
 fi
 
-if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$MONITORING_INSTALL" == "true" ]]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$MONITORING_INSTALL" == "true" ]]; then
     ./installers/monitoring-install.sh
 fi
 
-if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$HARBOR_INSTALL" == "true" ]]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$HARBOR_INSTALL" == "true" ]]; then
     ./installers/harbor-install.sh
 fi
 
-if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$GITLAB_INSTALL" == "true" ]]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$GITLAB_INSTALL" == "true" ]]; then
     ./installers/gitlab-install.sh
 fi
 
-if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$POSTGRES_INSTALL" == "true" ]]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$POSTGRES_INSTALL" == "true" ]]; then
     ./installers/postgres-install.sh
 fi
 
-if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" ]] && [[ "$ECOM_PYTHON_INSTALL" == "true" ]]; then
+if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$ECOM_PYTHON_INSTALL" == "true" ]]; then
     ./installers/ecom-python-install.sh
 fi
 

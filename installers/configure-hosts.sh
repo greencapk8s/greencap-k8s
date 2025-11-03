@@ -10,6 +10,7 @@ echo "=========================================="
 if grep -qE '^[[:space:]]*127\.0\.0\.1[[:space:]]+domain\.local([[:space:]]|$)' /etc/hosts; then
     echo "Entry '127.0.0.1 domain.local' already exists /etc/hosts, skipping..."
 else
+    sudo bash -c 'echo "# Added by Greencap installer:" >> /etc/hosts'
     sudo bash -c 'echo "127.0.0.1 domain.local" >> /etc/hosts'
 fi
 

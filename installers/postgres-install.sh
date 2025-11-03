@@ -15,10 +15,11 @@ helm repo add runix https://helm.runix.net
 helm repo update
 
 # Install postgres.
+POSTGRES_VERSION="17.6"
 echo "🚀 Installing postgres..."
 helm install postgres-17 groundhog2k/postgres \
     --namespace postgresql \
-    --set image.tag=17.6 \
+    --set image.tag=$POSTGRES_VERSION \
     -f $POSTGRES_HELM_VALUES_DIR/values.yaml \
     --create-namespace \
     --wait \

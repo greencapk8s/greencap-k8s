@@ -16,8 +16,9 @@ echo "Installing Kind and Creating Cluster"
 echo "=========================================="
 
 # Install kind
+KIND_VERSION="v0.29.0"
 echo "📦 Installing Kind..."
-curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
+curl -Lo ./kind https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-amd64
 chmod +x ./kind
 sudo mv ./kind /usr/local/bin/kind
 kind --version
