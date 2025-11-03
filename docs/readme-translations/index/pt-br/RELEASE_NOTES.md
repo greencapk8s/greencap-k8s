@@ -2,6 +2,13 @@
 
 # Release Notes - GreenCap K8s
 
+## [v0.4.6] - 03/11/2025
+
+### Removendo o uso de versões latest.
+
+#### ✨ Atualizações:
+- Removendo o uso de versões latest para todos os componentes principais (Cilium, GitLab, Harbor, Kind, Metrics Server, Prometheus, Postgres, Apache)
+
 ## [v0.4.5] - 26/10/2025
 
 ### Sistema de Instalação Personalizável.
