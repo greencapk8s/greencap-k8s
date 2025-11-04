@@ -11,8 +11,9 @@ set -e
 ./installers/cilium-install.sh
 ./installers/kubectl-top-install.sh
 ./installers/ingress-controller-install.sh
-./installers/apache-hello-install.sh
 ./installers/kube-dash-install.sh
+./installers/tech-docs-install.sh
+./installers/apache-hello-install.sh
 # [end] Minimal setup.
 
 if [ -f ./greencap.ini ]; then

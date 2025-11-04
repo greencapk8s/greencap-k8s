@@ -1,0 +1,49 @@
+site_name: GreenCap K8s Tech Docs
+site_description: Technical Documentation for GreenCap K8s Platform
+site_author: GreenCap K8s Team
+
+theme:
+  name: material
+  palette:
+    primary: green
+    accent: light-green
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.tabs
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Components:
+      - Overview: components/overview.md
+      - Kubernetes Dashboard: components/kubernetes-dashboard.md
+      - Monitoring: components/monitoring.md
+      - Harbor: components/harbor.md
+      - GitLab: components/gitlab.md
+      - PostgreSQL: components/postgresql.md
+
+markdown_extensions:
+  - admonition
+  - codehilite:
+      guess_lang: false
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+

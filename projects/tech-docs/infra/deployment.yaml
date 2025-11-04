@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tech-docs
+  namespace: tech-docs
+  labels:
+    app: tech-docs
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tech-docs
+  template:
+    metadata:
+      labels:
+        app: tech-docs
+    spec:
+      containers:
+      - name: tech-docs
+        image: tech-docs:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+          name: http
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+

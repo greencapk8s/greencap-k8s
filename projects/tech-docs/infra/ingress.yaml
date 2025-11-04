@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tech-docs-ing
+  namespace: tech-docs
+  labels:
+    app: tech-docs
+  annotations:
+    nginx.org/proxy-connect-timeout: "30s"
+    nginx.org/proxy-read-timeout: "20s"
+    nginx.org/client-max-body-size: "4m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: tech-docs.greencap
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: tech-docs
+            port:
+              number: 8000
+
