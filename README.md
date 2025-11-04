@@ -24,7 +24,7 @@ Some tools that make up the platform:
 ## Pre-requirements:
 
 - [Vagrant](https://www.vagrantup.com/)
-- [VirtualBox](https://www.virtualbox.org/) (or another Vagrant-compatible provider)
+- [VirtualBox](https://www.virtualbox.org/)
 
 ## How to Use:
 
@@ -83,7 +83,7 @@ Then edit `greencap.ini` to enable/disable components:
 
 ```ini
 [installation]
-monitoring=false    # Prometheus + Grafana + Jaeger
+monitoring=false   # Prometheus + Grafana
 harbor=false       # Container Registry
 gitlab=false       # Git & CI/CD
 postgres=false     # PostgreSQL + pgAdmin
@@ -106,25 +106,15 @@ Set `true` for components you want to install, and `false` for those you don't.
 
 > **Note:** The `greencap.ini` file is only used when `--setup-type custom` is specified. For AWS deployments, the configuration file must be manually transferred to the instance and the installation re-run with the custom setup type.
 
-## Operation Validation:
+## GreenCap K8s TechDocs:
 
-- **Via Graphical Interface (GUI):**
-  1. Access the virtual machine via VirtualBox.
+- **Open Vagrant IDE:**
+  1. Open the virtual machine with the initial name greecap-k8s-*.
      - Default VM user: **vagrant**
      - Default VM password: **vagrant**
-  2. **Hello Apache App**: Access http://domain.local:30001/hello-apache/
-     - You should see the Hello Apache App welcome page
-     - ![Hello Apache App Example](./images/hello-apache-app.png)
-  3. **Kubernetes Dashboard**: Access https://kubernetes-dashboard.greencap:30002/
-     - Access token: `/home/vagrant/greencap/dash-token` on the VM
-     - ![Kubernetes Dashboard](./images/kube-dashboard.png)
-
-- **Via Terminal (SSH):**
-  1. Access the VM with `vagrant ssh`
-  2. **Test Hello Apache App**:
-     ```sh
-     curl -v http://domain.local:30001/hello-apache/
-     ```
+  2. **GreenCap K8s TechDocs**: Access http://tech-docs.greencap:30001
+     - You should see the GreenCap K8s TechDocs page.
+     - ![TechDocs page](./images/techdocs-home.png)
      
 ## Environment Cleanup:
 
@@ -162,7 +152,6 @@ This command will delete the cluster created with Kind.
 - [Vagrant](https://www.vagrantup.com/)
 - [Prometheus](https://prometheus.io/)
 - [Grafana](https://grafana.com/)
-- [Jaeger](https://www.jaegertracing.io/)
 - [Postgres](https://www.postgresql.org/docs/)
 - [pgAdmin](https://www.pgadmin.org/docs/)
 - [Gitlab](https://docs.gitlab.com/)
