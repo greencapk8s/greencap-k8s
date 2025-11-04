@@ -18,7 +18,6 @@ theme:
 
 nav:
   - Home: index.md
-  - Getting Started: getting-started.md
   - Components:
       - Overview: components/overview.md
       - Kubernetes Dashboard: components/kubernetes-dashboard.md

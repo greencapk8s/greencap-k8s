@@ -14,10 +14,6 @@ GreenCap K8s is a comprehensive Kubernetes platform that includes a complete eco
     - **Database**: PostgreSQL for persistent data storage
     - **Ingress**: NGINX Ingress Controller for HTTP routing
 
-## Getting Started
-
-Ready to explore the platform? Check out our [Getting Started](getting-started.md) guide to begin your journey with GreenCap.
-
 ## Quick Links
 
 - [Components Overview](components/overview.md)

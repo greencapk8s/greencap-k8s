@@ -15,6 +15,13 @@ The Kubernetes Dashboard offers:
 
 ## Access
 
+### Login Steps
+
+1. Open [https://kubernetes-dashboard.greencap:30002](https://kubernetes-dashboard.greencap:30002) in your browser
+2. Select **Token** authentication method
+3. Paste the token(read step Authentication)
+4. Click **Sign in**
+
 ### Authentication
 
 The dashboard requires a token for authentication. Get your access token:
@@ -23,13 +30,6 @@ The dashboard requires a token for authentication. Get your access token:
 # Retrieve from the secret
 kubectl describe secrets admin-user -n kubernetes-dashboard
 ```
-
-### Login Steps
-
-1. Open [https://kubernetes-dashboard.greencap:30002](https://kubernetes-dashboard.greencap:30002) in your browser
-2. Select **Token** authentication method
-3. Paste the token
-4. Click **Sign in**
 
 !!! warning "Token Expiration"
     Bearer tokens created with `kubectl create token` expire after 1 hour by default. If your token expires, generate a new one using the command below.
