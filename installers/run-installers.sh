@@ -11,8 +11,8 @@ set -e
 ./installers/cilium-install.sh
 ./installers/kubectl-top-install.sh
 ./installers/ingress-controller-install.sh
-./installers/apache-hello-install.sh
 ./installers/kube-dash-install.sh
+./installers/tech-docs-install.sh
 # [end] Minimal setup.
 
 if [ -f ./greencap.ini ]; then
@@ -44,6 +44,4 @@ if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$ECOM_PYTHO
     ./installers/ecom-python-install.sh
 fi
 
-if [[ "$PROVIDER" != "local" ]]; then
-    USER_NAME_INSTALL="$USER_NAME_INSTALL" MONITORING_INSTALL="$MONITORING_INSTALL" ./installers/configure-shortcuts.sh
-fi
+USER_NAME_INSTALL="$USER_NAME_INSTALL" ./installers/configure-shortcuts.sh

@@ -1,26 +1,25 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: hello-apache-ing
-  namespace: ns1
+  name: tech-docs-ing
+  namespace: tech-docs
   labels:
-    app: hello-apache
+    app: tech-docs
   annotations:
     nginx.org/proxy-connect-timeout: "30s"
     nginx.org/proxy-read-timeout: "20s"
     nginx.org/client-max-body-size: "4m"
-    nginx.org/use-regex: "true"
-    nginx.org/backend-protocol: "http"
 spec:
   ingressClassName: nginx
   rules:
-  - host: domain.local
+  - host: tech-docs.greencap
     http:
       paths:
-      - backend:
-          service:
-            name: hello-apache-svc
-            port:
-              number: 80
-        path: /hello-apache
+      - path: /
         pathType: Prefix
+        backend:
+          service:
+            name: tech-docs
+            port:
+              number: 8000
+

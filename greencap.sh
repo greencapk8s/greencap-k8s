@@ -215,24 +215,8 @@ deploy_vagrant() {
 
     echo ""
     echo "=========================================="
-    echo "✅ Environment created successfully!"
-    echo "=========================================="
-    echo "VM Configuration:"
-    echo "  - GUI Mode: $([ "$GUI" = true ] && echo "Enabled" || echo "Disabled")"
-    echo "  - Memory: ${MEMORY}MB"
-    echo "  - CPUs: ${CPUS}"
-    echo "  - GreenCap K8s installed and configured"
-    echo ""
-    if [ "$GUI" = true ]; then
-        echo "🌐 Access URLs (after VM is ready):"
-        echo "  - Hello Apache: http://hello-apache.greencap:30001/"
-        echo "  - Kubernetes Dashboard: https://kubernetes-dashboard.greencap:30002/"
-        echo "  - Grafana: http://grafana.greencap:30001/"
-    else
-        echo "💻 Terminal Access:"
-        echo "  - SSH: vagrant ssh"
-        echo "  - Test: curl http://hello-apache.greencap:30001/"
-    fi
+    echo "GreenCap K8s installed."
+    echo "Environment created successfully."
     echo "=========================================="
 }
 
