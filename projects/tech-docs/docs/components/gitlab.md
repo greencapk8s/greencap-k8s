@@ -11,7 +11,15 @@ URL: [http://gitlab.greencap:30001](http://gitlab.greencap:30001)
 
 ```
 Username: root
-Password: (check installation output or reset via CLI)
+Password: (check installation output or via CLI)
+```
+
+### Authentication
+
+Get password user root:
+
+```bash
+kubectl get secret gitlab-root-password -n gitlab -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
 ## Getting Started

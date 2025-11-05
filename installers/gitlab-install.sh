@@ -7,6 +7,10 @@ GITLAB_DIR="./helm-values/gitlab"
 
 echo "=========================================="
 echo "Installing GitLab"
+echo ""
+echo "⚠️  Attention: Installing GitLab may take several minutes (up to 20 minutes or more)."
+echo "Please be patient!"
+echo ""
 echo "=========================================="
 
 echo "📝 Adding entries to /etc/hosts..."
@@ -23,8 +27,6 @@ helm upgrade --install gitlab gitlab/gitlab \
   -f $GITLAB_DIR/values.yaml \
   --wait \
   --timeout 20m
-
-kubectl wait --for=condition=Ready pod -l app=toolbox -n gitlab --timeout=5m || true
 
 echo "*************************"
 echo "==> GitLab root password:"
