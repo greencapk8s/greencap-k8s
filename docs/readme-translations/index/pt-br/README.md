@@ -16,7 +16,6 @@ Algumas ferramentas que compõe a plataforma:
 - **Banco de Dados**: PostgreSQL com interface pgAdmin
 - **Aplicação de Exemplo**: API FastAPI em Python conectando ao PostgreSQL
 - **Dashboard**: Kubernetes Dashboard para monitoramento
-- **Aplicação Web**: Hello Apache App para demonstração
 - **Stack de Observabilidade**: Prometheus + Grafana + Jaeger para monitoramento completo
 - **Git**: GitLab
 - **CI/CD**: GitLab
@@ -67,7 +66,7 @@ Algumas ferramentas que compõe a plataforma:
 
 O GreenCap suporta três tipos de instalação através do parâmetro `--setup-type`:
 
-- **minimal** (padrão): Instala apenas componentes essenciais (Kind, kubectl, Helm, Ingress, Hello Apache app e Kubernetes Dashboard)
+- **minimal** (padrão): Instala apenas componentes essenciais (Kind, kubectl, Helm, Ingress e Kubernetes Dashboard)
 - **full**: Instala todos os componentes disponíveis
 - **custom**: Permite instalação seletiva de componentes adicionais através do arquivo de configuração `greencap.ini`
 
@@ -106,25 +105,14 @@ Defina `true` para os componentes que deseja instalar e `false` para os que não
 
 > **Nota:** O arquivo `greencap.ini` é usado apenas quando `--setup-type custom` é especificado. Para deployments na AWS, o arquivo de configuração deve ser transferido manualmente para a instância e a instalação deve ser executada novamente com o tipo de setup custom.
 
-## Validação de Funcionamento
+## GreenCap K8s TechDocs:
 
-- **Via Interface Gráfica (GUI):**
-  1. Acessar a máquina virtual via VirtualBox.
-     - Usuário padrão da VM: **vagrant**
-     - Senha padrão da VM: **vagrant**
-  2. **Hello Apache App**: Acesse http://domain.local:30001/hello-apache/
-     - Você deve ver a página de boas-vindas do Hello Apache App
-     - ![Exemplo Hello Apache App](../../../../images/hello-apache-app.png)
-  3. **Kubernetes Dashboard**: Acesse https://kubernetes-dashboard.greencap:30002/
-     - Token de acesso: `/home/vagrant/greencap/dash-token` na VM
-     - ![Kubernetes Dashboard](../../../../images/kube-dashboard.png)
-
-- **Via Terminal (SSH):**
-  1. Acesse a VM com `vagrant ssh`
-  2. **Teste Hello Apache App**:
-     ```sh
-     curl -v http://domain.local:30001/hello-apache/
-     ```
+- **Open Vagrant IDE:**
+  1. Open the virtual machine with the initial name greecap-k8s-*.
+     - Default VM user: **vagrant**
+     - Default VM password: **vagrant**
+  2. **GreenCap K8s TechDocs**: Access http://tech-docs.greencap:30001
+     - You should see the GreenCap K8s TechDocs page.
      
 ## Limpeza do Ambiente
 

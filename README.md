@@ -16,7 +16,6 @@ Some tools that make up the platform:
 - **Database**: PostgreSQL with pgAdmin interface
 - **Sample Application**: FastAPI Python API connecting to PostgreSQL
 - **Dashboard**: Kubernetes Dashboard for monitoring
-- **Web Application**: Hello Apache App for demonstration
 - **Observability Stack**: Prometheus + Grafana + Jaeger for complete monitoring
 - **Git**: GitLab
 - **CI/CD**: GitLab
@@ -67,7 +66,7 @@ Some tools that make up the platform:
 
 GreenCap supports three installation types via the `--setup-type` parameter:
 
-- **minimal** (default): Installs only essential components (Kind, kubectl, Helm, Ingress, Hello Apache app, and Kubernetes Dashboard)
+- **minimal** (default): Installs only essential components (Kind, kubectl, Helm, Ingress, and Kubernetes Dashboard)
 - **full**: Installs all available components
 - **custom**: Allows selective installation of additional components via `greencap.ini` configuration file
 
