@@ -4,8 +4,15 @@
 set -e
 
 echo "=========================================="
-echo "Configuring Docker Daemon for Insecure Registries"
+echo "Configuring Docker daemon for insecure registries."
 echo "=========================================="
+
+# Backup daemon.json if it exists and backup doesn't exist yet
+if [ -f /etc/docker/daemon.json ] && [ ! -f /etc/docker/daemon.json.gcbck ]; then
+    echo "💾 Creating backup of /etc/docker/daemon.json..."
+    sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.gcbck
+    echo "Backup created: /etc/docker/daemon.json.gcbck"
+fi
 
 # Configure docker to use insecure registry
 echo "📝 Creating Docker daemon configuration..."
@@ -25,10 +32,10 @@ sudo chmod 644 /etc/docker/daemon.json
 sudo systemctl restart docker
 
 # Verify configuration
-echo "✅ Verifying Docker configuration..."
+echo "Verifying Docker configuration..."
 docker info | grep -A 10 "Insecure Registries"
 
 echo ""
 echo "=========================================="
-echo "✅ Docker daemon configured successfully!"
+echo "Docker daemon configured successfully."
 echo "=========================================="

@@ -143,6 +143,23 @@ Se você realizou a instalação diretamente em sua máquina local (fora do Vagr
 
 Esse comando irá deletar o cluster criado com o Kind.
 
+## Ambientes Homologados:
+
+A tabela a seguir mostra os sistemas operacionais e ambientes onde o GreenCap K8s foi testado e homologado:
+
+| Sistema Operacional | Versão/Distribuição      | Arquitetura         | Status               |
+|---------------------|-------------------------|---------------------|----------------------|
+| **Linux**           | Ubuntu 24.04 LTS        | x86_64              | ✅ Homologado         |
+| **Linux**           | Ubuntu 22.04 LTS        | x86_64              | ✅ Homologado         |
+| **Linux**           | Baseado em Debian       | x86_64              | ⚠️ Pré-Homologado     |
+| **Linux**           | Baseado em RedHat       | x86_64              | ❌ Ainda não homologado |
+| **macOS**           | Baseado em macOS        | Intel/Apple Silicon | ❌ Ainda não homologado |
+| **macOS**           | Baseado em macOS        | Série M             | ❌ Ainda não homologado |
+| **Windows**         | WSL2 (Ubuntu 22.04, 24.04) | x86_64           | ❌ Ainda não homologado |
+
+> **Nota:** Para usuários Windows, recomenda-se o uso do WSL2 (Windows Subsystem for Linux) ou rodar via Vagrant/VirtualBox para melhor compatibilidade.
+
+
 ## Referências
 
 - [Kind - Kubernetes IN Docker](https://kind.sigs.k8s.io/)
