@@ -269,7 +269,7 @@ clean_vagrant() {
 
     echo ""
     echo "=========================================="
-    echo "✅ Vagrant environment cleaned successfully!"
+    echo "Vagrant environment cleaned successfully."
     echo "=========================================="
 }
 
@@ -315,7 +315,7 @@ clean_aws() {
 
     echo ""
     echo "=========================================="
-    echo "✅ AWS environment cleaned successfully!"
+    echo "AWS environment cleaned successfully."
     echo "=========================================="
 }
 
@@ -323,7 +323,7 @@ clean_aws() {
 clean_local() {
     echo "🗑️  Cleaning local environment..."
     kind delete cluster --name greencap-k8s
-    echo "✅ Local environment cleaned successfully!"
+    echo "Local environment cleaned successfully."
 }
 
 # Parse command line arguments
