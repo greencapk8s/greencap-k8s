@@ -45,3 +45,4 @@ if [[ "$SETUP_TYPE" == "full" ]] || [[ "$SETUP_TYPE" == "custom" && "$ECOM_PYTHO
 fi
 
 USER_NAME_INSTALL="$USER_NAME_INSTALL" ./installers/configure-shortcuts.sh
+sudo bash -c 'echo "# [end:greencap]" >> /etc/hosts'

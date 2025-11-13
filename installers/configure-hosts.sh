@@ -14,8 +14,14 @@ if [ -f /etc/hosts ] && [ ! -f /etc/hosts.gcbck ]; then
     echo "Backup created: /etc/hosts.gcbck"
 fi
 
+# Remove existing entries between [begin:greencap] and [end:greencap]
+if grep -q "\[begin:greencap\]" /etc/hosts && grep -q "\[end:greencap\]" /etc/hosts; then
+    echo "Removing existing entries between [begin:greencap] and [end:greencap] in /etc/hosts..."
+    sudo sed -i '/\[begin:greencap\]/,/\[end:greencap\]/d' /etc/hosts
+fi
+
+sudo bash -c 'echo "# [begin:greencap]" >> /etc/hosts'
 sudo bash -c 'echo "# Added by Greencap installer:" >> /etc/hosts'
-sudo bash -c 'echo "[begin:greencap]" >> /etc/hosts'
 
 echo ""
 echo "=========================================="
