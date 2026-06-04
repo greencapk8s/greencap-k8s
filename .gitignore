@@ -1,97 +1,34 @@
-# Project specific
-kind-config.yaml
-dash-token
-*.ini
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
 
-# OS-specific
-.DS_Store
-
-# Editor swapfiles
-.*.sw?
-*~
-
-# Vagrant stuff
-acceptance_config.yml
-boxes/*
-/.vagrant
-/website/.vagrant
-/website/build
-/vagrant-spec.config.rb
-test/vagrant-spec/.vagrant/
-.vagrant/
-/vagrant
-/pkg
-data.db
-vagrant-restore.db.lock
-cmd/vagrant/Vagrantfile
-binstubs/
-
-# Bundler/Rubygems
-*.gem
-.bundle
-pkg/*
-/Gemfile.lock
-test/tmp/
-/exec
-.ruby-bundle
-vendor/bundle
-
-# Documentation
-_site/*
-.yardoc/
-doc/
-
-# Python
-*.pyc
-
-# Rubinius
-*.rbc
-
-# IDE junk
-.idea/*
+# IDE
+.idea/
 *.iml
-.project
-.vscode
+.vscode/
+*.classpath
+*.project
+*.settings/
 
-# Ruby Managers
-.rbenv
-.rbenv-gemsets
-.ruby-gemset
-.ruby-version
-.rvmrc
+# Spring Boot
+*.jar
+*.war
+*.ear
 
-# Box storage for spec
-test/vagrant-spec/boxes/*.box
+# Vaadin
+node_modules/
+**/frontend/generated/
+.vaadin/
 
-simple_speed.py
-cover.out
+# OS
+.DS_Store
+Thumbs.db
 
-# nektos/act secrets file
-.secrets
+# Logs
+*.log
+logs/
 
-# delve debug binary
-__debug_bin
-
-# solargraph (ruby lsp) & rubocop
-.solargraph.yml
-.rubocop.yml
-
-# Ignore generated binaries
-bin/vagrant-go*
-
-# extension
-tmp*
-lib/vagrant/vagrant_ssl.so
-
-# direnv directory
-.direnv
-
-# Terraform
-.terraform
-.terraform.lock.hcl
-terraform.tfstate
-terraform.tfstate.*
-terraform.tfvars
-terraform.tfvars.*
-terraform.tfvars.json
-terraform.tfvars.json.*
+# Env / secrets
+.env
+*.env

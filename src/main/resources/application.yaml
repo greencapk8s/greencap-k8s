@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/greencap}
+    username: ${SPRING_DATASOURCE_USERNAME:greencap}
+    password: ${SPRING_DATASOURCE_PASSWORD:dev123}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+  flyway:
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+
+greencap:
+  encryption:
+    key: ${GREENCAP_ENCRYPTION_KEY:dev-encryption-key-change-me-32x}
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

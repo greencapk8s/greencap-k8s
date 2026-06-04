@@ -1,0 +1,13 @@
+spring:
+  jpa:
+    show-sql: true
+
+vaadin:
+  devmode:
+    devTools:
+      enabled: false
+
+logging:
+  level:
+    io.greencap: DEBUG
+    com.vaadin: DEBUG

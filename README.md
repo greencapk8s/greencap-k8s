@@ -1,174 +1,57 @@
-[![pt-br](https://img.shields.io/badge/lang-pt--br-green.svg)](./docs/readme-translations/index/pt-br/README.md)
-
 # GreenCap K8s
 
-## Description
+Plataforma web para gerenciamento e monitoramento de clusters Kubernetes externos. Focada em observabilidade — não provisiona clusters, apenas registra credenciais de acesso e exibe workloads em tempo real.
 
-GreenCap is a project that provides a complete environment for Kubernetes studies, development and testing:
+## Stack
 
-It is ideal for developers who need a complete playground to test Kubernetes applications including: container registry, database, monitoring, logs, ci/cd(gitlab) and much more.
+- Java 21 + Spring Boot 3.3 + Vaadin Flow 24
+- PostgreSQL 16 + Flyway
+- Fabric8 Kubernetes Client 6.13
+- Gradle 8.8 (Kotlin DSL)
 
-Some tools that make up the platform:
+## Pré-requisitos
 
-- **Kind**: Kubernetes in Docker
-- **Ingress**: Nginx
-- **Container Registry**: Harbor for Docker image management
-- **Database**: PostgreSQL with pgAdmin interface
-- **Sample Application**: FastAPI Python API connecting to PostgreSQL
-- **Dashboard**: Kubernetes Dashboard for monitoring
-- **Observability Stack**: Prometheus + Grafana + Jaeger for complete monitoring
-- **Git**: GitLab
-- **CI/CD**: GitLab
+- Java 21+
+- Docker + Docker Compose
 
-## Pre-requirements:
+## Rodando localmente
 
-- [Vagrant](https://www.vagrantup.com/)
-- [VirtualBox](https://www.virtualbox.org/)
+**1. Suba o banco de dados:**
 
-## How to Use:
-
-1. **Clone the repository:**
-   ```sh
-   git clone git@github.com:greencapk8s/greencap-k8s.git
-   cd greencap-k8s
-   ```
-
-2. **Start the environment:**
-
-   - **Local with Vagrant (with GUI by default):**
-     ```sh
-     ./greencap.sh --vagrant --memory 8192 --cpus 4
-     
-     # Or with default settings (4GB RAM, 2 CPUs)
-     ./greencap.sh --vagrant
-     ```
-
-     Access the virtual machine via ssh:
-     ```sh
-     vagrant ssh
-     ```
-   
-   - **AWS EC2 (via Terraform):**
-     
-     By default, terraform plan is executed:
-     
-     ```sh
-     ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami>
-     ```
-
-     To apply, add the parameter(`--auto-approve`) at the end of the command:
-
-     ```sh
-     ./greencap.sh --aws --instance-type t3a.xlarge --region <region> --key-name <ec2-key-pair> --public-ip <your-public-ip> --ami-id <ubuntu-ami> --auto-approve
-     ```
-
-## Installation Customization:
-
-GreenCap supports three installation types via the `--setup-type` parameter:
-
-- **minimal** (default): Installs only essential components (Kind, kubectl, Helm, Ingress, and Kubernetes Dashboard)
-- **full**: Installs all available components
-- **custom**: Allows selective installation of additional components via `greencap.ini` configuration file
-
-### Custom Installation:
-
-To customize your installation, create a `greencap.ini` file from the provided example:
-
-```sh
-cp greecap.ini.example greencap.ini
+```bash
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-Then edit `greencap.ini` to enable/disable components:
+**2. Rode o app:**
 
-```ini
-[installation]
-monitoring=false   # Prometheus + Grafana
-harbor=false       # Container Registry
-gitlab=false       # Git & CI/CD
-postgres=false     # PostgreSQL + pgAdmin
-ecom-python=false  # Sample Python application
+```bash
+./gradlew bootRun
 ```
 
-Set `true` for components you want to install, and `false` for those you don't.
+O app estará disponível em `http://localhost:8080`.
 
-**Usage with Vagrant:**
+Login padrão: `admin` / `admin`
 
-```sh
-./greencap.sh --vagrant --setup-type custom --memory 8192 --cpus 4
+## Variáveis de ambiente
+
+Copie `.env.example` para `.env` e ajuste se necessário. Em desenvolvimento, os valores padrão já funcionam sem configuração adicional.
+
+```bash
+cp .env.example .env
 ```
 
-**Usage with Local:**
+## Usando um cluster Kubernetes
 
-```sh
-./greencap.sh --local --setup-type custom
+Ao registrar um cluster, o kubeconfig precisa ter os certificados embutidos (não por caminho de arquivo). Gere uma versão portável com:
+
+```bash
+kubectl config view --flatten --minify
 ```
 
-> **Note:** The `greencap.ini` file is only used when `--setup-type custom` is specified. For AWS deployments, the configuration file must be manually transferred to the instance and the installation re-run with the custom setup type.
+## Rodando em produção
 
-## GreenCap K8s TechDocs:
-
-- **Open Vagrant IDE:**
-  1. Open the virtual machine with the initial name greecap-k8s-*.
-     - Default VM user: **vagrant**
-     - Default VM password: **vagrant**
-  2. **GreenCap K8s TechDocs**: Access http://tech-docs.greencap:30001
-     - You should see the GreenCap K8s TechDocs page.
-     - ![TechDocs page](./images/techdocs-home.png)
-     
-## Environment Cleanup:
-
-To completely remove/clean the created environment (virtual machine, files, images), use the `--clean` parameter:
-
-#### **Vagrant Environment:**
-
-```sh
-./greencap.sh --clean --vagrant
+```bash
+cp .env.example .env
+# edite .env com valores seguros
+docker compose up -d
 ```
-
-This command will destroy the VM.
-
-#### **AWS Environment (Terraform/EC2)**
-
-```sh
-./greencap.sh --clean --aws
-```
-
-This command will execute Terraform destroy and remove provisioned AWS resources (instances, disks, etc).
-
-#### **Local Environment (without Vagrant/AWS)**
-If you performed the installation directly on your local machine (outside of Vagrant or AWS), clean it with:
-
-```sh
-./greencap.sh --clean --local
-```
-
-This command will delete the cluster created with Kind.
-
-## Homologated Environments:
-
-The following table shows the operating systems and environments where GreenCap K8s has been tested and homologated:
-
-| Operating System | Version/Distribution | Architecture | Status |
-|-----------------|---------------------|--------------|---------|
-| **Linux** | Ubuntu 24.04 LTS | x86_64 | ✅ Homologated |
-| **Linux** | Ubuntu 22.04 LTS | x86_64 | ✅ Homologated |
-| **Linux** | Debian Based | x86_64 | ⚠️ Pre-Homologated |
-| **Linux** | RedHat Based | x86_64 | ❌ Not yet homologated |
-| **macOS** | macOS Based | Intel/Apple Silicon | ❌ Not yet homologated |
-| **macOS** | macOS Based | Serie M | ❌ Not yet homologated |
-| **Windows** | WSL2 (Ubuntu 22.04, 24.04) | x86_64 | ❌ Not yet homologated |
-
-> **Note:** For Windows users, it's recommended to use WSL2 (Windows Subsystem for Linux) or run via Vagrant/VirtualBox for better compatibility.
-
-
-## References
-
-- [Kind - Kubernetes IN Docker](https://kind.sigs.k8s.io/)
-- [Ingress Nginx Controller](https://kubernetes.github.io/ingress-nginx/)
-- [Vagrant](https://www.vagrantup.com/)
-- [Prometheus](https://prometheus.io/)
-- [Grafana](https://grafana.com/)
-- [Postgres](https://www.postgresql.org/docs/)
-- [pgAdmin](https://www.pgadmin.org/docs/)
-- [Gitlab](https://docs.gitlab.com/)
-- [mascosta](https://github.com/mascosta/docs/blob/main/kind-ingress-nginx/README.md)
