@@ -35,6 +35,7 @@
 | 25 | Regressão de UI — labels do sidebar sem formatação | ✅ Concluído |
 | 26 | Migração para repositório oficial greencapk8s | ✅ Concluído |
 | 27 | Topology — PersistentVolumeClaim no grafo | ✅ Concluído |
+| 28 | Dev workflow — skills greencap-run e greencap-stop | ✅ Concluído |
 
 ---
 
@@ -315,6 +316,13 @@
 - [ ] Página de erro customizada no Vaadin
 - [ ] `Dockerfile` + `docker-compose` validados ponta a ponta
 - [ ] Variável `GREENCAP_ENCRYPTION_KEY` obrigatória em produção (validação no startup)
+
+### Sprint 28 — Dev workflow — skills greencap-run e greencap-stop
+- Skills `/greencap-run` e `/greencap-stop` criados em `.claude/skills/`
+- `greencap-run`: checa PostgreSQL via Docker, detecta JVM na porta 8080, sobe Spring Boot com profile dev, aguarda "Tomcat started" em `build/boot.log`
+- `greencap-stop`: mata o JVM pela porta 8080 (`lsof -ti:8080`), remove `build/boot.pid`, mantém PostgreSQL vivo para restarts rápidos
+- Banco de dados preservado entre sessões — só para se explicitamente solicitado
+- Elimina reaprendizado do processo de startup a cada nova conversa
 
 ---
 
