@@ -1,0 +1,1 @@
+ALTER TABLE users ADD COLUMN active_cluster_id BIGINT REFERENCES clusters(id) ON DELETE SET NULL;
