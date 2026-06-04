@@ -33,6 +33,7 @@
 | 23 | Topology — visualização gráfica de objetos Kubernetes | ✅ Concluído |
 | 24 | Topology — Drawer lateral com resumo do recurso ao clicar no nó | ✅ Concluído |
 | 25 | Regressão de UI — labels do sidebar sem formatação | ✅ Concluído |
+| 26 | Migração para repositório oficial greencapk8s | ✅ Concluído |
 
 ---
 
@@ -286,6 +287,14 @@
 - `TopologyNodeDrawer`: novo componente Vaadin — overlay flutuante (`position: fixed; right: 0; width: 340px`), cabeçalho com badge de status e botão X, corpo por tipo (réplicas para Deployment/ReplicaSet, contagem para grupos de Pod, tipo e selector labels para Service), labels exibidas como chips, botão "Ver YAML" ou "Ver Pods" no rodapé
 - `TopologiaView`: clique no nó abre o drawer sem navegar; clicar em outro nó substitui o conteúdo; clicar no canvas fecha; X fecha explicitamente; pan e zoom não fecham o drawer
 - Validado manualmente pelo usuário
+
+### Sprint 26 — Migração para repositório oficial greencapk8s
+
+- Repositório fonte (`joseafilho/greencap-k8s-platform`) migrado para o repositório oficial da organização (`greencapk8s/greencap-k8s`)
+- Branch `infra-legacy` criada no destino como backup dos arquivos de infra pré-migração
+- Histórico git do destino preservado; commit de migração adicionado em cima
+- Aplicação compilada e validada no novo path (`./gradlew compileJava` — BUILD SUCCESSFUL)
+- Startup validado com PostgreSQL via Docker: Flyway, Spring Security e Vaadin inicializando sem erros
 
 ## Backlog
 

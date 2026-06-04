@@ -1,7 +1,7 @@
 ---
 id: "26-01"
 title: "Migração do repositório para greencapk8s/greencap-k8s"
-status: in-progress
+status: done
 labels: [chore, migration]
 sprint: 26
 ---
@@ -24,7 +24,7 @@ Migrar todos os arquivos do repositório `joseafilho/greencap-k8s-platform` para
 
 ## Critério de aceite
 
-- [ ] Destino limpo (arquivos de infra removidos)
-- [ ] Arquivos da plataforma copiados para o destino
-- [ ] Commit de migração criado no destino com mensagem destacada
-- [ ] Push para `origin/main` do destino realizado
+- [x] Destino limpo (arquivos de infra removidos)
+- [x] Arquivos da plataforma copiados para o destino
+- [x] Commit de migração criado no destino com mensagem destacada
+- [x] Push para `origin/main` do destino realizado
