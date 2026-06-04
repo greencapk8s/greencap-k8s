@@ -1,7 +1,9 @@
 package io.greencap.k8s.kubernetes;
 
+import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Service;
+import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -18,6 +20,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @org.springframework.stereotype.Service
@@ -38,6 +42,7 @@ public class TopologyService {
                     .toList();
             List<Pod> pods = client.pods().inNamespace(namespace).list().getItems();
             List<Service> services = client.services().inNamespace(namespace).list().getItems();
+            List<PersistentVolumeClaim> pvcs = client.persistentVolumeClaims().inNamespace(namespace).list().getItems();
 
             List<TopologyNode> nodes = new ArrayList<>();
             List<TopologyEdge> edges = new ArrayList<>();
@@ -99,6 +104,24 @@ public class TopologyService {
                                 nodeId("pod", pod.getMetadata().getName()))));
             }
 
+            for (PersistentVolumeClaim pvc : pvcs) {
+                nodes.add(pvcNode(pvc, namespace));
+            }
+
+            for (Map.Entry<String, List<Pod>> entry : podsByOwnerRs.entrySet()) {
+                Set<String> claimNames = mountedClaimNames(entry.getValue().get(0));
+                for (String claimName : claimNames) {
+                    edges.add(new TopologyEdge(podGroupId(entry.getKey()), nodeId("persistentvolumeclaim", claimName)));
+                }
+            }
+
+            for (Pod orphan : orphanPods) {
+                Set<String> claimNames = mountedClaimNames(orphan);
+                for (String claimName : claimNames) {
+                    edges.add(new TopologyEdge(nodeId("pod", orphan.getMetadata().getName()), nodeId("persistentvolumeclaim", claimName)));
+                }
+            }
+
             return new TopologyGraph(nodes, edges);
 
         } catch (Exception e) {
@@ -118,7 +141,7 @@ public class TopologyService {
                 "Deployment",
                 status,
                 manifestUrl("deployment", namespace, d.getMetadata().getName()),
-                labels, ready, desired, "");
+                labels, ready, desired, "", "", "");
     }
 
     private TopologyNode replicaSetNode(ReplicaSet rs, String namespace) {
@@ -132,7 +155,7 @@ public class TopologyService {
                 "ReplicaSet",
                 status,
                 manifestUrl("replicaset", namespace, rs.getMetadata().getName()),
-                labels, ready, desired, "");
+                labels, ready, desired, "", "", "");
     }
 
     private TopologyNode podGroupNode(String rsName, List<Pod> group) {
@@ -147,7 +170,7 @@ public class TopologyService {
                 countLabel,
                 status,
                 "workloads/pods",
-                Map.of(), 0, count, "");
+                Map.of(), 0, count, "", "", "");
     }
 
     private TopologyNode podNode(Pod pod, String namespace) {
@@ -159,7 +182,7 @@ public class TopologyService {
                 "1 Pod",
                 phase,
                 manifestUrl("pod", namespace, pod.getMetadata().getName()),
-                labels, 0, 0, "");
+                labels, 0, 0, "", "", "");
     }
 
     private TopologyNode serviceNode(Service svc, String namespace) {
@@ -171,7 +194,52 @@ public class TopologyService {
                 "Service",
                 "Active",
                 manifestUrl("service", namespace, svc.getMetadata().getName()),
-                labels, 0, 0, serviceType);
+                labels, 0, 0, serviceType, "", "");
+    }
+
+    private TopologyNode pvcNode(PersistentVolumeClaim pvc, String namespace) {
+        String phase = Optional.ofNullable(pvc.getStatus()).map(s -> s.getPhase()).orElse("Unknown");
+        String status = derivePvcStatus(pvc, phase);
+        String storageClass = Optional.ofNullable(pvc.getSpec()).map(s -> s.getStorageClassName()).orElse("");
+        String capacity = Optional.ofNullable(pvc.getStatus())
+                .map(s -> s.getCapacity())
+                .map(c -> c.get("storage"))
+                .map(q -> q.toString())
+                .orElse("");
+        String accessMode = Optional.ofNullable(pvc.getStatus())
+                .map(s -> s.getAccessModes())
+                .filter(modes -> !modes.isEmpty())
+                .map(modes -> modes.get(0))
+                .orElse("");
+        return new TopologyNode(
+                nodeId("persistentvolumeclaim", pvc.getMetadata().getName()),
+                pvc.getMetadata().getName(),
+                "PersistentVolumeClaim",
+                status,
+                manifestUrl("persistentvolumeclaim", namespace, pvc.getMetadata().getName()),
+                Map.of(), 0, 0, storageClass, capacity, accessMode);
+    }
+
+    private String derivePvcStatus(PersistentVolumeClaim pvc, String phase) {
+        if (pvc.getMetadata().getDeletionTimestamp() != null) return "Terminating";
+        return switch (phase) {
+            case "Bound" -> "Bound";
+            case "Pending" -> "Pending";
+            case "Lost" -> "Lost";
+            default -> "Unknown";
+        };
+    }
+
+    private Set<String> mountedClaimNames(Pod pod) {
+        return Optional.ofNullable(pod.getSpec())
+                .map(spec -> spec.getVolumes())
+                .orElse(List.of())
+                .stream()
+                .map(Volume::getPersistentVolumeClaim)
+                .filter(ref -> ref != null)
+                .map(ref -> ref.getClaimName())
+                .filter(name -> name != null && !name.isBlank())
+                .collect(Collectors.toSet());
     }
 
     private String aggregatePodStatus(List<Pod> pods) {

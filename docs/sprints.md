@@ -34,6 +34,7 @@
 | 24 | Topology — Drawer lateral com resumo do recurso ao clicar no nó | ✅ Concluído |
 | 25 | Regressão de UI — labels do sidebar sem formatação | ✅ Concluído |
 | 26 | Migração para repositório oficial greencapk8s | ✅ Concluído |
+| 27 | Topology — PersistentVolumeClaim no grafo | ✅ Concluído |
 
 ---
 
@@ -287,6 +288,16 @@
 - `TopologyNodeDrawer`: novo componente Vaadin — overlay flutuante (`position: fixed; right: 0; width: 340px`), cabeçalho com badge de status e botão X, corpo por tipo (réplicas para Deployment/ReplicaSet, contagem para grupos de Pod, tipo e selector labels para Service), labels exibidas como chips, botão "Ver YAML" ou "Ver Pods" no rodapé
 - `TopologiaView`: clique no nó abre o drawer sem navegar; clicar em outro nó substitui o conteúdo; clicar no canvas fecha; X fecha explicitamente; pan e zoom não fecham o drawer
 - Validado manualmente pelo usuário
+
+### Sprint 27 — Topology: PersistentVolumeClaim no grafo
+
+- `TopologyNode` record: campos `capacity` e `accessMode` adicionados; `serviceType` reutilizado para `storageClass` do PVC
+- `TopologyService.buildGraph()`: busca PVCs do namespace; cria nós `PersistentVolumeClaim`; detecta arestas `PodGroup→PVC` e `Orphan Pod→PVC` via `spec.volumes[].persistentVolumeClaim.claimName`; PVCs isolados exibidos sem arestas
+- `topology-graph.ts`: cor `#F97316` (laranja) para nós PVC; campos `capacity` e `accessMode` na interface `NodeData` e no evento `node-clicked`
+- `TopologyNodeDrawer`: case PVC exibe Status, Capacity, Storage Class e Access Mode; badge `Bound`→success, `Lost`→error, `Pending/Terminating`→contrast
+- `CONTEXT.md`: termos `Topologia` e `TopologyNode` atualizados para incluir PersistentVolumeClaim
+- `topology-graph.ts`: nós do grafo aumentados de `100×52` para `144×76` para melhor legibilidade dos labels; `text-max-width` ajustado de `84px` para `124px` e `font-size` de `10px` para `12px`
+- Validado manualmente com aceite do usuário
 
 ### Sprint 26 — Migração para repositório oficial greencapk8s
 

@@ -113,7 +113,7 @@ UI section within Settings grouping cluster-scoped infrastructure resources. Cur
 _Avoid_: Admin, cluster resources, system
 
 **Topologia**:
-UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod) and label selector matching (Service→Pod). Isolated nodes (no edges) are shown — they signal misconfiguration. Clicking a node navigates to its Manifest. Pan and zoom are enabled.
+UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Clicking a node navigates to its Manifest. Pan and zoom are enabled.
 _Avoid_: Diagram, map, graph
 
 **TopologyGraph**:
@@ -121,7 +121,7 @@ The data transfer object returned by `TopologyService` representing the full gra
 _Avoid_: Graph data, node map
 
 **TopologyNode**:
-A single resource in the `TopologyGraph`. Carries: a unique `id` (type + name), a display `label` (resource name), a `type` (Deployment, ReplicaSet, Pod, Service), a `status` (for badge coloring), and a `manifestUrl` (deep-link to the Manifest view).
+A single resource in the `TopologyGraph`. Carries: a unique `id` (type + name), a display `label` (resource name), a `type` (Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim), a `status` (for badge coloring), and a `manifestUrl` (deep-link to the Manifest view). PersistentVolumeClaim nodes additionally carry `capacity`, `accessMode`, and `serviceType` (used for storageClass).
 _Avoid_: Node, vertex, element
 
 **TopologyEdge**:

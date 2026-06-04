@@ -11,5 +11,7 @@ public record TopologyNode(
         Map<String, String> labels,
         int readyReplicas,
         int desiredReplicas,
-        String serviceType
+        String serviceType,
+        String capacity,
+        String accessMode
 ) {}

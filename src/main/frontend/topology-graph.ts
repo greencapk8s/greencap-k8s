@@ -12,6 +12,8 @@ interface NodeData {
   readyReplicas: number;
   desiredReplicas: number;
   serviceType: string;
+  capacity: string;
+  accessMode: string;
 }
 
 interface EdgeData {
@@ -29,6 +31,7 @@ const NODE_COLORS: Record<string, string> = {
   ReplicaSet: '#8B5CF6',
   Pod: '#10B981',
   Service: '#F59E0B',
+  PersistentVolumeClaim: '#F97316',
 };
 
 const STATUS_BORDER: Record<string, string> = {
@@ -97,6 +100,8 @@ export class TopologyGraph extends LitElement {
           readyReplicas: n.readyReplicas,
           desiredReplicas: n.desiredReplicas,
           serviceType: n.serviceType,
+          capacity: n.capacity,
+          accessMode: n.accessMode,
           nodeLabel: n.label,
           color: NODE_COLORS[n.type] ?? '#64748B',
           borderColor: STATUS_BORDER[n.status] ?? '#94A3B8',
@@ -142,11 +147,11 @@ export class TopologyGraph extends LitElement {
             color: '#fff',
             'text-valign': 'center',
             'text-halign': 'center',
-            'font-size': '10px',
+            'font-size': '12px',
             'text-wrap': 'wrap',
-            'text-max-width': '84px',
-            width: 100,
-            height: 52,
+            'text-max-width': '124px',
+            width: 144,
+            height: 76,
             shape: 'round-rectangle',
           },
         },
@@ -186,6 +191,8 @@ export class TopologyGraph extends LitElement {
           readyReplicas: node.data('readyReplicas') as number,
           desiredReplicas: node.data('desiredReplicas') as number,
           serviceType: node.data('serviceType') as string,
+          capacity: node.data('capacity') as string,
+          accessMode: node.data('accessMode') as string,
         },
         bubbles: true,
         composed: true,

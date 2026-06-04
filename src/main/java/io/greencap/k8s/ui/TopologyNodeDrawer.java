@@ -46,11 +46,13 @@ class TopologyNodeDrawer extends VerticalLayout {
         int readyReplicas = (int) detail.getNumber("readyReplicas");
         int desiredReplicas = (int) detail.getNumber("desiredReplicas");
         String serviceType = detail.getString("serviceType");
+        String capacity = detail.getString("capacity");
+        String accessMode = detail.getString("accessMode");
         JsonObject labelsJson = detail.getObject("labels");
 
         removeAll();
         add(buildHeader(nodeLabel, type, status), new Hr(), buildBody(
-                type, status, readyReplicas, desiredReplicas, serviceType, labelsJson, manifestUrl));
+                type, status, readyReplicas, desiredReplicas, serviceType, capacity, accessMode, labelsJson, manifestUrl));
         setVisible(true);
     }
 
@@ -86,14 +88,21 @@ class TopologyNodeDrawer extends VerticalLayout {
     }
 
     private VerticalLayout buildBody(String type, String status, int ready, int desired,
-                                     String serviceType, JsonObject labelsJson, String manifestUrl) {
+                                     String serviceType, String capacity, String accessMode,
+                                     JsonObject labelsJson, String manifestUrl) {
         VerticalLayout content = new VerticalLayout();
         content.setPadding(false);
         content.setSpacing(true);
 
         boolean isPodGroup = type.contains("Pod");
+        boolean isPvc = "PersistentVolumeClaim".equals(type);
 
-        if (!isPodGroup) {
+        if (isPvc) {
+            content.add(buildInfoRow("Status", status));
+            if (!capacity.isBlank()) content.add(buildInfoRow("Capacity", capacity));
+            if (!serviceType.isBlank()) content.add(buildInfoRow("Storage Class", serviceType));
+            if (!accessMode.isBlank()) content.add(buildInfoRow("Access Mode", accessMode));
+        } else if (!isPodGroup) {
             if (desired > 0) {
                 content.add(buildInfoRow("Replicas", ready + " / " + desired + " ready"));
             }
@@ -167,9 +176,9 @@ class TopologyNodeDrawer extends VerticalLayout {
         Span badge = new Span(status);
         badge.getElement().getThemeList().add("badge");
         String variant = switch (status) {
-            case "Running", "Active" -> "success";
-            case "Degraded", "Pending", "Unknown" -> "contrast";
-            case "Failed" -> "error";
+            case "Running", "Active", "Bound" -> "success";
+            case "Degraded", "Pending", "Unknown", "Terminating" -> "contrast";
+            case "Failed", "Lost" -> "error";
             default -> "contrast";
         };
         badge.getElement().getThemeList().add(variant);
