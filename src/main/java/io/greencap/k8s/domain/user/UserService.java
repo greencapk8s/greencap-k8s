@@ -58,6 +58,19 @@ public class UserService implements UserDetailsService {
                 .map(User::getActiveNamespace);
     }
 
+    public Optional<Integer> findRefreshInterval(String username) {
+        return userRepository.findByUsername(username)
+                .map(User::getRefreshIntervalSeconds);
+    }
+
+    @Transactional
+    public void updateRefreshInterval(String username, int seconds) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setRefreshIntervalSeconds(seconds);
+            userRepository.save(user);
+        });
+    }
+
     @Transactional
     public User createUser(String username, String email, String rawPassword, Role role) {
         User user = new User();

@@ -136,6 +136,10 @@ _Avoid_: Node, vertex, element
 A directed relationship in the `TopologyGraph` between two `TopologyNode` ids. Direction always flows from owner/controller to owned (Deployment→ReplicaSet→Pod) or from Service to its target Pods.
 _Avoid_: Link, connection, arrow
 
+**PlatformSettings**:
+User-scoped preferences that control GreenCap's behavior across sessions. Not related to Kubernetes resources — these are settings about the platform itself. Persisted per User in the database so they follow the user across devices. Currently contains: auto-refresh interval. Accessed via the Settings menu item in the sidebar Settings section.
+_Avoid_: Preferences, config, global settings
+
 **PodLog**:
 A snapshot of the stdout/stderr output of a container within a Pod, fetched via the Kubernetes API with a configurable line limit (tail). In GreenCap, displayed in a dedicated read-only page (`logs/pod/{namespace}/{name}`) with auto-poll every 3 seconds. Supports two modes: current (active container) and previous (last terminated instance of the container — useful for CrashLoopBackOff diagnosis). When no previous log exists, the page shows an informative message instead of an error.
 _Avoid_: Output, stdout, console, terminal

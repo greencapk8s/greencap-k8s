@@ -42,6 +42,9 @@ public class User {
     @Column(name = "active_namespace")
     private String activeNamespace;
 
+    @Column(name = "refresh_interval_seconds")
+    private Integer refreshIntervalSeconds;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

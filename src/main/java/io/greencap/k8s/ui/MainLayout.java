@@ -7,7 +7,6 @@ import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.Icon;
-import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
@@ -48,12 +47,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final UserService userService;
     private final NamespaceService namespaceService;
     private final ClusterService clusterService;
-    private static final String AUTO_REFRESH_STORAGE_KEY = "greencap-auto-refresh-interval";
-
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
-    private final ComboBox<String> namespaceCombo = new ComboBox<>();
-    private final ComboBox<RefreshInterval> refreshIntervalCombo = new ComboBox<>();
+    private final com.vaadin.flow.component.combobox.ComboBox<String> namespaceCombo = new com.vaadin.flow.component.combobox.ComboBox<>();
+    private RefreshInterval currentRefreshInterval = RefreshInterval.NONE;
     private final Div clusterWarningBanner = new Div();
     private final List<SideNavItem> clusterDependentNavItems = new ArrayList<>();
 
@@ -78,7 +75,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         clusterInfoLayout.setPadding(false);
 
         buildNamespaceLayout();
-        buildRefreshIntervalCombo();
         buildClusterWarningBanner();
 
         addToNavbar(buildNavbar());
@@ -101,16 +97,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     @Override
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        attachEvent.getUI().getPage()
-                .executeJs("return localStorage.getItem($0)", AUTO_REFRESH_STORAGE_KEY)
-                .then(String.class, value -> {
-                    if (value != null) {
-                        try {
-                            RefreshInterval interval = RefreshInterval.fromSeconds(Integer.parseInt(value));
-                            refreshIntervalCombo.setValue(interval);
-                        } catch (NumberFormatException ignored) {}
-                    }
-                });
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.findRefreshInterval(username).ifPresent(seconds -> {
+            currentRefreshInterval = RefreshInterval.fromSeconds(seconds);
+            applyRefreshInterval(currentRefreshInterval);
+        });
     }
 
     @Override
@@ -213,22 +204,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         });
     }
 
-    private void buildRefreshIntervalCombo() {
-        refreshIntervalCombo.setItems(RefreshInterval.values());
-        refreshIntervalCombo.setItemLabelGenerator(RefreshInterval::getLabel);
-        refreshIntervalCombo.setValue(RefreshInterval.NONE);
-        refreshIntervalCombo.setWidth("130px");
-        refreshIntervalCombo.getElement().getThemeList().add("small");
-        refreshIntervalCombo.addValueChangeListener(e -> {
-            if (e.getValue() != null) {
-                applyRefreshInterval(e.getValue());
-                getUI().ifPresent(ui -> ui.getPage().executeJs(
-                        "localStorage.setItem($0, $1)", AUTO_REFRESH_STORAGE_KEY,
-                        String.valueOf(e.getValue().getSeconds())));
-            }
-        });
-    }
-
     private void applyRefreshInterval(RefreshInterval interval) {
         stopRefreshTimer();
         if (!interval.isActive()) return;
@@ -250,10 +225,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
     }
 
+    public void applyAndPersistRefreshInterval(RefreshInterval interval) {
+        currentRefreshInterval = interval;
+        applyRefreshInterval(interval);
+    }
+
     private void restartRefreshTimer() {
-        RefreshInterval current = refreshIntervalCombo.getValue();
-        if (current != null && current.isActive()) {
-            applyRefreshInterval(current);
+        if (currentRefreshInterval != null && currentRefreshInterval.isActive()) {
+            applyRefreshInterval(currentRefreshInterval);
         }
     }
 
@@ -345,14 +324,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private HorizontalLayout buildNavbar() {
         DrawerToggle toggle = new DrawerToggle();
 
-        Span autoRefreshLabel = new Span("Auto refresh:");
-        autoRefreshLabel.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
-
-        HorizontalLayout autoRefreshLayout = new HorizontalLayout(autoRefreshLabel, refreshIntervalCombo);
-        autoRefreshLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
-        autoRefreshLayout.setSpacing(true);
-        autoRefreshLayout.setPadding(false);
-
         Div spacer = new Div();
 
         Button logout = new Button(VaadinIcon.SIGN_OUT.create(), e -> {
@@ -362,7 +333,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logout.getElement().setAttribute("title", "Logout");
 
-        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, autoRefreshLayout, spacer, clusterInfoLayout, logout);
+        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, clusterInfoLayout, logout);
         navbar.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         navbar.expand(spacer);
         navbar.setWidthFull();
@@ -488,7 +459,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 new SideNavItem("Clusters", ClustersView.class, VaadinIcon.SERVER.create()),
                 buildInfrastructureNavItem(),
                 disabledNavItem("Users", VaadinIcon.USERS),
-                disabledNavItem("Settings", VaadinIcon.COG)
+                new SideNavItem("Settings", PlatformSettingsView.class, VaadinIcon.COG.create())
         );
         return nav;
     }

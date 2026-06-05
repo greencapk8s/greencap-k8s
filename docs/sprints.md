@@ -42,10 +42,20 @@
 | 32 | Troubleshooting — PodLog viewer em página dedicada | ✅ Concluído |
 | 33 | Observabilidade — Dashboard de namespace | ✅ Concluído |
 | 34 | UX — Melhorias de navbar, dashboard e ReplicaSets | ✅ Concluído |
+| 35 | Platform Settings — tela de configurações globais | ✅ Concluído |
 
 ---
 
 ## Sprints Concluídas
+
+### Sprint 35 — Platform Settings — tela de configurações globais
+- `PlatformSettingsView` criada em `/settings`: tela de configurações da plataforma GreenCap (não de recursos Kubernetes); layout em cards por seção
+- Card "Refresh" com `ComboBox<RefreshInterval>`: persiste preferência do usuário no banco (`users.refresh_interval_seconds`) via `UserService`
+- Migration `V8__add_refresh_interval_to_users.sql`: coluna `refresh_interval_seconds INTEGER` nullable adicionada à tabela `users`
+- Auto-refresh removido da navbar: intervalo lido do banco no `onAttach` do `MainLayout`; `localStorage` eliminado para essa preferência
+- Item "Settings" no sidebar habilitado e apontando para `PlatformSettingsView`; "Users" permanece desabilitado
+- `PlatformSettings` adicionado ao `CONTEXT.md` como preferências de usuário persistidas no banco
+- Candidatos para próxima sprint: largura do drawer (localStorage → banco), tema dark/light (hoje fixo), intervalo de poll do PodLog (hoje hardcoded)
 
 ### Sprint 34 — UX — Melhorias de navbar, dashboard e ReplicaSets
 - Auto-refresh combobox movido para ao lado do seletor de namespace, com label "Auto refresh:"; sempre visível na navbar independente de cluster ativo
