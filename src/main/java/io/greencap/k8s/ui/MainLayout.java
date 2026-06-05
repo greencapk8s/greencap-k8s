@@ -415,16 +415,15 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNav nav = new SideNav();
         nav.setWidthFull();
 
-        SideNavItem dashboard   = new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create());
         SideNavItem workloads   = buildWorkloadsNavItem();
         SideNavItem networking  = buildRedeNavItem();
         SideNavItem parameters  = buildConfigNavItem();
         SideNavItem autoScaling = buildAutoScalingNavItem();
         SideNavItem storage     = buildStorageNavItem();
         SideNavItem topologia = new SideNavItem("Topology", TopologiaView.class, VaadinIcon.CLUSTER.create());
-        clusterDependentNavItems.addAll(List.of(dashboard, workloads, networking, parameters, autoScaling, storage, topologia));
+        clusterDependentNavItems.addAll(List.of(workloads, networking, parameters, autoScaling, storage, topologia));
 
-        nav.addItem(dashboard, topologia, workloads, autoScaling, networking, parameters, storage);
+        nav.addItem(topologia, workloads, autoScaling, networking, parameters, storage);
         return nav;
     }
 
@@ -465,11 +464,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNav nav = new SideNav();
         nav.setWidthFull();
 
+        SideNavItem dashboard = new SideNavItem("Dashboard", DashboardView.class, VaadinIcon.DASHBOARD.create());
         SideNavItem events  = new SideNavItem("Events", EventsView.class, VaadinIcon.RECORDS.create());
         SideNavItem metrics = new SideNavItem("Metrics", MetricsView.class, VaadinIcon.CHART.create());
-        clusterDependentNavItems.addAll(List.of(events, metrics));
+        clusterDependentNavItems.addAll(List.of(dashboard, events, metrics));
 
-        nav.addItem(events, metrics);
+        nav.addItem(dashboard, events, metrics);
         return nav;
     }
 

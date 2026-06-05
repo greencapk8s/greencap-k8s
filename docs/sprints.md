@@ -40,10 +40,20 @@
 | 30 | Auto refresh nas listing views | ✅ Concluído |
 | 31 | Observabilidade — Events scoped por recurso | ✅ Concluído |
 | 32 | Troubleshooting — PodLog viewer em página dedicada | ✅ Concluído |
+| 33 | Observabilidade — Dashboard de namespace | ✅ Concluído |
 
 ---
 
 ## Sprints Concluídas
+
+### Sprint 33 — Observabilidade — Dashboard de namespace
+- `DashboardView` reescrita: cards de cluster removidos, substituídos por visão escopada ao namespace ativo
+- 7 cards de contagem de recursos clicáveis: Deployments, Pods, Services, ConfigMaps, Secrets, Volume Claims, HorizontalScalers
+- 2 KPI cards de uso total de CPU e Memória via `ObservabilityService.listPodMetrics()`; exibe "N/A" se metrics-server indisponível
+- Formatação automática: millicores→cores (≥1000m), MiB→GiB (≥1024 MiB)
+- Estado vazio com mensagem de orientação e botão para Clusters quando nenhum cluster está ativo
+- "Dashboard" movido da seção PROJECT para OBSERVABILITY no drawer de navegação
+- `DashboardView` implementa `Refreshable` (suporte ao auto-refresh do navbar)
 
 ### Sprint 1 — Setup + Auth + Login
 - Projeto Gradle (Kotlin DSL), Java 21, Spring Boot 3.3, Vaadin Flow 24
