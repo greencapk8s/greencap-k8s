@@ -28,7 +28,7 @@ import java.util.List;
 @Route(value = "config/configmaps", layout = MainLayout.class)
 @PageTitle("ConfigMaps — GreenCap K8s")
 @PermitAll
-public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserver {
+public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final ConfigurationService configurationService;
     private final ClusterContext clusterContext;
@@ -107,6 +107,18 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
             dataProvider.refreshAll();
             return false;
         }
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<ConfigMapInfo> items = configurationService.listConfigMaps(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

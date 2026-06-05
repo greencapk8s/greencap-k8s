@@ -24,7 +24,7 @@ import java.util.List;
 @Route(value = "observability/events", layout = MainLayout.class)
 @PageTitle("Events — GreenCap K8s")
 @PermitAll
-public class EventsView extends VerticalLayout implements BeforeEnterObserver {
+public class EventsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
@@ -128,6 +128,18 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver {
             badge.getElement().getThemeList().add("success");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        if (clusterContext.getCluster() == null) return;
+        try {
+            List<EventInfo> items = observabilityService.listEvents(
+                    clusterContext.getCluster(), clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

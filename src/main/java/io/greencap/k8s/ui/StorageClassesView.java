@@ -28,7 +28,7 @@ import java.util.List;
 @Route(value = "infrastructure/storageclasses", layout = MainLayout.class)
 @PageTitle("Storage Classes — GreenCap K8s")
 @PermitAll
-public class StorageClassesView extends VerticalLayout implements BeforeEnterObserver {
+public class StorageClassesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
@@ -115,6 +115,18 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
             dataProvider.refreshAll();
             return false;
         }
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<StorageClassInfo> items = storageService.listStorageClasses(cluster);
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

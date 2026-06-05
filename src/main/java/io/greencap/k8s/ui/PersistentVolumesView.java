@@ -31,7 +31,7 @@ import java.util.List;
 @Route(value = "infrastructure/pvs", layout = MainLayout.class)
 @PageTitle("PersistentVolumes — GreenCap K8s")
 @PermitAll
-public class PersistentVolumesView extends VerticalLayout implements BeforeEnterObserver {
+public class PersistentVolumesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
@@ -155,6 +155,18 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
             default           -> badge.getElement().getThemeList().add("contrast");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<PersistentVolumeInfo> items = storageService.listPersistentVolumes(cluster);
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

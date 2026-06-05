@@ -23,7 +23,7 @@ import java.util.List;
 @Route(value = "observability/metrics", layout = MainLayout.class)
 @PageTitle("Metrics — GreenCap K8s")
 @PermitAll
-public class MetricsView extends VerticalLayout implements BeforeEnterObserver {
+public class MetricsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
@@ -100,6 +100,18 @@ public class MetricsView extends VerticalLayout implements BeforeEnterObserver {
             dataProvider.refreshAll();
             return false;
         }
+    }
+
+    @Override
+    public void refresh() {
+        if (clusterContext.getCluster() == null) return;
+        try {
+            List<PodMetricInfo> items = observabilityService.listPodMetrics(
+                    clusterContext.getCluster(), clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

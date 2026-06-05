@@ -29,7 +29,7 @@ import java.util.List;
 @Route(value = "workloads/pods", layout = MainLayout.class)
 @PageTitle("Pods — GreenCap K8s")
 @PermitAll
-public class PodsView extends VerticalLayout implements BeforeEnterObserver {
+public class PodsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
@@ -136,6 +136,18 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver {
         field.setWidth("100%");
         field.getElement().getThemeList().add("small");
         return field;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<PodInfo> items = workloadService.listPods(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private boolean matches(String value, String filter) {

@@ -318,6 +318,17 @@
 - [ ] `Dockerfile` + `docker-compose` validados ponta a ponta
 - [ ] Variável `GREENCAP_ENCRYPTION_KEY` obrigatória em produção (validação no startup)
 
+### Sprint 30 — Auto refresh nas listing views
+
+- Interface `Refreshable` (package-private) com método `refresh()` — contrato para views que suportam atualização automática
+- Enum `RefreshInterval` com 5 opções: *No auto refresh*, *5 seconds*, *10 seconds*, *30 seconds*, *1 minute*
+- 12 listing views implementam `Refreshable`: Pods, Deployments, ReplicaSets, Services, ConfigMaps, Secrets, Events, Metrics, HorizontalScaler, PersistentVolumeClaims, PersistentVolumes, StorageClasses
+- `refresh()` em cada view é silencioso: sem notificação de erro, grid mantém dados anteriores em caso de falha
+- `MainLayout`: `ComboBox<RefreshInterval>` adicionado à navbar (direita, antes do logout)
+- Timer via `ScheduledExecutorService` (virtual threads) + `ui.access()` — dispara `refresh()` na view ativa se ela implementar `Refreshable`
+- Timer reiniciado a cada navegação via `afterNavigation()`, cancelado no `DetachEvent`
+- Intervalo selecionado persiste em `localStorage` (chave `greencap-auto-refresh-interval`)
+
 ### Sprint 29 — Workloads: Scale e Restart de Deployment
 
 - Termos canônicos `Scale` e `Restart` adicionados ao `CONTEXT.md` sob `Deployment`

@@ -35,6 +35,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @JsModule("@vaadin/vaadin-lumo-styles/badge-global.js")
 @JsModule("@vaadin/vaadin-lumo-styles/utility-global.js")
@@ -44,11 +48,18 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final UserService userService;
     private final NamespaceService namespaceService;
     private final ClusterService clusterService;
+    private static final String AUTO_REFRESH_STORAGE_KEY = "greencap-auto-refresh-interval";
+
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
     private final ComboBox<String> namespaceCombo = new ComboBox<>();
+    private final ComboBox<RefreshInterval> refreshIntervalCombo = new ComboBox<>();
     private final Div clusterWarningBanner = new Div();
     private final List<SideNavItem> clusterDependentNavItems = new ArrayList<>();
+
+    private final ScheduledExecutorService refreshExecutor =
+            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
+    private ScheduledFuture<?> refreshTask;
 
     private Cluster lastLoadedCluster = null;
     private String currentPath = "";
@@ -67,6 +78,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         clusterInfoLayout.setPadding(false);
 
         buildNamespaceLayout();
+        buildRefreshIntervalCombo();
         buildClusterWarningBanner();
 
         addToNavbar(buildNavbar());
@@ -79,6 +91,26 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             userService.findActiveCluster(username).ifPresent(clusterContext::setCluster);
             userService.findActiveNamespace(username).ifPresent(clusterContext::setNamespace);
         }
+
+        addDetachListener(e -> {
+            stopRefreshTimer();
+            refreshExecutor.shutdown();
+        });
+    }
+
+    @Override
+    protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        attachEvent.getUI().getPage()
+                .executeJs("return localStorage.getItem($0)", AUTO_REFRESH_STORAGE_KEY)
+                .then(String.class, value -> {
+                    if (value != null) {
+                        try {
+                            RefreshInterval interval = RefreshInterval.fromSeconds(Integer.parseInt(value));
+                            refreshIntervalCombo.setValue(interval);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                });
     }
 
     @Override
@@ -86,6 +118,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         currentPath = event.getLocation().getPath();
         updateClusterInfo();
         updateNamespaceSelector();
+        restartRefreshTimer();
     }
 
     public void updateClusterInfo() {
@@ -178,6 +211,50 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                 });
             }
         });
+    }
+
+    private void buildRefreshIntervalCombo() {
+        refreshIntervalCombo.setItems(RefreshInterval.values());
+        refreshIntervalCombo.setItemLabelGenerator(RefreshInterval::getLabel);
+        refreshIntervalCombo.setValue(RefreshInterval.NONE);
+        refreshIntervalCombo.setWidth("160px");
+        refreshIntervalCombo.getElement().getThemeList().add("small");
+        refreshIntervalCombo.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                applyRefreshInterval(e.getValue());
+                getUI().ifPresent(ui -> ui.getPage().executeJs(
+                        "localStorage.setItem($0, $1)", AUTO_REFRESH_STORAGE_KEY,
+                        String.valueOf(e.getValue().getSeconds())));
+            }
+        });
+    }
+
+    private void applyRefreshInterval(RefreshInterval interval) {
+        stopRefreshTimer();
+        if (!interval.isActive()) return;
+        UI ui = UI.getCurrent();
+        refreshTask = refreshExecutor.scheduleAtFixedRate(() ->
+                ui.access(() -> {
+                    com.vaadin.flow.component.Component content = getContent();
+                    if (content instanceof Refreshable refreshable) {
+                        refreshable.refresh();
+                    }
+                }),
+                interval.getSeconds(), interval.getSeconds(), TimeUnit.SECONDS);
+    }
+
+    private void stopRefreshTimer() {
+        if (refreshTask != null && !refreshTask.isDone()) {
+            refreshTask.cancel(false);
+            refreshTask = null;
+        }
+    }
+
+    private void restartRefreshTimer() {
+        RefreshInterval current = refreshIntervalCombo.getValue();
+        if (current != null && current.isActive()) {
+            applyRefreshInterval(current);
+        }
     }
 
     private void buildClusterWarningBanner() {
@@ -277,7 +354,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logout.getElement().setAttribute("title", "Logout");
 
-        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, clusterInfoLayout, logout);
+        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, clusterInfoLayout, refreshIntervalCombo, logout);
         navbar.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         navbar.expand(spacer);
         navbar.setWidthFull();

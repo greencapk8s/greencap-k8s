@@ -29,7 +29,7 @@ import java.util.List;
 @Route(value = "config/secrets", layout = MainLayout.class)
 @PageTitle("Secrets — GreenCap K8s")
 @PermitAll
-public class SecretsView extends VerticalLayout implements BeforeEnterObserver {
+public class SecretsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final ConfigurationService configurationService;
     private final ClusterContext clusterContext;
@@ -123,6 +123,18 @@ public class SecretsView extends VerticalLayout implements BeforeEnterObserver {
             badge.getElement().getThemeList().add("contrast");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<SecretInfo> items = configurationService.listSecrets(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

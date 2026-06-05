@@ -29,7 +29,7 @@ import java.util.List;
 @Route(value = "storage/pvcs", layout = MainLayout.class)
 @PageTitle("Volume Claims (PVC) — GreenCap K8s")
 @PermitAll
-public class PersistentVolumeClaimsView extends VerticalLayout implements BeforeEnterObserver {
+public class PersistentVolumeClaimsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
@@ -129,6 +129,18 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
             default             -> {}
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<PersistentVolumeClaimInfo> items = storageService.listPersistentVolumeClaims(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

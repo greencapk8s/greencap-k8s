@@ -33,7 +33,7 @@ import java.util.List;
 @Route(value = "autoscaling/horizontalscalers", layout = MainLayout.class)
 @PageTitle("Horizontal Scalers — GreenCap K8s")
 @PermitAll
-public class HorizontalScalerView extends VerticalLayout implements BeforeEnterObserver {
+public class HorizontalScalerView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final AutoScalingService autoScalingService;
     private final ClusterContext clusterContext;
@@ -151,6 +151,18 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
             badge.getElement().getThemeList().add("success");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<HorizontalScalerInfo> items = autoScalingService.listHorizontalScalers(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

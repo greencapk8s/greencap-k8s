@@ -39,7 +39,7 @@ import java.util.Map;
 @Route(value = "workloads/deployments", layout = MainLayout.class)
 @PageTitle("Deployments — GreenCap K8s")
 @PermitAll
-public class DeploymentsView extends VerticalLayout implements BeforeEnterObserver {
+public class DeploymentsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final WorkloadService workloadService;
     private final AutoScalingService autoScalingService;
@@ -136,6 +136,18 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             badge.getElement().getThemeList().add("contrast");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<DeploymentInfo> items = workloadService.listDeployments(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

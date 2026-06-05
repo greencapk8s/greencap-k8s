@@ -29,7 +29,7 @@ import java.util.List;
 @Route(value = "workloads/replicasets", layout = MainLayout.class)
 @PageTitle("ReplicaSets — GreenCap K8s")
 @PermitAll
-public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserver {
+public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
@@ -139,6 +139,18 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             badge.getElement().getThemeList().add("contrast");
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<ReplicaSetInfo> items = workloadService.listReplicaSets(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {

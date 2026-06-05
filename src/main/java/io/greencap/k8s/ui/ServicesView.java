@@ -29,7 +29,7 @@ import java.util.List;
 @Route(value = "networking/services", layout = MainLayout.class)
 @PageTitle("Services — GreenCap K8s")
 @PermitAll
-public class ServicesView extends VerticalLayout implements BeforeEnterObserver {
+public class ServicesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final NetworkingService networkingService;
     private final ClusterContext clusterContext;
@@ -126,6 +126,18 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver 
             default             -> {}
         }
         return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<ServiceInfo> items = networkingService.listServices(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
     }
 
     private TextField buildFilterField() {
