@@ -39,6 +39,7 @@
 | 29 | Workloads — Scale e Restart de Deployment | ✅ Concluído |
 | 30 | Auto refresh nas listing views | ✅ Concluído |
 | 31 | Observabilidade — Events scoped por recurso | ✅ Concluído |
+| 32 | Troubleshooting — PodLog viewer em página dedicada | ✅ Concluído |
 
 ---
 
@@ -354,6 +355,17 @@
 - `DeploymentsView`: botão Events (ícone `RECORDS`) adicionado na coluna de ações — abre `EventsDialog` scoped para o Deployment da linha
 - `PodsView`: botão Events (ícone `RECORDS`) adicionado na coluna de ações — abre `EventsDialog` scoped para o Pod da linha
 - Auto-refresh não se aplica ao dialog por design — conteúdo modal não deve mudar enquanto o usuário lê; refresh manual disponível
+
+### Sprint 32 — Troubleshooting: PodLog viewer em página dedicada
+
+- Termo canônico `PodLog` adicionado ao `CONTEXT.md`
+- `ObservabilityService.listContainersForPod()`: lista containers de um Pod via Fabric8
+- `ObservabilityService.fetchPodLogs()`: busca snapshot de log com suporte a `container`, `tailLines` e flag `previous` — retorna `Optional.empty()` quando não há log anterior (sem lançar exceção)
+- `PodLogsView`: página dedicada em `logs/pod/:namespace/:name` com toolbar (container select condicional, tail select 100/500/1000, label "Lines:" ao lado, toggle "Previous container", botão Pause/Resume) e área de log `Pre` com auto-scroll via JS
+- Auto-poll a cada 3s via `ScheduledExecutorService` + `ui.access()` — mesmo padrão da sprint 30; poll cancelado no `DetachEvent`
+- Container select visível apenas quando o Pod tem mais de um container
+- Quando `previous=true` e não há log anterior: exibe mensagem informativa em vez de erro
+- `PodsView`: botão Logs (ícone `TERMINAL`) adicionado na coluna de ações — navega para a página de logs do Pod
 
 ### Sprint 28 — Dev workflow — skills greencap-run e greencap-stop
 - Skills `/greencap-run` e `/greencap-stop` criados em `.claude/skills/`

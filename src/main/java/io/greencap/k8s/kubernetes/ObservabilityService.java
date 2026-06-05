@@ -16,6 +16,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -24,6 +25,47 @@ public class ObservabilityService {
 
     private final KubernetesClientFactory clientFactory;
     private final EncryptionService encryptionService;
+
+    public List<String> listContainersForPod(Cluster cluster, String namespace, String podName) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+
+            var pod = client.pods().inNamespace(namespace).withName(podName).get();
+            if (pod == null || pod.getSpec() == null) return List.of();
+
+            return pod.getSpec().getContainers().stream()
+                    .map(c -> c.getName())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("Failed to list containers for pod {}/{}: {}", namespace, podName, e.getMessage());
+            throw new KubernetesOperationException("Failed to list containers: " + e.getMessage(), e);
+        }
+    }
+
+    public Optional<String> fetchPodLogs(Cluster cluster, String namespace, String podName,
+                                         String container, int tailLines, boolean previous) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+
+            var podOp = client.pods().inNamespace(namespace).withName(podName);
+            var containerOp = container != null && !container.isBlank()
+                    ? podOp.inContainer(container)
+                    : podOp;
+            var loggable = previous
+                    ? containerOp.terminated().tailingLines(tailLines)
+                    : containerOp.tailingLines(tailLines);
+
+            String logs = loggable.getLog();
+            return Optional.ofNullable(logs);
+        } catch (Exception e) {
+            if (previous && e.getMessage() != null && e.getMessage().contains("previous")) {
+                log.debug("No previous log available for pod {}/{}", namespace, podName);
+                return Optional.empty();
+            }
+            log.error("Failed to fetch logs for pod {}/{}: {}", namespace, podName, e.getMessage());
+            throw new KubernetesOperationException("Failed to fetch pod logs: " + e.getMessage(), e);
+        }
+    }
 
     public List<EventInfo> listEvents(Cluster cluster, String namespace) {
         try (KubernetesClient client = clientFactory.buildClient(

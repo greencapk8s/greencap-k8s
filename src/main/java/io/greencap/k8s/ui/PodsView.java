@@ -88,10 +88,17 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             eventsBtn.getElement().setAttribute("title", "Events");
             eventsBtn.addClickListener(e -> EventsDialog.open(observabilityService, clusterContext, "Pod", p.name(), p.namespace()));
 
-            HorizontalLayout actions = new HorizontalLayout(manifestBtn, eventsBtn);
+            var logsIcon = VaadinIcon.TERMINAL.create();
+            logsIcon.setSize(UiConstants.ICON_SIZE);
+            Button logsBtn = new Button(logsIcon);
+            logsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            logsBtn.getElement().setAttribute("title", "Logs");
+            logsBtn.addClickListener(e -> UI.getCurrent().navigate("logs/pod/" + p.namespace() + "/" + p.name()));
+
+            HorizontalLayout actions = new HorizontalLayout(manifestBtn, eventsBtn, logsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("100px").setFlexGrow(0);
+        }).setHeader("").setWidth("160px").setFlexGrow(0);
 
         podGrid.setDataProvider(dataProvider);
 
