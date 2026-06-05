@@ -33,8 +33,16 @@ The smallest Workload unit — one or more containers running together. Read-onl
 _Avoid_: Container, instance, process
 
 **Deployment**:
-A Workload that manages a set of replica Pods via one or more ReplicaSets. Exposes desired, ready, and available replica counts.
+A Workload that manages a set of replica Pods via one or more ReplicaSets. Exposes desired, ready, and available replica counts. Supports two write operations in GreenCap: Scale (change desired replica count) and Restart (rolling restart — replaces pods one by one without downtime).
 _Avoid_: app, service
+
+**Scale**:
+A write operation on a Deployment that changes the desired replica count. Takes effect immediately via the Kubernetes API. The user sets the new count via a dialog pre-populated with the current desired value.
+_Avoid_: resize, update replicas
+
+**Restart**:
+A write operation on a Deployment that triggers a rolling restart — Kubernetes replaces each Pod one by one, causing momentary traffic shift but no hard downtime. Implemented via a patch to `spec.template.metadata.annotations["kubectl.kubernetes.io/restartedAt"]`.
+_Avoid_: redeploy, bounce, kill
 
 **ReplicaSet**:
 A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed read-only under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans).

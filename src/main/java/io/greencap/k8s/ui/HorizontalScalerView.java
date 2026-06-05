@@ -3,13 +3,17 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -58,9 +62,16 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
-        if (hasCluster) {
-            loadScalers();
-        }
+        if (!hasCluster) return;
+
+        loadScalers();
+
+        event.getLocation().getQueryParameters()
+                .getParameters()
+                .getOrDefault("edit", List.of())
+                .stream().findFirst()
+                .flatMap(name -> allItems.stream().filter(h -> h.name().equals(name)).findFirst())
+                .ifPresent(this::openEditDialog);
     }
 
     private void buildGrid() {
@@ -73,15 +84,14 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         grid.addComponentColumn(h -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/horizontalscaler/" + h.namespace() + "/" + h.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+            Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
+            Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
+                    e -> UI.getCurrent().navigate("yaml/horizontalscaler/" + h.namespace() + "/" + h.name()));
+
+            HorizontalLayout actions = new HorizontalLayout(editBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth("110px").setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -155,6 +165,63 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
     private boolean matches(String value, String filter) {
         return filter == null || filter.isBlank() ||
                (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
+    }
+
+    private void openEditDialog(HorizontalScalerInfo hpa) {
+        IntegerField minField = new IntegerField("Min Replicas");
+        minField.setMin(1);
+        minField.setMax(100);
+        minField.setValue(hpa.minReplicas());
+        minField.setStepButtonsVisible(true);
+
+        IntegerField maxField = new IntegerField("Max Replicas");
+        maxField.setMin(1);
+        maxField.setMax(100);
+        maxField.setValue(hpa.maxReplicas());
+        maxField.setStepButtonsVisible(true);
+
+        Button saveBtn = new Button("Save");
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Edit Limits — " + hpa.name());
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        saveBtn.addClickListener(e -> {
+            int min = minField.getValue() != null ? minField.getValue() : 1;
+            int max = maxField.getValue() != null ? maxField.getValue() : 1;
+            if (max < min) {
+                notify("Max replicas must be greater than or equal to min replicas", NotificationVariant.LUMO_ERROR);
+                return;
+            }
+            dialog.close();
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                autoScalingService.updateHorizontalScaler(cluster, hpa.namespace(), hpa.name(), min, max);
+                loadScalers();
+                notify("HPA " + hpa.name() + " updated: min=" + min + ", max=" + max, NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+
+        FormLayout form = new FormLayout(minField, maxField);
+        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+        dialog.add(form);
+        dialog.getFooter().add(cancelBtn, saveBtn);
+        dialog.open();
+    }
+
+    private Button buildActionButton(VaadinIcon icon, String title, com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<Button>> listener) {
+        var iconEl = icon.create();
+        iconEl.setSize(UiConstants.ICON_SIZE);
+        Button btn = new Button(iconEl, listener);
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        btn.getElement().setAttribute("title", title);
+        return btn;
     }
 
     private void notify(String message, NotificationVariant variant) {

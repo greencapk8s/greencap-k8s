@@ -36,6 +36,7 @@
 | 26 | Migração para repositório oficial greencapk8s | ✅ Concluído |
 | 27 | Topology — PersistentVolumeClaim no grafo | ✅ Concluído |
 | 28 | Dev workflow — skills greencap-run e greencap-stop | ✅ Concluído |
+| 29 | Workloads — Scale e Restart de Deployment | ✅ Concluído |
 
 ---
 
@@ -316,6 +317,22 @@
 - [ ] Página de erro customizada no Vaadin
 - [ ] `Dockerfile` + `docker-compose` validados ponta a ponta
 - [ ] Variável `GREENCAP_ENCRYPTION_KEY` obrigatória em produção (validação no startup)
+
+### Sprint 29 — Workloads: Scale e Restart de Deployment
+
+- Termos canônicos `Scale` e `Restart` adicionados ao `CONTEXT.md` sob `Deployment`
+- `WorkloadService.scaleDeployment()`: Fabric8 `client.apps().deployments().withName(name).scale(replicas)`
+- `WorkloadService.restartDeployment()`: Fabric8 `client.apps().deployments().withName(name).rolling().restart()`
+- `DeploymentsView`: coluna de ações expandida com botões Scale (EXPAND) e Restart (ROTATE_RIGHT) por linha
+- Scale: dialog com `IntegerField` pré-populado com `desired` atual, mín 0, máx 50, botão habilitado só se valor mudou
+- Restart: dialog de confirmação com nome do Deployment, botão destrutivo em vermelho
+- Sucesso: notificação `BOTTOM_END` + refresh automático do grid
+- Falha: notificação de erro `BOTTOM_END`
+- Scale HPA-aware: se o Deployment tem HPA associado, Scale navega para HorizontalScalerView com `?edit=<hpa-name>` e abre o dialog automaticamente
+- `AutoScalingService.findHorizontalScalerForDeployment()`: localiza HPA pelo `scaleTargetRef.name`
+- `AutoScalingService.updateHorizontalScaler()`: patch de min/max réplicas via Fabric8 edit
+- HorizontalScalerView: botão Edit por linha + dialog com `IntegerField` min/max + leitura do query param `edit` para auto-abertura
+- RBAC ignorado nesta sprint — qualquer usuário autenticado pode executar as operações
 
 ### Sprint 28 — Dev workflow — skills greencap-run e greencap-stop
 - Skills `/greencap-run` e `/greencap-stop` criados em `.claude/skills/`

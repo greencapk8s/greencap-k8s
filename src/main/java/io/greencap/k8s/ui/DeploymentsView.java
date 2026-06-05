@@ -3,20 +3,29 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.WorkloadService;
@@ -25,6 +34,7 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Route(value = "workloads/deployments", layout = MainLayout.class)
 @PageTitle("Deployments — GreenCap K8s")
@@ -32,6 +42,7 @@ import java.util.List;
 public class DeploymentsView extends VerticalLayout implements BeforeEnterObserver {
 
     private final WorkloadService workloadService;
+    private final AutoScalingService autoScalingService;
     private final ClusterContext clusterContext;
 
     private final Grid<DeploymentInfo> deployGrid = new Grid<>(DeploymentInfo.class, false);
@@ -40,8 +51,9 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private final List<DeploymentInfo> allItems = new ArrayList<>();
     private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public DeploymentsView(WorkloadService workloadService, ClusterContext clusterContext) {
+    public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService, ClusterContext clusterContext) {
         this.workloadService = workloadService;
+        this.autoScalingService = autoScalingService;
         this.clusterContext = clusterContext;
 
         setSizeFull();
@@ -70,14 +82,15 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         deployGrid.addColumn(DeploymentInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
         deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         deployGrid.addComponentColumn(d -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+            Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
+            Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
+            Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
+                    e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
+
+            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth("160px").setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 
@@ -137,6 +150,95 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private boolean matches(String value, String filter) {
         return filter == null || filter.isBlank() ||
                (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
+    }
+
+    private void openScaleDialog(DeploymentInfo deployment) {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+
+        try {
+            autoScalingService.findHorizontalScalerForDeployment(cluster, deployment.namespace(), deployment.name())
+                    .ifPresentOrElse(
+                            hpa -> UI.getCurrent().navigate("autoscaling/horizontalscalers",
+                                    new QueryParameters(Map.of("edit", List.of(hpa.name())))),
+                            () -> openDirectScaleDialog(deployment, cluster)
+                    );
+        } catch (KubernetesOperationException e) {
+            notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
+        }
+    }
+
+    private void openDirectScaleDialog(DeploymentInfo deployment, Cluster cluster) {
+        IntegerField replicasField = new IntegerField("Replicas");
+        replicasField.setMin(0);
+        replicasField.setMax(50);
+        replicasField.setValue(deployment.desired());
+        replicasField.setStepButtonsVisible(true);
+
+        Button scaleBtn = new Button("Scale");
+        scaleBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        scaleBtn.setEnabled(false);
+        replicasField.addValueChangeListener(e ->
+                scaleBtn.setEnabled(e.getValue() != null && e.getValue() != deployment.desired()));
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Scale — " + deployment.name());
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        scaleBtn.addClickListener(e -> {
+            dialog.close();
+            try {
+                workloadService.scaleDeployment(cluster, deployment.namespace(), deployment.name(), replicasField.getValue());
+                loadDeployments();
+                notify("Deployment " + deployment.name() + " scaled to " + replicasField.getValue() + " replicas", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+
+        dialog.add(replicasField);
+        dialog.getFooter().add(cancelBtn, scaleBtn);
+        dialog.open();
+    }
+
+    private void openRestartDialog(DeploymentInfo deployment) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Restart Deployment");
+
+        Paragraph message = new Paragraph("Restart " + deployment.name() + "? Pods will be replaced one by one.");
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button restartBtn = new Button("Restart");
+        restartBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        restartBtn.addClickListener(e -> {
+            dialog.close();
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.restartDeployment(cluster, deployment.namespace(), deployment.name());
+                loadDeployments();
+                notify("Deployment " + deployment.name() + " restarted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+
+        dialog.add(message);
+        dialog.getFooter().add(cancelBtn, restartBtn);
+        dialog.open();
+    }
+
+    private Button buildActionButton(VaadinIcon icon, String title, com.vaadin.flow.component.ComponentEventListener<com.vaadin.flow.component.ClickEvent<Button>> listener) {
+        var iconEl = icon.create();
+        iconEl.setSize(UiConstants.ICON_SIZE);
+        Button btn = new Button(iconEl, listener);
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        btn.getElement().setAttribute("title", title);
+        return btn;
     }
 
     private void notify(String message, NotificationVariant variant) {

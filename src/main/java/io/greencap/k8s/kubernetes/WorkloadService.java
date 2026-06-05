@@ -112,6 +112,28 @@ public class WorkloadService {
         }
     }
 
+    public void scaleDeployment(Cluster cluster, String namespace, String name, int replicas) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().deployments().inNamespace(namespace).withName(name).scale(replicas);
+            log.info("Scaled deployment {}/{} to {} replicas", namespace, name, replicas);
+        } catch (Exception e) {
+            log.error("Failed to scale deployment {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to scale deployment: " + e.getMessage(), e);
+        }
+    }
+
+    public void restartDeployment(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().deployments().inNamespace(namespace).withName(name).rolling().restart();
+            log.info("Restarted deployment {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to restart deployment {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to restart deployment: " + e.getMessage(), e);
+        }
+    }
+
     private boolean isAllNamespaces(String namespace) {
         return namespace == null || namespace.isBlank() || "all".equalsIgnoreCase(namespace);
     }

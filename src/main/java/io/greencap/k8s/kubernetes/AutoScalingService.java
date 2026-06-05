@@ -115,6 +115,42 @@ public class AutoScalingService {
         };
     }
 
+    public Optional<HorizontalScalerInfo> findHorizontalScalerForDeployment(Cluster cluster, String namespace, String deploymentName) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            return client.autoscaling().v2().horizontalPodAutoscalers()
+                    .inNamespace(namespace)
+                    .list().getItems().stream()
+                    .filter(hpa -> deploymentName.equals(
+                            Optional.ofNullable(hpa.getSpec())
+                                    .map(s -> s.getScaleTargetRef().getName())
+                                    .orElse(null)))
+                    .findFirst()
+                    .map(this::toInfo);
+        } catch (Exception e) {
+            log.error("Failed to find HPA for deployment {}/{}: {}", namespace, deploymentName, e.getMessage());
+            throw new KubernetesOperationException("Failed to find HPA: " + e.getMessage(), e);
+        }
+    }
+
+    public void updateHorizontalScaler(Cluster cluster, String namespace, String name, int minReplicas, int maxReplicas) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.autoscaling().v2().horizontalPodAutoscalers()
+                    .inNamespace(namespace)
+                    .withName(name)
+                    .edit(hpa -> {
+                        hpa.getSpec().setMinReplicas(minReplicas);
+                        hpa.getSpec().setMaxReplicas(maxReplicas);
+                        return hpa;
+                    });
+            log.info("Updated HPA {}/{}: min={}, max={}", namespace, name, minReplicas, maxReplicas);
+        } catch (Exception e) {
+            log.error("Failed to update HPA {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to update HPA: " + e.getMessage(), e);
+        }
+    }
+
     private boolean isAllNamespaces(String namespace) {
         return namespace == null || namespace.isBlank() || "all".equalsIgnoreCase(namespace);
     }
