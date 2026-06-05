@@ -10,6 +10,7 @@ build/
 *.classpath
 *.project
 *.settings/
+bin/
 
 # Spring Boot
 *.jar
