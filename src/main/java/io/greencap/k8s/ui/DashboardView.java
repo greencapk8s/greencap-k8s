@@ -8,6 +8,8 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
@@ -29,7 +31,7 @@ import java.util.List;
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Dashboard — GreenCap K8s")
 @PermitAll
-public class DashboardView extends VerticalLayout implements Refreshable {
+public class DashboardView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final ClusterContext clusterContext;
     private final WorkloadService workloadService;
@@ -61,6 +63,10 @@ public class DashboardView extends VerticalLayout implements Refreshable {
         content.setPadding(false);
         content.setSpacing(true);
         add(new H2("Dashboard"), content);
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
         loadContent();
     }
 

@@ -41,10 +41,16 @@
 | 31 | Observabilidade — Events scoped por recurso | ✅ Concluído |
 | 32 | Troubleshooting — PodLog viewer em página dedicada | ✅ Concluído |
 | 33 | Observabilidade — Dashboard de namespace | ✅ Concluído |
+| 34 | UX — Melhorias de navbar, dashboard e ReplicaSets | ✅ Concluído |
 
 ---
 
 ## Sprints Concluídas
+
+### Sprint 34 — UX — Melhorias de navbar, dashboard e ReplicaSets
+- Auto-refresh combobox movido para ao lado do seletor de namespace, com label "Auto refresh:"; sempre visível na navbar independente de cluster ativo
+- `DashboardView` implementa `BeforeEnterObserver`: dados recarregados ao trocar namespace (equivalente ao comportamento das listing views)
+- `WorkloadService.listReplicaSets()`: ativos (`desired > 0`) sempre retornados; inativos filtrados para os criados nas últimas 24h; resultado ordenado por ativos primeiro; lógica na camada de serviço sem mudança no DTO
 
 ### Sprint 33 — Observabilidade — Dashboard de namespace
 - `DashboardView` reescrita: cards de cluster removidos, substituídos por visão escopada ao namespace ativo

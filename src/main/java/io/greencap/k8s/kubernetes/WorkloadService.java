@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -79,7 +82,15 @@ public class WorkloadService {
                     ? client.apps().replicaSets().inAnyNamespace().list().getItems()
                     : client.apps().replicaSets().inNamespace(namespace).list().getItems();
 
+            Instant oneDayAgo = Instant.now().minus(1, ChronoUnit.DAYS);
+
             return items.stream()
+                    .filter(rs -> {
+                        int desired = Optional.ofNullable(rs.getSpec()).map(s -> s.getReplicas()).orElse(0);
+                        if (desired > 0) return true;
+                        String ts = rs.getMetadata().getCreationTimestamp();
+                        return ts != null && Instant.parse(ts).isAfter(oneDayAgo);
+                    })
                     .map(rs -> {
                         String owner = Optional.ofNullable(rs.getMetadata().getOwnerReferences())
                                 .flatMap(refs -> refs.stream()
@@ -105,6 +116,7 @@ public class WorkloadService {
                                 NamespaceService.age(rs.getMetadata().getCreationTimestamp())
                         );
                     })
+                    .sorted(Comparator.comparingInt((ReplicaSetInfo rs) -> rs.desired() > 0 ? 0 : 1))
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list replicasets for cluster {}: {}", cluster.getName(), e.getMessage());

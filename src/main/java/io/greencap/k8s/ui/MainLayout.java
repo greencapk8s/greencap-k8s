@@ -217,7 +217,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         refreshIntervalCombo.setItems(RefreshInterval.values());
         refreshIntervalCombo.setItemLabelGenerator(RefreshInterval::getLabel);
         refreshIntervalCombo.setValue(RefreshInterval.NONE);
-        refreshIntervalCombo.setWidth("160px");
+        refreshIntervalCombo.setWidth("130px");
         refreshIntervalCombo.getElement().getThemeList().add("small");
         refreshIntervalCombo.addValueChangeListener(e -> {
             if (e.getValue() != null) {
@@ -345,6 +345,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private HorizontalLayout buildNavbar() {
         DrawerToggle toggle = new DrawerToggle();
 
+        Span autoRefreshLabel = new Span("Auto refresh:");
+        autoRefreshLabel.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
+
+        HorizontalLayout autoRefreshLayout = new HorizontalLayout(autoRefreshLabel, refreshIntervalCombo);
+        autoRefreshLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
+        autoRefreshLayout.setSpacing(true);
+        autoRefreshLayout.setPadding(false);
+
         Div spacer = new Div();
 
         Button logout = new Button(VaadinIcon.SIGN_OUT.create(), e -> {
@@ -354,7 +362,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logout.getElement().setAttribute("title", "Logout");
 
-        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, clusterInfoLayout, refreshIntervalCombo, logout);
+        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, autoRefreshLayout, spacer, clusterInfoLayout, logout);
         navbar.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         navbar.expand(spacer);
         navbar.setWidthFull();
