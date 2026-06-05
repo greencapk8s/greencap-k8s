@@ -56,6 +56,41 @@ public class ObservabilityService {
         }
     }
 
+    public List<EventInfo> listEventsForResource(Cluster cluster, String namespace, String kind, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+
+            var items = client.v1().events()
+                    .inNamespace(namespace)
+                    .withField("involvedObject.name", name)
+                    .withField("involvedObject.kind", kind)
+                    .list()
+                    .getItems();
+
+            log.debug("Found {} events for {}/{} in namespace '{}' on cluster '{}'",
+                    items.size(), kind, name, namespace, cluster.getName());
+
+            return items.stream()
+                    .sorted(Comparator.comparing(
+                            (Event e) -> Optional.ofNullable(e.getLastTimestamp()).orElse(""),
+                            Comparator.reverseOrder()))
+                    .map(e -> new EventInfo(
+                            Optional.ofNullable(e.getType()).orElse("Normal"),
+                            Optional.ofNullable(e.getReason()).orElse("-"),
+                            formatObject(e),
+                            Optional.ofNullable(e.getMessage()).orElse("-"),
+                            Optional.ofNullable(e.getCount()).orElse(1),
+                            NamespaceService.age(
+                                    Optional.ofNullable(e.getLastTimestamp())
+                                            .orElse(e.getMetadata().getCreationTimestamp()))
+                    ))
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list events for {}/{} on cluster {}: {}", kind, name, cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list events for " + kind + "/" + name + ": " + e.getMessage(), e);
+        }
+    }
+
     public List<PodMetricInfo> listPodMetrics(Cluster cluster, String namespace) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {

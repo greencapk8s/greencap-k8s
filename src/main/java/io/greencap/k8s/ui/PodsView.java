@@ -9,6 +9,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -19,6 +20,7 @@ import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
 import jakarta.annotation.security.PermitAll;
@@ -32,6 +34,7 @@ import java.util.List;
 public class PodsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private final WorkloadService workloadService;
+    private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
 
     private final Grid<PodInfo> podGrid = new Grid<>(PodInfo.class, false);
@@ -40,8 +43,9 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private final List<PodInfo> allItems = new ArrayList<>();
     private final ListDataProvider<PodInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public PodsView(WorkloadService workloadService, ClusterContext clusterContext) {
+    public PodsView(WorkloadService workloadService, ObservabilityService observabilityService, ClusterContext clusterContext) {
         this.workloadService = workloadService;
+        this.observabilityService = observabilityService;
         this.clusterContext = clusterContext;
 
         setSizeFull();
@@ -70,14 +74,24 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         podGrid.addComponentColumn(p -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate("yaml/pod/" + p.namespace() + "/" + p.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+            var manifestIcon = VaadinIcon.CODE.create();
+            manifestIcon.setSize(UiConstants.ICON_SIZE);
+            Button manifestBtn = new Button(manifestIcon);
+            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            manifestBtn.getElement().setAttribute("title", "View Manifest");
+            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/pod/" + p.namespace() + "/" + p.name()));
+
+            var eventsIcon = VaadinIcon.RECORDS.create();
+            eventsIcon.setSize(UiConstants.ICON_SIZE);
+            Button eventsBtn = new Button(eventsIcon);
+            eventsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            eventsBtn.getElement().setAttribute("title", "Events");
+            eventsBtn.addClickListener(e -> EventsDialog.open(observabilityService, clusterContext, "Pod", p.name(), p.namespace()));
+
+            HorizontalLayout actions = new HorizontalLayout(manifestBtn, eventsBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth("100px").setFlexGrow(0);
 
         podGrid.setDataProvider(dataProvider);
 

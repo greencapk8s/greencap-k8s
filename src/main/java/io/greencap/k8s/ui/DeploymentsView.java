@@ -28,6 +28,7 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import jakarta.annotation.security.PermitAll;
@@ -43,6 +44,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
     private final WorkloadService workloadService;
     private final AutoScalingService autoScalingService;
+    private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
 
     private final Grid<DeploymentInfo> deployGrid = new Grid<>(DeploymentInfo.class, false);
@@ -51,9 +53,11 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private final List<DeploymentInfo> allItems = new ArrayList<>();
     private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService, ClusterContext clusterContext) {
+    public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService,
+                           ObservabilityService observabilityService, ClusterContext clusterContext) {
         this.workloadService = workloadService;
         this.autoScalingService = autoScalingService;
+        this.observabilityService = observabilityService;
         this.clusterContext = clusterContext;
 
         setSizeFull();
@@ -86,11 +90,13 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
+            Button eventsBtn = buildActionButton(VaadinIcon.RECORDS, "Events",
+                    e -> EventsDialog.open(observabilityService, clusterContext, "Deployment", d.name(), d.namespace()));
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, manifestBtn);
+            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, manifestBtn, eventsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("160px").setFlexGrow(0);
+        }).setHeader("").setWidth("200px").setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 

@@ -37,6 +37,8 @@
 | 27 | Topology — PersistentVolumeClaim no grafo | ✅ Concluído |
 | 28 | Dev workflow — skills greencap-run e greencap-stop | ✅ Concluído |
 | 29 | Workloads — Scale e Restart de Deployment | ✅ Concluído |
+| 30 | Auto refresh nas listing views | ✅ Concluído |
+| 31 | Observabilidade — Events scoped por recurso | ✅ Concluído |
 
 ---
 
@@ -344,6 +346,14 @@
 - `AutoScalingService.updateHorizontalScaler()`: patch de min/max réplicas via Fabric8 edit
 - HorizontalScalerView: botão Edit por linha + dialog com `IntegerField` min/max + leitura do query param `edit` para auto-abertura
 - RBAC ignorado nesta sprint — qualquer usuário autenticado pode executar as operações
+
+### Sprint 31 — Observabilidade: Events scoped por recurso
+
+- `ObservabilityService.listEventsForResource()`: novo método com Fabric8 field selector (`involvedObject.name` + `involvedObject.kind`) — retorna apenas events do recurso específico, sem trazer o namespace inteiro
+- `EventsDialog`: componente package-private reutilizável — Dialog com Grid (Type · Reason · Message · Count · Age), carregamento inicial + botão de refresh manual no cabeçalho (ícone `REFRESH`)
+- `DeploymentsView`: botão Events (ícone `RECORDS`) adicionado na coluna de ações — abre `EventsDialog` scoped para o Deployment da linha
+- `PodsView`: botão Events (ícone `RECORDS`) adicionado na coluna de ações — abre `EventsDialog` scoped para o Pod da linha
+- Auto-refresh não se aplica ao dialog por design — conteúdo modal não deve mudar enquanto o usuário lê; refresh manual disponível
 
 ### Sprint 28 — Dev workflow — skills greencap-run e greencap-stop
 - Skills `/greencap-run` e `/greencap-stop` criados em `.claude/skills/`
