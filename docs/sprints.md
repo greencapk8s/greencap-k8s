@@ -48,16 +48,16 @@
 | 38 | RBAC granular — permissões por funcionalidade com TreeView | ✅ Concluído |
 | 39 | Workloads — Deployment Rollback (Rollout Undo) | ✅ Concluído |
 | 40 | Workloads — Jobs e CronJobs (read-only) | ✅ Concluído |
+| 41 | Workloads — Jobs/CronJobs: navegação contextual para logs | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 41):
+Prioridade recomendada com base na evolução da plataforma (sprint 42):
 
 ### 🟡 Médio prazo — cobrir workloads comuns
 
-- **Jobs e CronJobs — navegação para logs** — botão "Ver Pods" na `JobsView` navegando para os Pods criados pelo Job (filtrados por ownerReference); permite acessar o `PodLogsView` existente para troubleshooting de execuções. Alta importância para diagnóstico.
 - **Ingress** — já mencionado como futuro na seção Networking; completa o mapa de tráfego (Service → Ingress).
 - **Jobs e CronJobs — operações de escrita** — trigger manual ("Run now") em Job, suspend/resume em CronJob, e delete para ambos; segue o padrão de Scale/Restart de Deployments.
 
@@ -68,6 +68,13 @@ Prioridade recomendada com base na evolução da plataforma (sprint 41):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 41 — Workloads — Jobs/CronJobs: navegação contextual para logs
+- `PodInfo` record: campo `jobName` adicionado; populado de `metadata.labels["job-name"]` no `WorkloadService.listPods()` — padrão Kubernetes adicionado automaticamente pelo Job controller
+- `PodsView`: lê query param `?job=<name>`; aplica filtro `jobName == param` no `dataProvider`; exibe banner dismissível "Showing pods for Job: `<name>` ×" acima do grid enquanto filtro ativo; clicar em × limpa o filtro e exibe todos os pods
+- `JobsView`: botão "Ver Pods" (ícone `LIST`) adicionado à coluna de ações — navega para `workloads/pods?job=<name>`; lê query param `?cronjob=<name>` e pré-popula o campo de filtro Owner
+- `CronJobsView`: botão "Ver Jobs" (ícone `PLAY`) adicionado à coluna de ações antes do Manifest — navega para `workloads/jobs?cronjob=<name>`
+- Caminho completo: CronJobsView → [Ver Jobs] → JobsView?cronjob → [Ver Pods] → PodsView?job → [Logs] → PodLogsView; sem novas Permissions — reusa `WORKLOADS_JOBS_VIEW`, `WORKLOADS_CRONJOBS_VIEW`, `WORKLOADS_PODS_VIEW`
 
 ### Sprint 40 — Workloads — Jobs e CronJobs (read-only)
 - `Permission.WORKLOADS_JOBS_VIEW` e `Permission.WORKLOADS_CRONJOBS_VIEW` adicionados ao enum; incluídos em `allPermissions()`, `operatorPermissions()` e `viewerPermissions()` (read-only para todos os perfis)

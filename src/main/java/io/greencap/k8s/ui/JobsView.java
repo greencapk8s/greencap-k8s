@@ -9,6 +9,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -42,6 +43,9 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private final List<JobInfo> allItems = new ArrayList<>();
     private final ListDataProvider<JobInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilterField;
+    private TextField ownerFilterField;
+
     public JobsView(WorkloadService workloadService, ClusterContext clusterContext) {
         this.workloadService = workloadService;
         this.clusterContext = clusterContext;
@@ -61,6 +65,13 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             event.forwardTo("");
             return;
         }
+
+        String cronjobParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("cronjob", List.of()).stream().findFirst().orElse("");
+        if (!cronjobParam.isBlank()) {
+            ownerFilterField.setValue(cronjobParam);
+        }
+
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
@@ -70,39 +81,50 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
     }
 
     private void buildGrid() {
-        var nameCol   = grid.addColumn(JobInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
+        nameFilterField  = buildFilterField();
+        ownerFilterField = buildFilterField();
+
+        var nameCol  = grid.addColumn(JobInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var statusCol = grid.addComponentColumn(job -> statusBadge(job.status()))
                 .setHeader("Status").setWidth("120px").setResizable(true);
         grid.addColumn(JobInfo::completions).setHeader("Completions").setWidth("110px").setResizable(true);
         grid.addColumn(JobInfo::duration).setHeader("Duration").setWidth("110px").setResizable(true);
         grid.addColumn(JobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        var ownerCol  = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
+        var ownerCol = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
         grid.addComponentColumn(job -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
+            var podsIcon = VaadinIcon.LIST.create();
+            podsIcon.setSize(UiConstants.ICON_SIZE);
+            Button podsBtn = new Button(podsIcon);
+            podsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            podsBtn.getElement().setAttribute("title", "View Pods");
+            podsBtn.addClickListener(e -> UI.getCurrent().navigate(
+                    "workloads/pods?job=" + job.name()));
+
+            var manifestIcon = VaadinIcon.CODE.create();
+            manifestIcon.setSize(UiConstants.ICON_SIZE);
+            Button manifestBtn = new Button(manifestIcon);
+            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            manifestBtn.getElement().setAttribute("title", "View Manifest");
+            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "yaml/job/" + job.namespace() + "/" + job.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+
+            HorizontalLayout actions = new HorizontalLayout(podsBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth("100px").setFlexGrow(0);
+
+        dataProvider.setFilter(item ->
+            matches(item.name(), nameFilterField.getValue()) &&
+            matches(item.owner(), ownerFilterField.getValue()));
+
+        nameFilterField.addValueChangeListener(e -> dataProvider.refreshAll());
+        ownerFilterField.addValueChangeListener(e -> dataProvider.refreshAll());
 
         grid.setDataProvider(dataProvider);
 
-        TextField nameFilter  = buildFilterField();
-        TextField ownerFilter = buildFilterField();
-
-        dataProvider.setFilter(item ->
-            matches(item.name(), nameFilter.getValue()) &&
-            matches(item.owner(), ownerFilter.getValue()));
-
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        ownerFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-
         HeaderRow filterRow = grid.appendHeaderRow();
-        filterRow.getCell(nameCol).setComponent(nameFilter);
-        filterRow.getCell(ownerCol).setComponent(ownerFilter);
+        filterRow.getCell(nameCol).setComponent(nameFilterField);
+        filterRow.getCell(ownerCol).setComponent(ownerFilterField);
 
         grid.setSizeFull();
         grid.setVisible(false);

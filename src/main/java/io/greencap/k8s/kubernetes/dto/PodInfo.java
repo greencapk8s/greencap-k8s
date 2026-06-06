@@ -6,5 +6,6 @@ public record PodInfo(
         String phase,
         String node,
         int restarts,
-        String age
+        String age,
+        String jobName
 ) {}

@@ -9,6 +9,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -78,15 +79,26 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         grid.addColumn(CronJobInfo::lastScheduleTime).setHeader("Last Schedule").setWidth("120px").setResizable(true);
         grid.addColumn(CronJobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         grid.addComponentColumn(cj -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
+            var jobsIcon = VaadinIcon.PLAY.create();
+            jobsIcon.setSize(UiConstants.ICON_SIZE);
+            Button jobsBtn = new Button(jobsIcon);
+            jobsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            jobsBtn.getElement().setAttribute("title", "View Jobs");
+            jobsBtn.addClickListener(e -> UI.getCurrent().navigate(
+                    "workloads/jobs?cronjob=" + cj.name()));
+
+            var manifestIcon = VaadinIcon.CODE.create();
+            manifestIcon.setSize(UiConstants.ICON_SIZE);
+            Button manifestBtn = new Button(manifestIcon);
+            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            manifestBtn.getElement().setAttribute("title", "View Manifest");
+            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "yaml/cronjob/" + cj.namespace() + "/" + cj.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+
+            HorizontalLayout actions = new HorizontalLayout(jobsBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth("100px").setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 

@@ -46,7 +46,10 @@ public class WorkloadService {
                                             .mapToInt(c -> c.getRestartCount() != null ? c.getRestartCount() : 0)
                                             .sum())
                                     .orElse(0),
-                            NamespaceService.age(pod.getMetadata().getCreationTimestamp())
+                            NamespaceService.age(pod.getMetadata().getCreationTimestamp()),
+                            Optional.ofNullable(pod.getMetadata().getLabels())
+                                    .map(labels -> labels.getOrDefault("job-name", ""))
+                                    .orElse("")
                     ))
                     .toList();
         } catch (Exception e) {
