@@ -49,17 +49,17 @@
 | 39 | Workloads — Deployment Rollback (Rollout Undo) | ✅ Concluído |
 | 40 | Workloads — Jobs e CronJobs (read-only) | ✅ Concluído |
 | 41 | Workloads — Jobs/CronJobs: navegação contextual para logs | ✅ Concluído |
+| 42 | Workloads — Jobs/CronJobs: operações de escrita | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 42):
+Prioridade recomendada com base na evolução da plataforma (sprint 43):
 
 ### 🟡 Médio prazo — cobrir workloads comuns
 
 - **Ingress** — já mencionado como futuro na seção Networking; completa o mapa de tráfego (Service → Ingress).
-- **Jobs e CronJobs — operações de escrita** — trigger manual ("Run now") em Job, suspend/resume em CronJob, e delete para ambos; segue o padrão de Scale/Restart de Deployments.
 
 ### 🟢 Diferencial — visão de cluster
 
@@ -68,6 +68,16 @@ Prioridade recomendada com base na evolução da plataforma (sprint 42):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 42 — Workloads — Jobs/CronJobs: operações de escrita
+- `Permission`: 4 novos valores adicionados — `WORKLOADS_JOBS_DELETE`, `WORKLOADS_CRONJOBS_RUN_NOW`, `WORKLOADS_CRONJOBS_SUSPEND`, `WORKLOADS_CRONJOBS_DELETE`; `operatorPermissions()` inclui Run Now e Suspend; delete restrito a Admin
+- Migration `V14__add_jobs_cronjobs_write_permissions.sql`: concede Run Now e Suspend a usuários com `WORKLOADS_CRONJOBS_VIEW`; concede delete a usuários com `SETTINGS_USERS_WRITE` (proxy de Admin)
+- `WorkloadService`: 4 novos métodos — `triggerCronJob()` cria Job a partir do `spec.jobTemplate` com `ownerReference` apontando para o CronJob (mesmo padrão do controller automático); `suspendCronJob()` faz patch em `spec.suspend`; `deleteJob()` e `deleteCronJob()` com cascade padrão Kubernetes
+- `JobsView`: botão TRASH adicionado (habilitado apenas com `WORKLOADS_JOBS_DELETE`); dialog de confirmação com aviso de cascade de Pods
+- `CronJobsView`: 3 novos botões na coluna de ações — Trigger (ícone `FAST_FORWARD`, dialog de confirmação, navega para `JobsView?cronjob=<nome>` após criação); Suspend/Resume (botão único que alterna ícone PAUSE/PLAY conforme estado atual, sem dialog — operação reversível); Delete (ícone TRASH, aviso reforçado quando `active > 0`)
+- `UiConstants.actionsColumnWidth(n)`: nova função que calcula `n × 48px` — elimina números mágicos de largura de coluna de ações; aplicada em todas as 10 views com coluna de ações
+- `UserManagementView`: Jobs e CronJobs convertidos de `PermissionNode` para `SubGroupNode`; desmarcar View desmarca automaticamente as ações filhas
+- `CONTEXT.md`: termos `Trigger` e `Suspend` adicionados ao glossário; definições de `Job` e `CronJob` atualizadas para mencionar operações de escrita
 
 ### Sprint 41 — Workloads — Jobs/CronJobs: navegação contextual para logs
 - `PodInfo` record: campo `jobName` adicionado; populado de `metadata.labels["job-name"]` no `WorkloadService.listPods()` — padrão Kubernetes adicionado automaticamente pelo Job controller

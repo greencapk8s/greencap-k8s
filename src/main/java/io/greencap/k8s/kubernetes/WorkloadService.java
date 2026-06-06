@@ -240,6 +240,79 @@ public class WorkloadService {
         }
     }
 
+    public String triggerCronJob(Cluster cluster, String namespace, String cronJobName) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            var cronJob = client.batch().v1().cronjobs().inNamespace(namespace).withName(cronJobName).get();
+            if (cronJob == null) {
+                throw new KubernetesOperationException("CronJob not found: " + cronJobName, null);
+            }
+            String jobName = cronJobName + "-manual-" + (System.currentTimeMillis() / 1000);
+            var jobTemplate = cronJob.getSpec().getJobTemplate();
+            var ownerRef = new io.fabric8.kubernetes.api.model.OwnerReferenceBuilder()
+                    .withApiVersion("batch/v1")
+                    .withKind("CronJob")
+                    .withName(cronJobName)
+                    .withUid(cronJob.getMetadata().getUid())
+                    .withController(true)
+                    .withBlockOwnerDeletion(true)
+                    .build();
+            var job = new io.fabric8.kubernetes.api.model.batch.v1.JobBuilder()
+                    .withNewMetadata()
+                        .withName(jobName)
+                        .withNamespace(namespace)
+                        .withOwnerReferences(ownerRef)
+                    .endMetadata()
+                    .withSpec(jobTemplate.getSpec())
+                    .build();
+            client.batch().v1().jobs().inNamespace(namespace).resource(job).create();
+            log.info("Triggered job {} from cronjob {}/{}", jobName, namespace, cronJobName);
+            return jobName;
+        } catch (KubernetesOperationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to trigger cronjob {}/{}: {}", namespace, cronJobName, e.getMessage());
+            throw new KubernetesOperationException("Failed to trigger CronJob: " + e.getMessage(), e);
+        }
+    }
+
+    public void suspendCronJob(Cluster cluster, String namespace, String name, boolean suspend) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.batch().v1().cronjobs().inNamespace(namespace).withName(name)
+                    .edit(cj -> {
+                        cj.getSpec().setSuspend(suspend);
+                        return cj;
+                    });
+            log.info("{} cronjob {}/{}", suspend ? "Suspended" : "Resumed", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to {} cronjob {}/{}: {}", suspend ? "suspend" : "resume", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to " + (suspend ? "suspend" : "resume") + " CronJob: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteJob(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.batch().v1().jobs().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted job {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete job {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Job: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteCronJob(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.batch().v1().cronjobs().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted cronjob {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete cronjob {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete CronJob: " + e.getMessage(), e);
+        }
+    }
+
     private String deriveJobStatus(io.fabric8.kubernetes.api.model.batch.v1.Job job) {
         if (Boolean.TRUE.equals(Optional.ofNullable(job.getSpec()).map(s -> s.getSuspend()).orElse(false))) {
             return "Suspended";

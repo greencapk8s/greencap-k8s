@@ -60,5 +60,9 @@ final class UiConstants {
         return header;
     }
 
+    static String actionsColumnWidth(int buttonCount) {
+        return (buttonCount * 48) + "px";
+    }
+
     private UiConstants() {}
 }

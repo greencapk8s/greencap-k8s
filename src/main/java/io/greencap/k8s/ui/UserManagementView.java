@@ -383,19 +383,39 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     initial
             );
 
+            SubGroupNode jobsSubGroup = new SubGroupNode(
+                    "Jobs", Permission.WORKLOADS_JOBS_VIEW,
+                    new LinkedHashMap<>() {{
+                        put("Delete", Permission.WORKLOADS_JOBS_DELETE);
+                    }},
+                    initial
+            );
+
+            SubGroupNode cronJobsSubGroup = new SubGroupNode(
+                    "CronJobs", Permission.WORKLOADS_CRONJOBS_VIEW,
+                    new LinkedHashMap<>() {{
+                        put("Run Now", Permission.WORKLOADS_CRONJOBS_RUN_NOW);
+                        put("Suspend", Permission.WORKLOADS_CRONJOBS_SUSPEND);
+                        put("Delete", Permission.WORKLOADS_CRONJOBS_DELETE);
+                    }},
+                    initial
+            );
+
             List<PermissionNode> otherNodes = List.of(
                     new PermissionNode("ReplicaSets", Permission.WORKLOADS_REPLICASETS_VIEW, initial.contains(Permission.WORKLOADS_REPLICASETS_VIEW)),
-                    new PermissionNode("Pods", Permission.WORKLOADS_PODS_VIEW, initial.contains(Permission.WORKLOADS_PODS_VIEW)),
-                    new PermissionNode("Jobs", Permission.WORKLOADS_JOBS_VIEW, initial.contains(Permission.WORKLOADS_JOBS_VIEW)),
-                    new PermissionNode("CronJobs", Permission.WORKLOADS_CRONJOBS_VIEW, initial.contains(Permission.WORKLOADS_CRONJOBS_VIEW))
+                    new PermissionNode("Pods", Permission.WORKLOADS_PODS_VIEW, initial.contains(Permission.WORKLOADS_PODS_VIEW))
             );
 
             List<PermissionNode> allLeaves = new ArrayList<>(deploymentsSubGroup.allLeaves());
+            allLeaves.addAll(jobsSubGroup.allLeaves());
+            allLeaves.addAll(cronJobsSubGroup.allLeaves());
             allLeaves.addAll(otherNodes);
             leafNodes.addAll(allLeaves);
 
             List<Component> displayItems = new ArrayList<>();
             displayItems.add(deploymentsSubGroup);
+            displayItems.add(jobsSubGroup);
+            displayItems.add(cronJobsSubGroup);
             displayItems.addAll(otherNodes);
 
             GroupNode group = new GroupNode("Workloads", allLeaves, displayItems);

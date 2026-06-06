@@ -106,7 +106,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn, manifestBtn, eventsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("240px").setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(5)).setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 

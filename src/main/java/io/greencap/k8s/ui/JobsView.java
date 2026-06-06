@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
@@ -91,6 +92,8 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
         grid.addColumn(JobInfo::duration).setHeader("Duration").setWidth("110px").setResizable(true);
         grid.addColumn(JobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         var ownerCol = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_DELETE);
+
         grid.addComponentColumn(job -> {
             var podsIcon = VaadinIcon.LIST.create();
             podsIcon.setSize(UiConstants.ICON_SIZE);
@@ -100,6 +103,14 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             podsBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "workloads/pods?job=" + job.name()));
 
+            var deleteIcon = VaadinIcon.TRASH.create();
+            deleteIcon.setSize(UiConstants.ICON_SIZE);
+            Button deleteBtn = new Button(deleteIcon);
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+            deleteBtn.getElement().setAttribute("title", "Delete");
+            deleteBtn.setEnabled(canDelete);
+            deleteBtn.addClickListener(e -> openDeleteJobDialog(job));
+
             var manifestIcon = VaadinIcon.CODE.create();
             manifestIcon.setSize(UiConstants.ICON_SIZE);
             Button manifestBtn = new Button(manifestIcon);
@@ -108,10 +119,10 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "yaml/job/" + job.namespace() + "/" + job.name()));
 
-            HorizontalLayout actions = new HorizontalLayout(podsBtn, manifestBtn);
+            HorizontalLayout actions = new HorizontalLayout(podsBtn, deleteBtn, manifestBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("100px").setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilterField.getValue()) &&
@@ -128,6 +139,28 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
         grid.setSizeFull();
         grid.setVisible(false);
+    }
+
+    private void openDeleteJobDialog(JobInfo job) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete Job");
+        dialog.setText("Deleting this Job will also remove all its Pods and logs. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setCancelText("Cancel");
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.deleteJob(cluster, job.namespace(), job.name());
+                notify("Job " + job.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+                loadJobs();
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private boolean loadJobs() {

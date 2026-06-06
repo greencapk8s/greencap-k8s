@@ -49,12 +49,20 @@ A Kubernetes resource that maintains a stable set of replica Pods. Almost always
 _Avoid_: RS, replica controller
 
 **Job**:
-A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed read-only under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`.
+A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`. Supports one write operation: Delete.
 _Avoid_: Task, batch job, process
 
 **CronJob**:
-A Workload that creates Jobs on a recurring schedule defined by a cron expression. Owns zero or more active Jobs at any moment. Can be suspended — pausing new Job creation without deleting existing ones. In GreenCap, displayed read-only under the Workloads section, scoped to the active Namespace.
+A Workload that creates Jobs on a recurring schedule defined by a cron expression. Owns zero or more active Jobs at any moment. Can be suspended — pausing new Job creation without deleting existing ones. In GreenCap, displayed under the Workloads section, scoped to the active Namespace. Supports three write operations: Trigger, Suspend/Resume, and Delete.
 _Avoid_: Scheduled job, scheduler, task
+
+**Trigger**:
+A write operation on a CronJob that immediately creates a new Job from the CronJob's `spec.jobTemplate`, bypassing the schedule. The generated Job name follows the pattern `<cronjob-name>-manual-<epoch-seconds>` to guarantee uniqueness. After triggering, GreenCap navigates to JobsView filtered by the parent CronJob so the user can observe the new Job.
+_Avoid_: Run now, execute, start, dispatch
+
+**Suspend**:
+A write operation on a CronJob that pauses new Job creation by patching `spec.suspend: true`. Does not affect Jobs already running at the time of suspension. The inverse operation, Resume, patches `spec.suspend: false` and resumes the schedule. In GreenCap both are represented by a single toggling button that reflects the current state (Suspend when active, Resume when suspended).
+_Avoid_: Pause, stop, disable
 
 **ClusterProvider**:
 Contextual metadata describing the Kubernetes distribution behind a Cluster (OKD, OpenShift, Kubernetes, Rancher). Does not alter GreenCap's behavior — used for display and identification only.
