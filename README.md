@@ -48,6 +48,15 @@ Ao registrar um cluster, o kubeconfig precisa ter os certificados embutidos (nã
 kubectl config view --flatten --minify
 ```
 
+## Ambiente de demonstração
+
+O script `samples/greencap-demo/create.sh` provisiona um namespace completo com Deployments, Services, HPA e Ingress no Minikube — incluindo a ativação automática dos addons `metrics-server` e `ingress`.
+
+```bash
+cd samples/greencap-demo
+./create.sh
+```
+
 ## Rodando em produção
 
 ```bash

@@ -1,0 +1,168 @@
+package io.greencap.k8s.ui;
+
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.data.provider.ListDataProvider;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.Permission;
+import io.greencap.k8s.kubernetes.ClusterContext;
+import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.NetworkingService;
+import io.greencap.k8s.kubernetes.dto.IngressInfo;
+import jakarta.annotation.security.PermitAll;
+
+import java.util.ArrayList;
+import java.util.List;
+
+@Route(value = "networking/ingresses", layout = MainLayout.class)
+@PageTitle("Ingresses — GreenCap K8s")
+@PermitAll
+public class IngressView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
+
+    private final NetworkingService networkingService;
+    private final ClusterContext clusterContext;
+
+    private final Grid<IngressInfo> ingressGrid = new Grid<>(IngressInfo.class, false);
+    private final VerticalLayout noClusterMessage;
+
+    private final List<IngressInfo> allItems = new ArrayList<>();
+    private final ListDataProvider<IngressInfo> dataProvider = new ListDataProvider<>(allItems);
+
+    public IngressView(NetworkingService networkingService, ClusterContext clusterContext) {
+        this.networkingService = networkingService;
+        this.clusterContext = clusterContext;
+
+        setSizeFull();
+        setPadding(true);
+
+        noClusterMessage = UiConstants.buildNoClusterMessage();
+        buildIngressGrid();
+
+        add(UiConstants.buildSectionHeader("Ingresses", this::loadIngresses), noClusterMessage, ingressGrid);
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
+        boolean hasCluster = clusterContext.getCluster() != null;
+        noClusterMessage.setVisible(!hasCluster);
+        ingressGrid.setVisible(hasCluster);
+        if (hasCluster) {
+            loadIngresses();
+        }
+    }
+
+    private void buildIngressGrid() {
+        var nameCol = ingressGrid.addColumn(IngressInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
+        var classCol = ingressGrid.addColumn(IngressInfo::ingressClass).setHeader("IngressClass").setWidth("160px").setResizable(true);
+        ingressGrid.addColumn(IngressInfo::hosts).setHeader("Hosts").setFlexGrow(2).setResizable(true);
+        ingressGrid.addComponentColumn(i -> tlsBadge(i.tls())).setHeader("TLS").setWidth("100px").setResizable(true);
+        ingressGrid.addColumn(IngressInfo::address).setHeader("Address").setWidth("150px").setResizable(true);
+        ingressGrid.addColumn(IngressInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+        ingressGrid.addComponentColumn(i -> {
+            var icon = VaadinIcon.CODE.create();
+            icon.setSize(UiConstants.ICON_SIZE);
+            Button btn = new Button(icon);
+            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            btn.getElement().setAttribute("title", "View Manifest");
+            btn.addClickListener(e -> UI.getCurrent().navigate("yaml/ingress/" + i.namespace() + "/" + i.name()));
+            return btn;
+        }).setHeader("").setWidth("60px").setFlexGrow(0);
+
+        ingressGrid.setDataProvider(dataProvider);
+
+        TextField nameFilter = buildFilterField();
+        TextField classFilter = buildFilterField();
+
+        dataProvider.setFilter(item ->
+                matches(item.name(), nameFilter.getValue()) &&
+                matches(item.ingressClass(), classFilter.getValue()));
+
+        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        classFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+
+        HeaderRow filterRow = ingressGrid.appendHeaderRow();
+        filterRow.getCell(nameCol).setComponent(nameFilter);
+        filterRow.getCell(classCol).setComponent(classFilter);
+
+        ingressGrid.setSizeFull();
+        ingressGrid.setVisible(false);
+    }
+
+    private boolean loadIngresses() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return false;
+        String namespace = clusterContext.getNamespace();
+        try {
+            List<IngressInfo> items = networkingService.listIngresses(cluster, namespace);
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+            return true;
+        } catch (KubernetesOperationException e) {
+            notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
+            allItems.clear();
+            dataProvider.refreshAll();
+            return false;
+        }
+    }
+
+    private Span tlsBadge(boolean tls) {
+        Span badge = new Span(tls ? "TLS" : "Plain");
+        badge.getElement().getThemeList().add("badge");
+        if (tls) {
+            badge.getElement().getThemeList().add("success");
+        } else {
+            badge.getElement().getThemeList().add("contrast");
+        }
+        return badge;
+    }
+
+    @Override
+    public void refresh() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        try {
+            List<IngressInfo> items = networkingService.listIngresses(cluster, clusterContext.getNamespace());
+            allItems.clear();
+            allItems.addAll(items);
+            dataProvider.refreshAll();
+        } catch (KubernetesOperationException ignored) {}
+    }
+
+    private TextField buildFilterField() {
+        TextField field = new TextField();
+        field.setPlaceholder("Filter...");
+        field.setClearButtonVisible(true);
+        field.setWidth("100%");
+        field.getElement().getThemeList().add("small");
+        return field;
+    }
+
+    private boolean matches(String value, String filter) {
+        return filter == null || filter.isBlank() ||
+               (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
+    }
+
+    private void notify(String message, NotificationVariant variant) {
+        Notification notification = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
+        notification.addThemeVariants(variant);
+    }
+}

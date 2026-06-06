@@ -4,6 +4,7 @@ import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.IngressInfo;
 import io.greencap.k8s.kubernetes.dto.ServiceInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,62 @@ public class NetworkingService {
         } catch (Exception e) {
             log.error("Failed to list services for cluster {}: {}", cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to list services: " + e.getMessage(), e);
+        }
+    }
+
+    public List<IngressInfo> listIngresses(Cluster cluster, String namespace) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            var items = isAllNamespaces(namespace)
+                    ? client.network().v1().ingresses().inAnyNamespace().list().getItems()
+                    : client.network().v1().ingresses().inNamespace(namespace).list().getItems();
+
+            return items.stream()
+                    .map(ing -> {
+                        String ingressClass = Optional.ofNullable(ing.getSpec())
+                                .map(s -> s.getIngressClassName())
+                                .filter(c -> c != null && !c.isBlank())
+                                .orElse("—");
+
+                        String hosts = Optional.ofNullable(ing.getSpec())
+                                .map(s -> s.getRules())
+                                .filter(rules -> rules != null && !rules.isEmpty())
+                                .map(rules -> rules.stream()
+                                        .map(r -> r.getHost() != null ? r.getHost() : "*")
+                                        .distinct()
+                                        .collect(Collectors.joining(", ")))
+                                .orElse("—");
+
+                        boolean hasTls = Optional.ofNullable(ing.getSpec())
+                                .map(s -> s.getTls())
+                                .map(tls -> !tls.isEmpty())
+                                .orElse(false);
+
+                        String address = Optional.ofNullable(ing.getStatus())
+                                .map(s -> s.getLoadBalancer())
+                                .map(lb -> lb.getIngress())
+                                .filter(lbi -> lbi != null && !lbi.isEmpty())
+                                .map(lbi -> lbi.stream()
+                                        .map(e -> e.getIp() != null ? e.getIp() : e.getHostname())
+                                        .filter(v -> v != null && !v.isBlank())
+                                        .collect(Collectors.joining(", ")))
+                                .filter(v -> !v.isBlank())
+                                .orElse("—");
+
+                        return new IngressInfo(
+                                ing.getMetadata().getName(),
+                                ing.getMetadata().getNamespace(),
+                                ingressClass,
+                                hosts,
+                                hasTls,
+                                address,
+                                NamespaceService.age(ing.getMetadata().getCreationTimestamp())
+                        );
+                    })
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list ingresses for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list ingresses: " + e.getMessage(), e);
         }
     }
 

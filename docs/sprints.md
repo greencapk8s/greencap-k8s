@@ -51,16 +51,13 @@
 | 41 | Workloads — Jobs/CronJobs: navegação contextual para logs | ✅ Concluído |
 | 42 | Workloads — Jobs/CronJobs: operações de escrita | ✅ Concluído |
 | 43 | Infrastructure — Nodes | ✅ Concluído |
+| 44 | Networking — Ingresses (read-only) | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 43):
-
-### 🟡 Médio prazo — cobrir workloads comuns
-
-- **Ingress** — já mencionado como futuro na seção Networking; completa o mapa de tráfego (Service → Ingress).
+Prioridade recomendada com base na evolução da plataforma (sprint 44):
 
 ### 🟢 Diferencial — visão de cluster
 
@@ -69,6 +66,21 @@ Prioridade recomendada com base na evolução da plataforma (sprint 43):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 44 — Networking — Ingresses (read-only)
+- Termo `Ingress` adicionado ao `CONTEXT.md`: namespaced, IngressClass opcional (`"—"` se ausente), hosts colapsados, TLS como boolean, Address de `status.loadBalancer.ingress`
+- `Permission.NETWORKING_INGRESS_VIEW` adicionado ao enum; incluído em `allPermissions()`, `operatorPermissions()` e `viewerPermissions()`
+- Migration `V15__add_ingress_permission.sql`: concede `NETWORKING_INGRESS_VIEW` a todos os usuários que já possuem `NETWORKING_SERVICES_VIEW`
+- `IngressInfo` record criado em `kubernetes/dto/` com campos: name, namespace, ingressClass, hosts, tls, address, age
+- `NetworkingService.listIngresses()`: lista via `client.network().v1().ingresses()`; IngressClass de `spec.ingressClassName`; hosts colapsados de `spec.rules[].host`; address de `status.loadBalancer.ingress[].ip` (fallback hostname); suporte a all-namespaces
+- `IngressView`: rota `/networking/ingresses`; colunas Name · IngressClass · Hosts · TLS · Address · Age · Manifest; badge `success`="TLS" / `contrast`="Plain"; filtros por Name e IngressClass; implementa `Refreshable`; protegida por `NETWORKING_INGRESS_VIEW`
+- `MainLayout.buildRedeNavItem()`: sub-item "Ingresses" com ícone `ARROWS_LONG_RIGHT` adicionado abaixo de "Services"; pai "Networking" permanece apontando para `ServicesView`
+- `ManifestService`: tipo `"ingress"` adicionado — `client.network().v1().ingresses().inNamespace(ns).withName(name).get()`
+- `UserManagementView`: "Ingresses" adicionado à árvore de permissões sob o grupo Networking
+- `samples/greencap-demo/manifests/11-ingress.yaml`: Ingress `greencap-demo.local` com paths `/` → frontend e `/api` → backend, `ingressClassName: nginx`
+- `samples/greencap-demo/create.sh`: habilita addon `ingress` + aguarda controller pronto antes de aplicar manifests; exibe comando `/etc/hosts` com IP resolvido
+- `samples/greencap-demo/add-hosts.sh`: script auxiliar para adicionar entrada no `/etc/hosts`
+- `README.md`: seção "Ambiente de demonstração" apontando para `samples/greencap-demo/create.sh`
 
 ### Sprint 43 — Infrastructure — Nodes
 - Termo `Node` adicionado ao `CONTEXT.md`: status derivado da condição `Ready`, role derivado de labels canônicos (`control-plane`/`master`), allocatable CPU e memory como campos principais

@@ -449,10 +449,13 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildRedeNavItem() {
-        boolean canServices = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_VIEW);
+        boolean canServices  = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_VIEW);
+        boolean canIngresses = SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_VIEW);
+        boolean anyChild     = canServices || canIngresses;
 
-        SideNavItem networking = navItem("Networking", ServicesView.class, VaadinIcon.CONNECT, canServices);
+        SideNavItem networking = navItem("Networking", ServicesView.class, VaadinIcon.CONNECT, anyChild);
         networking.addItem(navItem("Services", ServicesView.class, VaadinIcon.SHARE, canServices));
+        networking.addItem(navItem("Ingresses", IngressView.class, VaadinIcon.ARROWS_LONG_RIGHT, canIngresses));
         return networking;
     }
 

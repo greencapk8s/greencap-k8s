@@ -309,9 +309,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
             groups.add(buildWorkloadsGroup(initial));
 
-            groups.add(buildGroup("Networking", Map.of(
-                    "Services", Permission.NETWORKING_SERVICES_VIEW
-            ), initial));
+            groups.add(buildGroup("Networking", new LinkedHashMap<>() {{
+                put("Services", Permission.NETWORKING_SERVICES_VIEW);
+                put("Ingresses", Permission.NETWORKING_INGRESS_VIEW);
+            }}, initial));
 
             groups.add(buildGroup("Parameters", new LinkedHashMap<>() {{
                 put("ConfigMaps", Permission.PARAMETERS_CONFIGMAPS_VIEW);

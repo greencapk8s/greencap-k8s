@@ -88,8 +88,12 @@ _Avoid_: Config, settings, properties
 Sensitive key-value data (credentials, tokens, certificates) stored in the cluster. In GreenCap, only metadata is displayed (name, type, key count) — values are never decoded or shown.
 _Avoid_: Kubeconfig (a Kubeconfig is a GreenCap concept; Secret is a Kubernetes object)
 
+**Ingress**:
+A namespaced Kubernetes resource that routes external HTTP/HTTPS traffic to Services based on host and path rules. Has an optional `ingressClassName` identifying which IngressController handles it — displayed as `"—"` when absent. Hosts are collapsed into a comma-separated string for grid display. TLS is shown as a badge: `success` when any TLS block is configured, `contrast` ("Plain") otherwise. In GreenCap, displayed read-only under the Networking section, scoped to the active Namespace, protected by `NETWORKING_INGRESS_VIEW`.
+_Avoid_: Route, proxy, gateway, LoadBalancer
+
 **Networking**:
-UI section grouping network-related Kubernetes resources visible in GreenCap. Currently contains Services. Inspired by AWS Networking grouping. Future: Ingress.
+UI section grouping network-related Kubernetes resources visible in GreenCap. Currently contains Services and Ingresses. Inspired by AWS Networking grouping.
 _Avoid_: Rede, network, LoadBalancer
 
 **Parameters**:
