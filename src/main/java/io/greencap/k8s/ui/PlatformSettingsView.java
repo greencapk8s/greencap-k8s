@@ -11,9 +11,13 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import jakarta.annotation.security.PermitAll;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,9 +25,16 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @Route(value = "settings", layout = MainLayout.class)
 @PageTitle("Platform Settings — GreenCap K8s")
 @PermitAll
-public class PlatformSettingsView extends VerticalLayout {
+public class PlatformSettingsView extends VerticalLayout implements BeforeEnterObserver {
 
     private final UserService userService;
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.SETTINGS_PLATFORM_VIEW)) {
+            event.forwardTo("");
+        }
+    }
 
     public PlatformSettingsView(UserService userService) {
         this.userService = userService;

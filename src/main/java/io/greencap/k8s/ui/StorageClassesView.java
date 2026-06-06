@@ -24,6 +24,8 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "infrastructure/storageclasses", layout = MainLayout.class)
 @PageTitle("Storage Classes — GreenCap K8s")
@@ -54,6 +56,10 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

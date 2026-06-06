@@ -22,6 +22,8 @@ import io.greencap.k8s.kubernetes.TopologyService;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Slf4j
 @Route(value = "topologia", layout = MainLayout.class)
@@ -72,6 +74,10 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.TOPOLOGY_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         showOnly(noClusterMessage);
 
         if (clusterContext.getCluster() == null) {

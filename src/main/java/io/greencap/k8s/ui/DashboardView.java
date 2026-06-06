@@ -26,6 +26,8 @@ import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Slf4j
 @Route(value = "", layout = MainLayout.class)
@@ -67,6 +69,10 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.OBSERVABILITY_DASHBOARD_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         loadContent();
     }
 

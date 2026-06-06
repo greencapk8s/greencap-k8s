@@ -27,6 +27,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "infrastructure/pvs", layout = MainLayout.class)
 @PageTitle("PersistentVolumes — GreenCap K8s")
@@ -59,6 +61,10 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

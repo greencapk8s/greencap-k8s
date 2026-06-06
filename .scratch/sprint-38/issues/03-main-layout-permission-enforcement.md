@@ -1,7 +1,7 @@
 ---
 id: "38-03"
 title: "MainLayout: enforce permissions on nav items and actions"
-status: open
+status: done
 labels: [feat, ui]
 sprint: 38
 ---

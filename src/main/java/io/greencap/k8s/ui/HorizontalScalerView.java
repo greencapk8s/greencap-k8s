@@ -61,6 +61,10 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

@@ -1,7 +1,7 @@
 ---
 id: "38-01"
 title: "Permission enum + refactor User entity"
-status: open
+status: done
 labels: [feat, backend]
 sprint: 38
 ---

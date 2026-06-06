@@ -27,6 +27,8 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "workloads/pods", layout = MainLayout.class)
 @PageTitle("Pods — GreenCap K8s")
@@ -59,6 +61,10 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         podGrid.setVisible(hasCluster);

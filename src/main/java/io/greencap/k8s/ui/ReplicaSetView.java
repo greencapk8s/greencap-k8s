@@ -25,6 +25,8 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "workloads/replicasets", layout = MainLayout.class)
 @PageTitle("ReplicaSets — GreenCap K8s")
@@ -55,6 +57,10 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

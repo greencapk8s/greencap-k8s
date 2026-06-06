@@ -1,7 +1,7 @@
 ---
 id: "38-04"
 title: "Views: replace isViewer() with hasPermission() and disabled pattern"
-status: open
+status: done
 labels: [feat, ui]
 sprint: 38
 ---

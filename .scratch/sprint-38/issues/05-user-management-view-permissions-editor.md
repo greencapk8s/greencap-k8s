@@ -1,7 +1,7 @@
 ---
 id: "38-05"
 title: "UserManagementView: TreeView permission editor"
-status: open
+status: done
 labels: [feat, ui]
 sprint: 38
 ---

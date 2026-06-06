@@ -1,7 +1,7 @@
 ---
 id: "38-02"
 title: "Flyway migration: role → user_permissions"
-status: open
+status: done
 labels: [feat, database]
 sprint: 38
 ---

@@ -62,6 +62,10 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         refreshGrid();
     }
 

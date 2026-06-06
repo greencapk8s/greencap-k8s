@@ -26,7 +26,7 @@ import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.User;
 import io.greencap.k8s.domain.user.UserService;
-import org.springframework.security.access.prepost.PreAuthorize;
+import jakarta.annotation.security.PermitAll;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
@@ -40,10 +40,11 @@ import java.util.stream.Collectors;
 
 @Route(value = "users", layout = MainLayout.class)
 @PageTitle("Users — GreenCap K8s")
-@PreAuthorize("hasAuthority('SETTINGS_USERS_VIEW')")
+@PermitAll
 public class UserManagementView extends VerticalLayout implements BeforeEnterObserver {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+    private static final String DEFAULT_ADMIN_USERNAME = "admin";
 
     private final UserService userService;
     private final Grid<User> grid = new Grid<>(User.class, false);
@@ -56,6 +57,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.SETTINGS_USERS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         refreshGrid();
     }
 
@@ -78,7 +83,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         grid.addComponentColumn(this::permissionCountBadge).setHeader("Permissions").setWidth("140px").setResizable(true);
         grid.addComponentColumn(this::activeBadge).setHeader("Status").setWidth("100px").setResizable(true);
         grid.addColumn(u -> u.getCreatedAt().format(DATE_FORMATTER)).setHeader("Created").setWidth("160px").setResizable(true);
-        grid.addComponentColumn(this::buildActions).setHeader("").setWidth("110px").setFlexGrow(0);
+        grid.addComponentColumn(this::buildActions).setHeader("").setWidth("140px").setFlexGrow(0);
         grid.setSizeFull();
         return grid;
     }
@@ -115,7 +120,11 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         Button editBtn = new Button(editIcon, e -> openEditPermissionsDialog(user));
         editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
         editBtn.getElement().setAttribute("title", "Edit permissions");
-        editBtn.setEnabled(canWrite);
+        boolean isDefaultAdmin = DEFAULT_ADMIN_USERNAME.equals(user.getUsername());
+        editBtn.setEnabled(canWrite && !isDefaultAdmin);
+        if (isDefaultAdmin) {
+            editBtn.getElement().setAttribute("title", "Default admin permissions are protected");
+        }
 
         var deactivateIcon = VaadinIcon.BAN.create();
         deactivateIcon.setSize(UiConstants.ICON_SIZE);

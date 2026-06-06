@@ -45,7 +45,7 @@
 | 35 | Platform Settings — tela de configurações globais | ✅ Concluído |
 | 36 | UX — Drawer width no banco, tema dark/light, poll interval do PodLog | ✅ Concluído |
 | 37 | RBAC — controle de acesso por role e gerenciamento de usuários | ✅ Concluído |
-| 38 | RBAC granular — permissões por funcionalidade com TreeView | ⏸ Aguardando aceite manual |
+| 38 | RBAC granular — permissões por funcionalidade com TreeView | ✅ Concluído |
 
 ---
 

@@ -25,6 +25,8 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "config/secrets", layout = MainLayout.class)
 @PageTitle("Secrets — GreenCap K8s")
@@ -55,6 +57,10 @@ public class SecretsView extends VerticalLayout implements BeforeEnterObserver, 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.PARAMETERS_SECRETS_VIEW)) {
+            event.forwardTo("");
+            return;
+        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         secretGrid.setVisible(hasCluster);
