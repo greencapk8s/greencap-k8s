@@ -44,16 +44,16 @@
 | 34 | UX — Melhorias de navbar, dashboard e ReplicaSets | ✅ Concluído |
 | 35 | Platform Settings — tela de configurações globais | ✅ Concluído |
 | 36 | UX — Drawer width no banco, tema dark/light, poll interval do PodLog | ✅ Concluído |
+| 37 | RBAC — controle de acesso por role e gerenciamento de usuários | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 36):
+Prioridade recomendada com base na evolução da plataforma (sprint 37):
 
 ### 🔴 Alta prioridade — completar o core
 
-- **RBAC + User Management** — controle de acesso por role (`ADMIN`, `OPERATOR`, `VIEWER`) com `@Secured` nas views; `UserManagementView` (apenas ADMIN) para criar e desativar usuários. Já no backlog. Sem isso a plataforma não é segura para uso compartilhado.
 - **Deployment rollback** — extensão natural de Scale e Restart; usuário escolhe para qual ReplicaSet reverter. ReplicaSets já listados na plataforma.
 
 ### 🟡 Médio prazo — cobrir workloads comuns
@@ -68,6 +68,16 @@ Prioridade recomendada com base na evolução da plataforma (sprint 36):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 37 — RBAC — controle de acesso por role e gerenciamento de usuários
+- `SecurityUtils`: helper estático `isViewer()` e `isAdmin()` lendo das Spring Security authorities — sem query ao banco
+- `ClustersView`: botões "Add Cluster" e "Remove" não renderizados para VIEWER
+- `DeploymentsView`: botões Scale e Restart não renderizados para VIEWER; largura da coluna de ações ajustada por role
+- `HorizontalScalerView`: botão Edit não renderizado para VIEWER; largura da coluna de ações ajustada por role
+- `UserManagementView`: rota `/users` com `@RolesAllowed("ADMIN")` — grid de usuários (username, email, role, status, criado em), dialog "Add User" com validação inline por campo, botão "Deactivate" por linha com proteção contra auto-desativação
+- `UserService.deactivateUser()` e `findAll()` adicionados
+- `MainLayout`: item "Users" no sidebar renderizado apenas para ADMIN, com link real para `UserManagementView`
+- `AccessDeniedView`: handler de `AccessDeniedException` que redireciona para o dashboard — evita `NotFoundException` ao navegar para rota restrita
 
 ### Sprint 36 — UX — Drawer width no banco, tema dark/light, poll interval do PodLog
 - Migration `V9__add_drawer_width_to_users.sql`: coluna `drawer_width_px INTEGER` nullable adicionada à tabela `users`

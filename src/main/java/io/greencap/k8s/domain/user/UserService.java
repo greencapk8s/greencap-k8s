@@ -3,6 +3,8 @@ package io.greencap.k8s.domain.user;
 import io.greencap.k8s.domain.cluster.Cluster;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.List;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -105,5 +107,17 @@ public class UserService implements UserDetailsService {
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
         user.setRole(role);
         return userRepository.save(user);
+    }
+
+    public List<User> findAll() {
+        return userRepository.findAll();
+    }
+
+    @Transactional
+    public void deactivateUser(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setActive(false);
+            userRepository.save(user);
+        });
     }
 }

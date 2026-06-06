@@ -30,6 +30,7 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
+import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import jakarta.annotation.security.PermitAll;
 
@@ -85,18 +86,24 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
                 .setHeader("Replicas").setWidth("100px").setResizable(true);
         deployGrid.addColumn(DeploymentInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
         deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+        boolean canWrite = !SecurityUtils.isViewer();
+        String actionsColumnWidth = canWrite ? "200px" : "130px";
         deployGrid.addComponentColumn(d -> {
-            Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
-            Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
             Button eventsBtn = buildActionButton(VaadinIcon.RECORDS, "Events",
                     e -> EventsDialog.open(observabilityService, clusterContext, "Deployment", d.name(), d.namespace()));
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, manifestBtn, eventsBtn);
+            HorizontalLayout actions = new HorizontalLayout(manifestBtn, eventsBtn);
+            if (canWrite) {
+                Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
+                Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
+                actions.addComponentAsFirst(restartBtn);
+                actions.addComponentAsFirst(scaleBtn);
+            }
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("200px").setFlexGrow(0);
+        }).setHeader("").setWidth(actionsColumnWidth).setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 

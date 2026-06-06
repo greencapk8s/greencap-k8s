@@ -24,6 +24,7 @@ import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
@@ -475,12 +476,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private SideNav buildConfiguracaoNav() {
         SideNav nav = new SideNav();
         nav.setWidthFull();
-        nav.addItem(
-                new SideNavItem("Clusters", ClustersView.class, VaadinIcon.SERVER.create()),
-                buildInfrastructureNavItem(),
-                disabledNavItem("Users", VaadinIcon.USERS),
-                new SideNavItem("Settings", PlatformSettingsView.class, VaadinIcon.COG.create())
-        );
+        nav.addItem(new SideNavItem("Clusters", ClustersView.class, VaadinIcon.SERVER.create()));
+        nav.addItem(buildInfrastructureNavItem());
+        if (SecurityUtils.isAdmin()) {
+            nav.addItem(new SideNavItem("Users", UserManagementView.class, VaadinIcon.USERS.create()));
+        }
+        nav.addItem(new SideNavItem("Settings", PlatformSettingsView.class, VaadinIcon.COG.create()));
         return nav;
     }
 
