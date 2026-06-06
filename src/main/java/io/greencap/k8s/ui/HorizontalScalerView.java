@@ -25,6 +25,7 @@ import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.dto.HorizontalScalerInfo;
 import jakarta.annotation.security.PermitAll;
 
@@ -84,20 +85,17 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
                 .setHeader("Current / Max").setWidth("120px").setResizable(true);
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canWrite = !SecurityUtils.isViewer();
-        String actionsColumnWidth = canWrite ? "110px" : "80px";
+        boolean canWrite = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
         grid.addComponentColumn(h -> {
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/horizontalscaler/" + h.namespace() + "/" + h.name()));
+            Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
+            editBtn.setEnabled(canWrite);
 
-            HorizontalLayout actions = new HorizontalLayout(manifestBtn);
-            if (canWrite) {
-                Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
-                actions.addComponentAsFirst(editBtn);
-            }
+            HorizontalLayout actions = new HorizontalLayout(editBtn, manifestBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth(actionsColumnWidth).setFlexGrow(0);
+        }).setHeader("").setWidth("110px").setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 

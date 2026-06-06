@@ -2,9 +2,11 @@ package io.greencap.k8s.domain.user;
 
 import io.greencap.k8s.domain.cluster.Cluster;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.List;
+import java.util.Set;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,14 +25,18 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
+        User user = userRepository.findByUsernameWithPermissions(username)
                 .filter(User::isActive)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
+
+        var authorities = user.getPermissions().stream()
+                .map(p -> new SimpleGrantedAuthority(p.name()))
+                .toList();
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getUsername())
                 .password(user.getPasswordHash())
-                .roles(user.getRole().name())
+                .authorities(authorities)
                 .build();
     }
 
@@ -100,13 +106,27 @@ public class UserService implements UserDetailsService {
     }
 
     @Transactional
-    public User createUser(String username, String email, String rawPassword, Role role) {
+    public User createUser(String username, String email, String rawPassword, Set<Permission> permissions) {
         User user = new User();
         user.setUsername(username);
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        user.setRole(role);
+        user.setPermissions(permissions);
         return userRepository.save(user);
+    }
+
+    @Transactional
+    public void updatePermissions(Long userId, Set<Permission> permissions) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setPermissions(permissions);
+            userRepository.save(user);
+        });
+    }
+
+    public Set<Permission> findPermissions(Long userId) {
+        return userRepository.findById(userId)
+                .map(User::getPermissions)
+                .orElse(Set.of());
     }
 
     public List<User> findAll() {

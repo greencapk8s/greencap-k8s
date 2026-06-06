@@ -1,6 +1,6 @@
 package io.greencap.k8s.config;
 
-import io.greencap.k8s.domain.user.Role;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserRepository;
 import io.greencap.k8s.domain.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (!userRepository.existsByUsername("admin")) {
-            userService.createUser("admin", "admin@greencap.local", "admin", Role.ADMIN);
+            userService.createUser("admin", "admin@greencap.local", "admin", Permission.allPermissions());
             log.info("Admin user created — login: admin / admin");
         }
     }

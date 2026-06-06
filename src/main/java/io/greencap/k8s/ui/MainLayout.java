@@ -26,6 +26,7 @@ import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.user.UserService;
@@ -476,12 +477,16 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private SideNav buildConfiguracaoNav() {
         SideNav nav = new SideNav();
         nav.setWidthFull();
-        nav.addItem(new SideNavItem("Clusters", ClustersView.class, VaadinIcon.SERVER.create()));
-        nav.addItem(buildInfrastructureNavItem());
-        if (SecurityUtils.isAdmin()) {
-            nav.addItem(new SideNavItem("Users", UserManagementView.class, VaadinIcon.USERS.create()));
-        }
-        nav.addItem(new SideNavItem("Settings", PlatformSettingsView.class, VaadinIcon.COG.create()));
+        SideNavItem clustersItem = navItem("Clusters", ClustersView.class, VaadinIcon.SERVER,
+                SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_VIEW));
+
+        SideNavItem usersItem = navItem("Users", UserManagementView.class, VaadinIcon.USERS,
+                SecurityUtils.hasPermission(Permission.SETTINGS_USERS_VIEW));
+
+        SideNavItem settingsItem = navItem("Settings", PlatformSettingsView.class, VaadinIcon.COG,
+                SecurityUtils.hasPermission(Permission.SETTINGS_PLATFORM_VIEW));
+
+        nav.addItem(clustersItem, buildInfrastructureNavItem(), usersItem, settingsItem);
         return nav;
     }
 
@@ -560,6 +565,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         item.getStyle()
                 .set("opacity", "0.4")
                 .set("pointer-events", "none");
+        return item;
+    }
+
+    private <T extends com.vaadin.flow.component.Component> SideNavItem navItem(
+            String label, Class<T> view, VaadinIcon icon, boolean enabled) {
+        SideNavItem item = new SideNavItem(label, view, icon.create());
+        if (!enabled) {
+            item.getStyle()
+                    .set("opacity", "0.4")
+                    .set("pointer-events", "none");
+        }
         return item;
     }
 }

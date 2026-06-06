@@ -30,6 +30,7 @@ import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubeconfigValidator;
 import jakarta.annotation.security.PermitAll;
@@ -68,7 +69,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         Button addBtn = new Button("Add Cluster", VaadinIcon.PLUS.create(),
                 e -> openAddDialog());
         addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addBtn.setVisible(!SecurityUtils.isViewer());
+        addBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_WRITE));
 
         HorizontalLayout toolbar = new HorizontalLayout(new H2("Clusters"), addBtn);
         toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
@@ -142,16 +143,14 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         testBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
         testBtn.getElement().setAttribute("title", "Test connection");
 
-        HorizontalLayout actions = new HorizontalLayout(testBtn);
-        if (!SecurityUtils.isViewer()) {
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon, e -> confirmDelete(cluster));
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Remove cluster");
-            actions.add(deleteBtn);
-        }
-        return actions;
+        var deleteIcon = VaadinIcon.TRASH.create();
+        deleteIcon.setSize(UiConstants.ICON_SIZE);
+        Button deleteBtn = new Button(deleteIcon, e -> confirmDelete(cluster));
+        deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+        deleteBtn.getElement().setAttribute("title", "Remove cluster");
+        deleteBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_WRITE));
+
+        return new HorizontalLayout(testBtn, deleteBtn);
     }
 
     private void confirmDelete(Cluster cluster) {

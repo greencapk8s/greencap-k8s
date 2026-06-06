@@ -1,0 +1,79 @@
+package io.greencap.k8s.domain.user;
+
+import java.util.Set;
+
+public enum Permission {
+
+    // Project — Topology
+    TOPOLOGY_VIEW,
+
+    // Project — Workloads
+    WORKLOADS_DEPLOYMENTS_VIEW,
+    WORKLOADS_DEPLOYMENTS_SCALE,
+    WORKLOADS_DEPLOYMENTS_RESTART,
+    WORKLOADS_REPLICASETS_VIEW,
+    WORKLOADS_PODS_VIEW,
+
+    // Project — Networking
+    NETWORKING_SERVICES_VIEW,
+
+    // Project — Parameters
+    PARAMETERS_CONFIGMAPS_VIEW,
+    PARAMETERS_SECRETS_VIEW,
+
+    // Project — Auto Scaling
+    AUTOSCALING_HORIZONTALSCALER_VIEW,
+    AUTOSCALING_HORIZONTALSCALER_WRITE,
+
+    // Project — Storage
+    STORAGE_PVC_VIEW,
+
+    // Observability
+    OBSERVABILITY_DASHBOARD_VIEW,
+    OBSERVABILITY_EVENTS_VIEW,
+    OBSERVABILITY_METRICS_VIEW,
+
+    // Settings
+    SETTINGS_CLUSTERS_VIEW,
+    SETTINGS_CLUSTERS_WRITE,
+    SETTINGS_INFRASTRUCTURE_VIEW,
+    SETTINGS_USERS_VIEW,
+    SETTINGS_USERS_WRITE,
+    SETTINGS_PLATFORM_VIEW;
+
+    public static Set<Permission> allPermissions() {
+        return Set.of(values());
+    }
+
+    public static Set<Permission> operatorPermissions() {
+        return Set.of(
+                TOPOLOGY_VIEW,
+                WORKLOADS_DEPLOYMENTS_VIEW, WORKLOADS_DEPLOYMENTS_SCALE, WORKLOADS_DEPLOYMENTS_RESTART,
+                WORKLOADS_REPLICASETS_VIEW, WORKLOADS_PODS_VIEW,
+                NETWORKING_SERVICES_VIEW,
+                PARAMETERS_CONFIGMAPS_VIEW, PARAMETERS_SECRETS_VIEW,
+                AUTOSCALING_HORIZONTALSCALER_VIEW, AUTOSCALING_HORIZONTALSCALER_WRITE,
+                STORAGE_PVC_VIEW,
+                OBSERVABILITY_DASHBOARD_VIEW, OBSERVABILITY_EVENTS_VIEW, OBSERVABILITY_METRICS_VIEW,
+                SETTINGS_CLUSTERS_VIEW, SETTINGS_CLUSTERS_WRITE,
+                SETTINGS_INFRASTRUCTURE_VIEW,
+                SETTINGS_PLATFORM_VIEW
+        );
+    }
+
+    public static Set<Permission> viewerPermissions() {
+        return Set.of(
+                TOPOLOGY_VIEW,
+                WORKLOADS_DEPLOYMENTS_VIEW,
+                WORKLOADS_REPLICASETS_VIEW, WORKLOADS_PODS_VIEW,
+                NETWORKING_SERVICES_VIEW,
+                PARAMETERS_CONFIGMAPS_VIEW, PARAMETERS_SECRETS_VIEW,
+                AUTOSCALING_HORIZONTALSCALER_VIEW,
+                STORAGE_PVC_VIEW,
+                OBSERVABILITY_DASHBOARD_VIEW, OBSERVABILITY_EVENTS_VIEW, OBSERVABILITY_METRICS_VIEW,
+                SETTINGS_CLUSTERS_VIEW,
+                SETTINGS_INFRASTRUCTURE_VIEW,
+                SETTINGS_PLATFORM_VIEW
+        );
+    }
+}

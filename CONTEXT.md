@@ -13,12 +13,12 @@ The result of the last connection attempt to a Cluster. Not a persistent authori
 _Avoid_: Status, health, availability
 
 **User**:
-A person with access to the GreenCap platform. Has a role that determines what they can do.
+A person with access to the GreenCap platform. Access is determined by the explicit set of Permissions granted to them — there is no Role field.
 _Avoid_: Account, member, principal
 
-**Role**:
-The access level of a User. `VIEWER` — read-only access to clusters and workloads. `OPERATOR` — read + write access to clusters and workload operations. `ADMIN` — full access including user management (create, deactivate).
-_Avoid_: Permission, privilege, group
+**Permission**:
+A named capability granted explicitly to a User. Persisted as a `Set<Permission>` on the User entity (`@ElementCollection`). Covers two levels: view-level (can the user navigate to a section?) and action-level (can the user perform a write operation within that section?). Examples: `WORKLOADS_DEPLOYMENTS_VIEW`, `WORKLOADS_DEPLOYMENTS_SCALE`, `SETTINGS_USERS_VIEW`. Loaded as Spring Security `GrantedAuthority` objects at login so that `hasAuthority()` checks work at the framework level. ADMIN, OPERATOR and VIEWER are preset labels used only in Flyway migration to seed permissions for existing users — they are not a persistent concept.
+_Avoid_: Role, privilege, group
 
 **Namespace**:
 A logical isolation unit within a Cluster that groups Workloads. Not a Workload itself.
