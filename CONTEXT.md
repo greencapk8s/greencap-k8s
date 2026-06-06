@@ -132,8 +132,12 @@ _Avoid_: PV, disk, volume
 A cluster-scoped Kubernetes resource that defines how PersistentVolumes are dynamically provisioned (provisioner, reclaim policy, binding mode, expansion support). Not namespaced. In GreenCap, displayed read-only under Infrastructure in the Settings section.
 _Avoid_: SC, storage profile, storage tier
 
+**Node**:
+A cluster-scoped Kubernetes resource representing a physical or virtual machine that runs Workloads. Not namespaced. Each Node exposes allocatable CPU and memory (the capacity available for scheduling, after system overhead). Role is derived from labels: a Node with label `node-role.kubernetes.io/control-plane` or `node-role.kubernetes.io/master` is a Control Plane node; all others are Workers. Status is determined by the `Ready` condition: `Ready` (node is healthy and accepting Pods), `NotReady` (node is not accepting Pods), `Unknown` (node controller lost contact). In GreenCap, displayed read-only under the Infrastructure section, protected by `SETTINGS_INFRASTRUCTURE_VIEW`.
+_Avoid_: Machine, host, server, instance
+
 **Infrastructure**:
-UI section within Settings grouping cluster-scoped infrastructure resources. Currently contains PersistentVolumes and StorageClasses. Distinct from Storage (which is namespace-scoped) and Settings (which is GreenCap platform configuration).
+UI section within Settings grouping cluster-scoped infrastructure resources. Currently contains PersistentVolumes, StorageClasses, and Nodes. Distinct from Storage (which is namespace-scoped) and Settings (which is GreenCap platform configuration).
 _Avoid_: Admin, cluster resources, system
 
 **Topologia**:

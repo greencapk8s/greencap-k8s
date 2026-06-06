@@ -50,6 +50,7 @@
 | 40 | Workloads — Jobs e CronJobs (read-only) | ✅ Concluído |
 | 41 | Workloads — Jobs/CronJobs: navegação contextual para logs | ✅ Concluído |
 | 42 | Workloads — Jobs/CronJobs: operações de escrita | ✅ Concluído |
+| 43 | Infrastructure — Nodes | ✅ Concluído |
 
 ---
 
@@ -68,6 +69,14 @@ Prioridade recomendada com base na evolução da plataforma (sprint 43):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 43 — Infrastructure — Nodes
+- Termo `Node` adicionado ao `CONTEXT.md`: status derivado da condição `Ready`, role derivado de labels canônicos (`control-plane`/`master`), allocatable CPU e memory como campos principais
+- `NodeInfo` record criado em `kubernetes/dto/` com campos: name, status, role, version, os, cpu, memory, age
+- `StorageService.listNodes()`: lista nodes via `client.nodes().list()`; status derivado de `status.conditions[type=Ready]`; role de labels `node-role.kubernetes.io/control-plane` ou `master`; memory convertida de kibibytes para GiB com 1 casa decimal
+- `NodesView`: rota `/infrastructure/nodes`; colunas Name · Status · Role · Version · OS · CPU · Memory · Age · Manifest; badge `success` para Ready, `error` para NotReady, `contrast` para Unknown; filtros por Name e Status; implementa `Refreshable`; protegida por `SETTINGS_INFRASTRUCTURE_VIEW` (sem nova permission, sem migration)
+- `MainLayout`: sub-item `"Nodes"` com ícone `SERVER` adicionado ao grupo Infrastructure, abaixo de Storage Classes
+- `ManifestService`: tipo `"node"` adicionado ao switch — `client.nodes().withName(name).get()` (cluster-scoped, namespace ignorado)
 
 ### Sprint 42 — Workloads — Jobs/CronJobs: operações de escrita
 - `Permission`: 4 novos valores adicionados — `WORKLOADS_JOBS_DELETE`, `WORKLOADS_CRONJOBS_RUN_NOW`, `WORKLOADS_CRONJOBS_SUSPEND`, `WORKLOADS_CRONJOBS_DELETE`; `operatorPermissions()` inclui Run Now e Suspend; delete restrito a Admin

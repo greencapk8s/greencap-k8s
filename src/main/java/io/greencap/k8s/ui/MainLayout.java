@@ -521,6 +521,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem infrastructure = navItem("Infrastructure", PersistentVolumesView.class, VaadinIcon.CLOUD, canInfra);
         infrastructure.addItem(navItem("Persistent Volumes (PV)", PersistentVolumesView.class, VaadinIcon.HARDDRIVE, canInfra));
         infrastructure.addItem(navItem("Storage Classes", StorageClassesView.class, VaadinIcon.STORAGE, canInfra));
+        infrastructure.addItem(navItem("Nodes", NodesView.class, VaadinIcon.SERVER, canInfra));
 
         if (canInfra) {
             clusterDependentNavItems.add(infrastructure);

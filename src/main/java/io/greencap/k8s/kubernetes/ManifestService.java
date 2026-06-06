@@ -33,6 +33,7 @@ public class ManifestService {
                 case "storageclass"     -> client.storage().v1().storageClasses().withName(name).get();
                 case "job"     -> client.batch().v1().jobs().inNamespace(namespace).withName(name).get();
                 case "cronjob" -> client.batch().v1().cronjobs().inNamespace(namespace).withName(name).get();
+                case "node"    -> client.nodes().withName(name).get();
                 default -> throw new KubernetesOperationException("Unknown resource type: " + resourceType, null);
             };
 
