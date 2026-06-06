@@ -6,21 +6,23 @@ metadata:
   labels:
     app.kubernetes.io/name: greencap-demo
     app.kubernetes.io/managed-by: greencap
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
   - host: greencap-demo.local
     http:
       paths:
-      - path: /
-        pathType: Prefix
+      - path: /()(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: frontend
             port:
               number: 80
-      - path: /api
-        pathType: Prefix
+      - path: /api(/|$)(.*)
+        pathType: ImplementationSpecific
         backend:
           service:
             name: backend

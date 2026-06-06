@@ -1,0 +1,201 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-html
+  namespace: greencap-demo
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/component: web
+    app.kubernetes.io/managed-by: greencap
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>GreenCap Demo</title>
+      <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+          background: #0d1117;
+          color: #e6edf3;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 2rem;
+        }
+
+        .card {
+          background: #161b22;
+          border: 1px solid #30363d;
+          border-radius: 16px;
+          padding: 3rem 3.5rem;
+          max-width: 640px;
+          width: 100%;
+          text-align: center;
+          box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        .logo {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.75rem;
+          margin-bottom: 2rem;
+        }
+
+        .logo-icon {
+          width: 48px;
+          height: 48px;
+          background: linear-gradient(135deg, #238636, #2ea043);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.75rem;
+        }
+
+        .logo-text {
+          font-size: 1.75rem;
+          font-weight: 700;
+          color: #e6edf3;
+          letter-spacing: -0.5px;
+        }
+
+        .logo-text span {
+          color: #2ea043;
+        }
+
+        h1 {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: #e6edf3;
+          margin-bottom: 0.75rem;
+        }
+
+        .subtitle {
+          color: #8b949e;
+          font-size: 0.975rem;
+          line-height: 1.6;
+          margin-bottom: 2.5rem;
+        }
+
+        .badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          background: #1a2f1a;
+          border: 1px solid #2ea043;
+          color: #3fb950;
+          font-size: 0.8rem;
+          font-weight: 500;
+          padding: 0.3rem 0.85rem;
+          border-radius: 20px;
+          margin-bottom: 2.5rem;
+        }
+
+        .badge::before {
+          content: '';
+          width: 7px;
+          height: 7px;
+          background: #3fb950;
+          border-radius: 50%;
+          animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+
+        .services {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1rem;
+          margin-bottom: 2.5rem;
+        }
+
+        .service {
+          background: #0d1117;
+          border: 1px solid #30363d;
+          border-radius: 10px;
+          padding: 1rem 0.75rem;
+          transition: border-color 0.2s;
+        }
+
+        .service:hover { border-color: #2ea043; }
+
+        .service-icon { font-size: 1.5rem; margin-bottom: 0.4rem; }
+
+        .service-name {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #e6edf3;
+          margin-bottom: 0.2rem;
+        }
+
+        .service-status {
+          font-size: 0.72rem;
+          color: #3fb950;
+        }
+
+        .footer {
+          border-top: 1px solid #30363d;
+          padding-top: 1.5rem;
+          color: #8b949e;
+          font-size: 0.8rem;
+        }
+
+        .footer a {
+          color: #2ea043;
+          text-decoration: none;
+        }
+
+        .footer a:hover { text-decoration: underline; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo">
+          <div class="logo-icon">🌿</div>
+          <div class="logo-text">Green<span>Cap</span></div>
+        </div>
+
+        <div class="badge">Demo environment running</div>
+
+        <h1>Kubernetes Demo Cluster</h1>
+        <p class="subtitle">
+          This is a sample application deployed by GreenCap to demonstrate
+          Kubernetes workload management — deployments, services, ingresses,
+          jobs, and autoscaling, all in one namespace.
+        </p>
+
+        <div class="services">
+          <div class="service">
+            <div class="service-icon">⚙️</div>
+            <div class="service-name">Backend</div>
+            <div class="service-status">● running</div>
+          </div>
+          <div class="service">
+            <div class="service-icon">🗄️</div>
+            <div class="service-name">Redis</div>
+            <div class="service-status">● running</div>
+          </div>
+          <div class="service">
+            <div class="service-icon">📈</div>
+            <div class="service-name">HPA</div>
+            <div class="service-status">● active</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          Managed by <a href="#">GreenCap K8s</a> &mdash; namespace <code>greencap-demo</code>
+        </div>
+      </div>
+    </body>
+    </html>
