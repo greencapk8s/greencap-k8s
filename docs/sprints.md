@@ -46,16 +46,13 @@
 | 36 | UX — Drawer width no banco, tema dark/light, poll interval do PodLog | ✅ Concluído |
 | 37 | RBAC — controle de acesso por role e gerenciamento de usuários | ✅ Concluído |
 | 38 | RBAC granular — permissões por funcionalidade com TreeView | ✅ Concluído |
+| 39 | Workloads — Deployment Rollback (Rollout Undo) | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 37):
-
-### 🔴 Alta prioridade — completar o core
-
-- **Deployment rollback** — extensão natural de Scale e Restart; usuário escolhe para qual ReplicaSet reverter. ReplicaSets já listados na plataforma.
+Prioridade recomendada com base na evolução da plataforma (sprint 39):
 
 ### 🟡 Médio prazo — cobrir workloads comuns
 
@@ -69,6 +66,12 @@ Prioridade recomendada com base na evolução da plataforma (sprint 37):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 39 — Workloads — Deployment Rollback (Rollout Undo)
+- `Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK` adicionado ao enum; incluído em `allPermissions()` e `operatorPermissions()`, ausente em `viewerPermissions()`
+- Migration `V12__add_deployment_rollback_permission.sql`: concede `WORKLOADS_DEPLOYMENTS_ROLLBACK` a todos os usuários que já possuem `WORKLOADS_DEPLOYMENTS_RESTART` (ADMIN e OPERATOR)
+- `WorkloadService.rolloutUndoDeployment()`: chama `rolling().undo()` via Fabric8 dentro de `try-with-resources`; lança `KubernetesOperationException` em falha
+- `DeploymentsView`: botão "Rollout Undo" (ícone `REPLY`) adicionado à coluna de ações, desabilitado sem `WORKLOADS_DEPLOYMENTS_ROLLBACK`; dialog de confirmação antes de executar; notificação de sucesso/erro em `BOTTOM_END`; largura da coluna de ações ajustada de 200px para 240px
 
 ### Sprint 37 — RBAC — controle de acesso por role e gerenciamento de usuários
 - `SecurityUtils`: helper estático `isViewer()` e `isAdmin()` lendo das Spring Security authorities — sem query ao banco

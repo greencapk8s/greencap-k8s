@@ -110,4 +110,6 @@ Toda sprint segue este ciclo antes de qualquer código:
 3. **Implementação** — codificar seguindo as convenções deste guia, marcando a issue como `in-progress`
 4. **Testes automatizados** — compilar (`./gradlew compileJava`) e rodar testes (`./gradlew test`); reportar resultado ao usuário
 5. **Aceite manual** — aguardar o usuário validar os fluxos no browser e confirmar o aceite; não avançar sem essa confirmação
-6. **Fechamento** — somente após aceite do usuário: marcar a issue como `done`, atualizar `docs/sprints.md` e fazer commit incluindo tudo
+6. **Fechamento** — somente após aceite explícito do usuário: marcar a issue como `done`, atualizar `docs/sprints.md` (status ✅ e entrada na seção Sprints Concluídas) e fazer commit incluindo tudo
+
+> ⚠️ **NUNCA** marcar issues como `done`, mudar o status da sprint para ✅ Concluído, adicionar a sprint na seção "Sprints Concluídas" do `docs/sprints.md`, ou criar o commit de fechamento antes de receber confirmação explícita de aceite do usuário. Testes automatizados passando **não** substituem o aceite manual.

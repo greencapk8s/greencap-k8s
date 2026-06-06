@@ -90,6 +90,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
         boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
+        boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
         deployGrid.addComponentColumn(d -> {
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
@@ -99,11 +100,13 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             scaleBtn.setEnabled(canScale);
             Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
             restartBtn.setEnabled(canRestart);
+            Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(d));
+            rollbackBtn.setEnabled(canRollback);
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, manifestBtn, eventsBtn);
+            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn, manifestBtn, eventsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("200px").setFlexGrow(0);
+        }).setHeader("").setWidth("240px").setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 
@@ -254,6 +257,35 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         dialog.add(message);
         dialog.getFooter().add(cancelBtn, restartBtn);
+        dialog.open();
+    }
+
+    private void openRollbackDialog(DeploymentInfo deployment) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Rollout Undo");
+
+        Paragraph message = new Paragraph("Roll back " + deployment.name() + " to the previous revision?");
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button undoBtn = new Button("Rollout Undo");
+        undoBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        undoBtn.addClickListener(e -> {
+            dialog.close();
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.rolloutUndoDeployment(cluster, deployment.namespace(), deployment.name());
+                loadDeployments();
+                notify("Deployment " + deployment.name() + " rolled back to previous revision", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+
+        dialog.add(message);
+        dialog.getFooter().add(cancelBtn, undoBtn);
         dialog.open();
     }
 

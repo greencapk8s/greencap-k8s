@@ -146,6 +146,17 @@ public class WorkloadService {
         }
     }
 
+    public void rolloutUndoDeployment(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().deployments().inNamespace(namespace).withName(name).rolling().undo();
+            log.info("Rolled back deployment {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to roll back deployment {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to roll back deployment: " + e.getMessage(), e);
+        }
+    }
+
     private boolean isAllNamespaces(String namespace) {
         return namespace == null || namespace.isBlank() || "all".equalsIgnoreCase(namespace);
     }
