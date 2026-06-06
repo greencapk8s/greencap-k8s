@@ -38,7 +38,6 @@ import java.util.concurrent.TimeUnit;
 @PermitAll
 public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
 
-    private static final int POLL_INTERVAL_SECONDS = 3;
     private static final String NO_PREVIOUS_LOG_MESSAGE = "No previous log available for this container.";
 
     private final ObservabilityService observabilityService;
@@ -47,6 +46,7 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
     private final Span titleSpan = new Span();
     private final Select<String> containerSelect = new Select<>();
     private final Select<Integer> tailSelect = new Select<>();
+    private final Select<Integer> pollIntervalSelect = new Select<>();
     private final Checkbox previousCheckbox = new Checkbox("Previous container");
     private final Button pauseResumeBtn = new Button();
     private final Pre logContent = new Pre();
@@ -122,10 +122,11 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
         stopPolling();
         polling = true;
         updatePauseResumeButton();
+        int intervalSeconds = pollIntervalSelect.getValue() != null ? pollIntervalSelect.getValue() : 3;
         UI ui = UI.getCurrent();
         pollTask = pollExecutor.scheduleAtFixedRate(
                 () -> ui.access(this::fetchAndRenderLogs),
-                0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+                0, intervalSeconds, TimeUnit.SECONDS);
     }
 
     private void stopPolling() {
@@ -209,6 +210,17 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
             }
         });
 
+        pollIntervalSelect.setItems(1, 3, 5, 10);
+        pollIntervalSelect.setValue(3);
+        pollIntervalSelect.setWidth("80px");
+        pollIntervalSelect.setItemLabelGenerator(s -> s + "s");
+        pollIntervalSelect.addValueChangeListener(e -> {
+            if (polling) {
+                stopPolling();
+                startPolling();
+            }
+        });
+
         updatePauseResumeButton();
         pauseResumeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         pauseResumeBtn.addClickListener(e -> togglePolling());
@@ -223,9 +235,10 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
         titleSpan.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.FontWeight.BOLD);
 
         Span linesLabel = new Span("Lines:");
+        Span pollLabel = new Span("Poll:");
 
         HorizontalLayout header = new HorizontalLayout(
-                backBtn, titleSpan, containerSelect, linesLabel, tailSelect, previousCheckbox, pauseResumeBtn);
+                backBtn, titleSpan, containerSelect, linesLabel, tailSelect, previousCheckbox, pollLabel, pollIntervalSelect, pauseResumeBtn);
         header.setDefaultVerticalComponentAlignment(Alignment.CENTER);
         header.setWidthFull();
         header.expand(titleSpan);

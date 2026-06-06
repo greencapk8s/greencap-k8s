@@ -10,6 +10,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
@@ -33,7 +34,7 @@ public class PlatformSettingsView extends VerticalLayout {
         H2 pageTitle = new H2("Platform Settings");
         pageTitle.addClassNames(LumoUtility.FontSize.XLARGE, LumoUtility.Margin.Bottom.MEDIUM);
 
-        add(pageTitle, buildRefreshCard());
+        add(pageTitle, buildRefreshCard(), buildAppearanceCard());
     }
 
     private Div buildRefreshCard() {
@@ -77,6 +78,50 @@ public class PlatformSettingsView extends VerticalLayout {
         row.addClassNames(LumoUtility.Margin.Top.MEDIUM);
 
         VerticalLayout cardContent = new VerticalLayout(cardTitle, description, row);
+        cardContent.setPadding(true);
+        cardContent.setSpacing(false);
+
+        Div card = new Div(cardContent);
+        card.addClassNames(
+                LumoUtility.Border.ALL,
+                LumoUtility.BorderRadius.MEDIUM,
+                LumoUtility.BorderColor.CONTRAST_10
+        );
+        card.setMaxWidth("600px");
+        return card;
+    }
+
+    private Div buildAppearanceCard() {
+        H3 cardTitle = new H3("Appearance");
+        cardTitle.addClassNames(LumoUtility.FontSize.MEDIUM, LumoUtility.Margin.Bottom.SMALL);
+
+        Span description = new Span("Choose the color theme for the interface.");
+        description.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
+
+        RadioButtonGroup<String> themeGroup = new RadioButtonGroup<>();
+        themeGroup.setItems("DARK", "LIGHT");
+        themeGroup.setItemLabelGenerator(t -> "DARK".equals(t) ? "Dark" : "Light");
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String currentTheme = userService.findTheme(username).orElse("DARK");
+        themeGroup.setValue(currentTheme);
+
+        themeGroup.addValueChangeListener(e -> {
+            if (e.getValue() != null) {
+                userService.updateTheme(username, e.getValue());
+                getUI().flatMap(ui -> ui.getChildren()
+                        .filter(c -> c instanceof MainLayout)
+                        .map(c -> (MainLayout) c)
+                        .findFirst())
+                        .ifPresent(layout -> layout.applyTheme(e.getValue()));
+                Notification notification = Notification.show(
+                        "Theme saved.", UiConstants.NOTIFICATION_DURATION_MS,
+                        Notification.Position.BOTTOM_END);
+                notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            }
+        });
+
+        VerticalLayout cardContent = new VerticalLayout(cardTitle, description, themeGroup);
         cardContent.setPadding(true);
         cardContent.setSpacing(false);
 

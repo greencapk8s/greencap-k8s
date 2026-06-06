@@ -1,5 +1,6 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
 import com.vaadin.flow.server.VaadinSession;
@@ -67,7 +68,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         this.userService = userService;
         this.namespaceService = namespaceService;
         this.clusterService = clusterService;
-        getElement().setAttribute("theme", Lumo.DARK);
         setPrimarySection(Section.DRAWER);
 
         clusterInfoLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -80,7 +80,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         addToNavbar(buildNavbar());
         addToNavbar(true, clusterWarningBanner);
         addToDrawer(buildDrawer());
-        initResizableDrawer();
 
         if (clusterContext.getCluster() == null) {
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -98,10 +97,31 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     protected void onAttach(com.vaadin.flow.component.AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
         userService.findRefreshInterval(username).ifPresent(seconds -> {
             currentRefreshInterval = RefreshInterval.fromSeconds(seconds);
             applyRefreshInterval(currentRefreshInterval);
         });
+
+        String theme = userService.findTheme(username).orElse("DARK");
+        applyTheme(theme);
+
+        int drawerWidth = userService.findDrawerWidth(username).orElse(240);
+        initResizableDrawer(drawerWidth);
+    }
+
+    public void applyTheme(String theme) {
+        if ("LIGHT".equals(theme)) {
+            getElement().removeAttribute("theme");
+        } else {
+            getElement().setAttribute("theme", Lumo.DARK);
+        }
+    }
+
+    @ClientCallable
+    public void saveDrawerWidth(int width) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.updateDrawerWidth(username, width);
     }
 
     @Override
@@ -472,13 +492,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         return infrastructure;
     }
 
-    private void initResizableDrawer() {
+    private void initResizableDrawer(int initialWidth) {
         getElement().executeJs("""
-            (function() {
+            (function(initial) {
                 const MIN_WIDTH = 180;
                 const MAX_WIDTH = 400;
-                const DEFAULT_WIDTH = 240;
-                const STORAGE_KEY = 'greencap-drawer-width';
 
                 const appLayout = $0;
                 const shadow = appLayout.shadowRoot;
@@ -495,8 +513,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     if (contentPart) contentPart.style.marginInlineStart = w + 'px';
                 }
 
-                const saved = parseInt(localStorage.getItem(STORAGE_KEY));
-                const initial = (saved >= MIN_WIDTH && saved <= MAX_WIDTH) ? saved : DEFAULT_WIDTH;
                 applyWidth(initial);
 
                 const handle = document.createElement('div');
@@ -530,10 +546,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     dragging = false;
                     document.body.style.userSelect = '';
                     handle.style.background = 'transparent';
-                    localStorage.setItem(STORAGE_KEY, parseInt(drawerPart ? drawerPart.style.width : initial));
+                    const finalWidth = parseInt(drawerPart ? drawerPart.style.width : initial);
+                    appLayout.$server.saveDrawerWidth(finalWidth);
                 });
-            })();
-        """, getElement());
+            })($1);
+        """, getElement(), initialWidth);
     }
 
     private SideNavItem disabledNavItem(String label, VaadinIcon icon) {

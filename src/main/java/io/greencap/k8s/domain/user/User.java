@@ -45,6 +45,12 @@ public class User {
     @Column(name = "refresh_interval_seconds")
     private Integer refreshIntervalSeconds;
 
+    @Column(name = "drawer_width_px")
+    private Integer drawerWidthPx;
+
+    @Column(name = "theme", length = 10)
+    private String theme = "DARK";
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

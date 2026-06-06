@@ -71,6 +71,32 @@ public class UserService implements UserDetailsService {
         });
     }
 
+    public Optional<Integer> findDrawerWidth(String username) {
+        return userRepository.findByUsername(username)
+                .map(User::getDrawerWidthPx);
+    }
+
+    @Transactional
+    public void updateDrawerWidth(String username, int width) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setDrawerWidthPx(width);
+            userRepository.save(user);
+        });
+    }
+
+    public Optional<String> findTheme(String username) {
+        return userRepository.findByUsername(username)
+                .map(User::getTheme);
+    }
+
+    @Transactional
+    public void updateTheme(String username, String theme) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setTheme(theme);
+            userRepository.save(user);
+        });
+    }
+
     @Transactional
     public User createUser(String username, String email, String rawPassword, Role role) {
         User user = new User();

@@ -43,10 +43,20 @@
 | 33 | Observabilidade — Dashboard de namespace | ✅ Concluído |
 | 34 | UX — Melhorias de navbar, dashboard e ReplicaSets | ✅ Concluído |
 | 35 | Platform Settings — tela de configurações globais | ✅ Concluído |
+| 36 | UX — Drawer width no banco, tema dark/light, poll interval do PodLog | ✅ Concluído |
 
 ---
 
 ## Sprints Concluídas
+
+### Sprint 36 — UX — Drawer width no banco, tema dark/light, poll interval do PodLog
+- Migration `V9__add_drawer_width_to_users.sql`: coluna `drawer_width_px INTEGER` nullable adicionada à tabela `users`
+- Migration `V10__add_theme_to_users.sql`: coluna `theme VARCHAR(10) NOT NULL DEFAULT 'DARK'` adicionada à tabela `users`
+- `User.java`: campos `drawerWidthPx` e `theme` adicionados
+- `UserService`: métodos `findDrawerWidth/updateDrawerWidth` e `findTheme/updateTheme` adicionados
+- `MainLayout`: largura do drawer lida do banco em `onAttach` e passada ao JS; ao soltar o mouse, `@ClientCallable saveDrawerWidth()` persiste no banco (localStorage removido); tema lido do banco via `applyTheme()` no `onAttach`; default DARK quando sem preferência
+- `PlatformSettingsView`: card "Appearance" com `RadioButtonGroup` (Dark / Light) — persiste no banco e aplica na UI sem recarregar
+- `PodLogsView`: `Select<Integer>` com opções 1s / 3s / 5s / 10s (default 3s) adicionado à toolbar com label "Poll:" — constante hardcoded removida
 
 ### Sprint 35 — Platform Settings — tela de configurações globais
 - `PlatformSettingsView` criada em `/settings`: tela de configurações da plataforma GreenCap (não de recursos Kubernetes); layout em cards por seção
