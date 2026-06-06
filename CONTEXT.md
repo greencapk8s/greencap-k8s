@@ -25,7 +25,7 @@ A logical isolation unit within a Cluster that groups Workloads. Not a Workload 
 _Avoid_: Environment, project, partition
 
 **Workload**:
-A deployable unit running inside a Namespace. In GreenCap, the concrete types are Pod, Deployment, and ReplicaSet.
+A deployable unit running inside a Namespace. In GreenCap, the concrete types are Pod, Deployment, ReplicaSet, Job, and CronJob.
 _Avoid_: Resource, object, service
 
 **Pod**:
@@ -47,6 +47,14 @@ _Avoid_: redeploy, bounce, kill
 **ReplicaSet**:
 A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed read-only under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans).
 _Avoid_: RS, replica controller
+
+**Job**:
+A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed read-only under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`.
+_Avoid_: Task, batch job, process
+
+**CronJob**:
+A Workload that creates Jobs on a recurring schedule defined by a cron expression. Owns zero or more active Jobs at any moment. Can be suspended — pausing new Job creation without deleting existing ones. In GreenCap, displayed read-only under the Workloads section, scoped to the active Namespace.
+_Avoid_: Scheduled job, scheduler, task
 
 **ClusterProvider**:
 Contextual metadata describing the Kubernetes distribution behind a Cluster (OKD, OpenShift, Kubernetes, Rancher). Does not alter GreenCap's behavior — used for display and identification only.

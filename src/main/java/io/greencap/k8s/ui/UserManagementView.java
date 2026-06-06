@@ -1,5 +1,6 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.checkbox.Checkbox;
@@ -306,13 +307,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     "Topology", Permission.TOPOLOGY_VIEW
             ), initial));
 
-            groups.add(buildGroup("Workloads", new LinkedHashMap<>() {{
-                put("Deployments (View)", Permission.WORKLOADS_DEPLOYMENTS_VIEW);
-                put("Deployments — Scale", Permission.WORKLOADS_DEPLOYMENTS_SCALE);
-                put("Deployments — Restart", Permission.WORKLOADS_DEPLOYMENTS_RESTART);
-                put("ReplicaSets", Permission.WORKLOADS_REPLICASETS_VIEW);
-                put("Pods", Permission.WORKLOADS_PODS_VIEW);
-            }}, initial));
+            groups.add(buildWorkloadsGroup(initial));
 
             groups.add(buildGroup("Networking", Map.of(
                     "Services", Permission.NETWORKING_SERVICES_VIEW
@@ -372,8 +367,39 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     .map(e -> new PermissionNode(e.getKey(), e.getValue(), initial.contains(e.getValue())))
                     .toList();
             leafNodes.addAll(nodes);
-            GroupNode group = new GroupNode(label, nodes);
+            GroupNode group = new GroupNode(label, nodes, new ArrayList<>(nodes));
             nodes.forEach(n -> n.getCheckbox().addValueChangeListener(ev -> group.syncState()));
+            return group;
+        }
+
+        private GroupNode buildWorkloadsGroup(Set<Permission> initial) {
+            SubGroupNode deploymentsSubGroup = new SubGroupNode(
+                    "Deployments", Permission.WORKLOADS_DEPLOYMENTS_VIEW,
+                    new LinkedHashMap<>() {{
+                        put("Scale", Permission.WORKLOADS_DEPLOYMENTS_SCALE);
+                        put("Restart", Permission.WORKLOADS_DEPLOYMENTS_RESTART);
+                        put("Rollback", Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
+                    }},
+                    initial
+            );
+
+            List<PermissionNode> otherNodes = List.of(
+                    new PermissionNode("ReplicaSets", Permission.WORKLOADS_REPLICASETS_VIEW, initial.contains(Permission.WORKLOADS_REPLICASETS_VIEW)),
+                    new PermissionNode("Pods", Permission.WORKLOADS_PODS_VIEW, initial.contains(Permission.WORKLOADS_PODS_VIEW)),
+                    new PermissionNode("Jobs", Permission.WORKLOADS_JOBS_VIEW, initial.contains(Permission.WORKLOADS_JOBS_VIEW)),
+                    new PermissionNode("CronJobs", Permission.WORKLOADS_CRONJOBS_VIEW, initial.contains(Permission.WORKLOADS_CRONJOBS_VIEW))
+            );
+
+            List<PermissionNode> allLeaves = new ArrayList<>(deploymentsSubGroup.allLeaves());
+            allLeaves.addAll(otherNodes);
+            leafNodes.addAll(allLeaves);
+
+            List<Component> displayItems = new ArrayList<>();
+            displayItems.add(deploymentsSubGroup);
+            displayItems.addAll(otherNodes);
+
+            GroupNode group = new GroupNode("Workloads", allLeaves, displayItems);
+            allLeaves.forEach(n -> n.getCheckbox().addValueChangeListener(ev -> group.syncState()));
             return group;
         }
 
@@ -407,14 +433,49 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         Permission getPermission() { return permission; }
     }
 
+    private static class SubGroupNode extends VerticalLayout {
+
+        private final PermissionNode parentNode;
+        private final List<PermissionNode> actionNodes;
+
+        SubGroupNode(String viewLabel, Permission viewPermission,
+                     Map<String, Permission> actions, Set<Permission> initial) {
+            parentNode = new PermissionNode(viewLabel, viewPermission, initial.contains(viewPermission));
+            actionNodes = actions.entrySet().stream()
+                    .map(e -> {
+                        PermissionNode node = new PermissionNode(e.getKey(), e.getValue(), initial.contains(e.getValue()));
+                        node.getCheckbox().getStyle().set("margin-left", "var(--lumo-space-xl)");
+                        return node;
+                    })
+                    .toList();
+
+            // Unchecking view unchecks all actions — actions require view to be meaningful
+            parentNode.getCheckbox().addValueChangeListener(ev -> {
+                if (!ev.getValue()) actionNodes.forEach(a -> a.getCheckbox().setValue(false));
+            });
+
+            setPadding(false);
+            setSpacing(false);
+            add(parentNode);
+            actionNodes.forEach(this::add);
+        }
+
+        List<PermissionNode> allLeaves() {
+            List<PermissionNode> all = new ArrayList<>();
+            all.add(parentNode);
+            all.addAll(actionNodes);
+            return all;
+        }
+    }
+
     private static class GroupNode extends VerticalLayout {
 
         private final Checkbox header;
         private final List<PermissionNode> children;
         private boolean syncing = false;
 
-        GroupNode(String label, List<PermissionNode> children) {
-            this.children = children;
+        GroupNode(String label, List<PermissionNode> leaves, List<Component> displayItems) {
+            this.children = leaves;
             this.header = new Checkbox(label);
             header.getStyle().set("font-weight", "500");
             header.addValueChangeListener(e -> {
@@ -425,7 +486,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             setPadding(false);
             setSpacing(false);
             add(header);
-            children.forEach(this::add);
+            displayItems.forEach(this::add);
             syncState();
         }
 

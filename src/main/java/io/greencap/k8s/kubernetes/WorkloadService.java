@@ -3,13 +3,16 @@ package io.greencap.k8s.kubernetes;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.CronJobInfo;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
+import io.greencap.k8s.kubernetes.dto.JobInfo;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
 import io.greencap.k8s.kubernetes.dto.ReplicaSetInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
@@ -155,6 +158,117 @@ public class WorkloadService {
             log.error("Failed to roll back deployment {}/{}: {}", namespace, name, e.getMessage());
             throw new KubernetesOperationException("Failed to roll back deployment: " + e.getMessage(), e);
         }
+    }
+
+    public List<JobInfo> listJobs(Cluster cluster, String namespace) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            var items = isAllNamespaces(namespace)
+                    ? client.batch().v1().jobs().inAnyNamespace().list().getItems()
+                    : client.batch().v1().jobs().inNamespace(namespace).list().getItems();
+
+            return items.stream()
+                    .map(job -> {
+                        int desired = Optional.ofNullable(job.getSpec())
+                                .map(s -> s.getCompletions()).orElse(1);
+                        int succeeded = Optional.ofNullable(job.getStatus())
+                                .map(s -> s.getSucceeded()).orElse(0);
+
+                        String status = deriveJobStatus(job);
+                        String completions = succeeded + "/" + desired;
+                        String duration = deriveJobDuration(job);
+
+                        String owner = Optional.ofNullable(job.getMetadata().getOwnerReferences())
+                                .flatMap(refs -> refs.stream()
+                                        .filter(ref -> "CronJob".equals(ref.getKind()))
+                                        .findFirst())
+                                .map(ref -> ref.getName())
+                                .orElse("—");
+
+                        return new JobInfo(
+                                job.getMetadata().getName(),
+                                job.getMetadata().getNamespace(),
+                                status,
+                                completions,
+                                duration,
+                                NamespaceService.age(job.getMetadata().getCreationTimestamp()),
+                                owner
+                        );
+                    })
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list jobs for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list jobs: " + e.getMessage(), e);
+        }
+    }
+
+    public List<CronJobInfo> listCronJobs(Cluster cluster, String namespace) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            var items = isAllNamespaces(namespace)
+                    ? client.batch().v1().cronjobs().inAnyNamespace().list().getItems()
+                    : client.batch().v1().cronjobs().inNamespace(namespace).list().getItems();
+
+            return items.stream()
+                    .map(cj -> {
+                        boolean suspended = Optional.ofNullable(cj.getSpec())
+                                .map(s -> s.getSuspend()).orElse(false);
+                        int active = Optional.ofNullable(cj.getStatus())
+                                .map(s -> s.getActive()).map(List::size).orElse(0);
+                        String lastSchedule = Optional.ofNullable(cj.getStatus())
+                                .map(s -> s.getLastScheduleTime())
+                                .map(NamespaceService::age)
+                                .orElse("—");
+
+                        return new CronJobInfo(
+                                cj.getMetadata().getName(),
+                                cj.getMetadata().getNamespace(),
+                                Optional.ofNullable(cj.getSpec()).map(s -> s.getSchedule()).orElse("—"),
+                                suspended,
+                                active,
+                                lastSchedule,
+                                NamespaceService.age(cj.getMetadata().getCreationTimestamp())
+                        );
+                    })
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list cronjobs for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list cronjobs: " + e.getMessage(), e);
+        }
+    }
+
+    private String deriveJobStatus(io.fabric8.kubernetes.api.model.batch.v1.Job job) {
+        if (Boolean.TRUE.equals(Optional.ofNullable(job.getSpec()).map(s -> s.getSuspend()).orElse(false))) {
+            return "Suspended";
+        }
+        var conditions = Optional.ofNullable(job.getStatus())
+                .map(s -> s.getConditions()).orElse(List.of());
+        for (var condition : conditions) {
+            if ("Complete".equals(condition.getType()) && "True".equals(condition.getStatus())) return "Complete";
+            if ("Failed".equals(condition.getType()) && "True".equals(condition.getStatus())) return "Failed";
+        }
+        return "Running";
+    }
+
+    private String deriveJobDuration(io.fabric8.kubernetes.api.model.batch.v1.Job job) {
+        if (job.getStatus() == null) return "—";
+        String startTime = job.getStatus().getStartTime();
+        String completionTime = job.getStatus().getCompletionTime();
+        if (startTime == null) return "—";
+        try {
+            Instant start = Instant.parse(startTime);
+            Instant end = completionTime != null ? Instant.parse(completionTime) : Instant.now();
+            return formatDuration(Duration.between(start, end));
+        } catch (Exception e) {
+            return "—";
+        }
+    }
+
+    private String formatDuration(Duration d) {
+        if (d.toDays() > 0)    return d.toDays() + "d " + (d.toHoursPart()) + "h";
+        if (d.toHours() > 0)   return d.toHours() + "h " + d.toMinutesPart() + "m";
+        if (d.toMinutes() > 0) return d.toMinutes() + "m " + d.toSecondsPart() + "s";
+        return d.toSeconds() + "s";
     }
 
     private boolean isAllNamespaces(String namespace) {

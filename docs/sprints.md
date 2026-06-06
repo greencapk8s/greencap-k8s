@@ -47,17 +47,19 @@
 | 37 | RBAC — controle de acesso por role e gerenciamento de usuários | ✅ Concluído |
 | 38 | RBAC granular — permissões por funcionalidade com TreeView | ✅ Concluído |
 | 39 | Workloads — Deployment Rollback (Rollout Undo) | ✅ Concluído |
+| 40 | Workloads — Jobs e CronJobs (read-only) | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
 
-Prioridade recomendada com base na evolução da plataforma (sprint 39):
+Prioridade recomendada com base na evolução da plataforma (sprint 41):
 
 ### 🟡 Médio prazo — cobrir workloads comuns
 
-- **Jobs e CronJobs** — workloads nativos presentes em praticamente todo cluster real; leitura simples, sem operações de escrita.
+- **Jobs e CronJobs — navegação para logs** — botão "Ver Pods" na `JobsView` navegando para os Pods criados pelo Job (filtrados por ownerReference); permite acessar o `PodLogsView` existente para troubleshooting de execuções. Alta importância para diagnóstico.
 - **Ingress** — já mencionado como futuro na seção Networking; completa o mapa de tráfego (Service → Ingress).
+- **Jobs e CronJobs — operações de escrita** — trigger manual ("Run now") em Job, suspend/resume em CronJob, e delete para ambos; segue o padrão de Scale/Restart de Deployments.
 
 ### 🟢 Diferencial — visão de cluster
 
@@ -66,6 +68,19 @@ Prioridade recomendada com base na evolução da plataforma (sprint 39):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 40 — Workloads — Jobs e CronJobs (read-only)
+- `Permission.WORKLOADS_JOBS_VIEW` e `Permission.WORKLOADS_CRONJOBS_VIEW` adicionados ao enum; incluídos em `allPermissions()`, `operatorPermissions()` e `viewerPermissions()` (read-only para todos os perfis)
+- Migration `V13__add_jobs_cronjobs_permissions.sql`: concede ambas as permissões a todos os usuários que já possuem `WORKLOADS_PODS_VIEW`
+- `JobInfo` e `CronJobInfo` records criados em `kubernetes/dto/`
+- `WorkloadService.listJobs()`: lista Jobs via `client.batch().v1().jobs()`; status derivado de `.status.conditions` (Complete/Failed) e `spec.suspend` (Suspended); duration calculada de `startTime`/`completionTime`; owner extraído de `ownerReferences[kind=CronJob]`
+- `WorkloadService.listCronJobs()`: lista CronJobs via `client.batch().v1().cronjobs()`; active count de `.status.active`; lastScheduleTime formatado como idade relativa
+- `JobsView`: rota `/workloads/jobs`; colunas Name, Status (badge), Completions, Duration, Age, Owner, Manifest; badge `success`/`error`/`contrast` por estado; filtros por Name e Owner
+- `CronJobsView`: rota `/workloads/cronjobs`; colunas Name, Schedule, Suspend (badge `contrast`), Active, Last Schedule, Age, Manifest; filtro por Name
+- `MainLayout.buildWorkloadsNavItem()`: sub-itens Jobs e CronJobs adicionados após Pods, protegidos por `WORKLOADS_JOBS_VIEW` e `WORKLOADS_CRONJOBS_VIEW`
+- `ManifestService`: tipos `"job"` e `"cronjob"` adicionados ao switch
+- `UserManagementView.PermissionTreePanel`: Jobs e CronJobs adicionados à TreeView; `SubGroupNode` introduzido para agrupar Scale/Restart/Rollback como filhos de Deployments — desmarcar View desmarca as ações filhas; `GroupNode` refatorado para separar leaves (lógica) de displayItems (renderização)
+- `CONTEXT.md`: definição de `Workload` atualizada; termos `Job` e `CronJob` adicionados ao glossário
 
 ### Sprint 39 — Workloads — Deployment Rollback (Rollout Undo)
 - `Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK` adicionado ao enum; incluído em `allPermissions()` e `operatorPermissions()`, ausente em `viewerPermissions()`
