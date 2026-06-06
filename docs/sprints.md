@@ -47,6 +47,26 @@
 
 ---
 
+## Candidatos para Próximas Sprints
+
+Prioridade recomendada com base na evolução da plataforma (sprint 36):
+
+### 🔴 Alta prioridade — completar o core
+
+- **RBAC + User Management** — controle de acesso por role (`ADMIN`, `OPERATOR`, `VIEWER`) com `@Secured` nas views; `UserManagementView` (apenas ADMIN) para criar e desativar usuários. Já no backlog. Sem isso a plataforma não é segura para uso compartilhado.
+- **Deployment rollback** — extensão natural de Scale e Restart; usuário escolhe para qual ReplicaSet reverter. ReplicaSets já listados na plataforma.
+
+### 🟡 Médio prazo — cobrir workloads comuns
+
+- **Jobs e CronJobs** — workloads nativos presentes em praticamente todo cluster real; leitura simples, sem operações de escrita.
+- **Ingress** — já mencionado como futuro na seção Networking; completa o mapa de tráfego (Service → Ingress).
+
+### 🟢 Diferencial — visão de cluster
+
+- **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
+
+---
+
 ## Sprints Concluídas
 
 ### Sprint 36 — UX — Drawer width no banco, tema dark/light, poll interval do PodLog
