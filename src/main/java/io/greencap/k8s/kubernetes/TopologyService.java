@@ -40,7 +40,9 @@ public class TopologyService {
                     .stream()
                     .filter(rs -> Optional.ofNullable(rs.getSpec()).map(s -> s.getReplicas()).orElse(0) > 0)
                     .toList();
-            List<Pod> pods = client.pods().inNamespace(namespace).list().getItems();
+            List<Pod> pods = client.pods().inNamespace(namespace).list().getItems().stream()
+                    .filter(pod -> !isOwnedByJob(pod))
+                    .toList();
             List<Service> services = client.services().inNamespace(namespace).list().getItems();
             List<PersistentVolumeClaim> pvcs = client.persistentVolumeClaims().inNamespace(namespace).list().getItems();
 
@@ -270,6 +272,12 @@ public class TopologyService {
                         .filter(ref -> "ReplicaSet".equals(ref.getKind()))
                         .findFirst())
                 .map(ref -> ref.getName());
+    }
+
+    private boolean isOwnedByJob(Pod pod) {
+        return Optional.ofNullable(pod.getMetadata().getOwnerReferences())
+                .map(refs -> refs.stream().anyMatch(ref -> "Job".equals(ref.getKind())))
+                .orElse(false);
     }
 
     private boolean podMatchesSelector(Pod pod, Map<String, String> selector) {

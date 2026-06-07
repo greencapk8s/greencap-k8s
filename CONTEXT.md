@@ -145,7 +145,7 @@ UI section within Settings grouping cluster-scoped infrastructure resources. Cur
 _Avoid_: Admin, cluster resources, system
 
 **Topologia**:
-UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Clicking a node navigates to its Manifest. Pan and zoom are enabled.
+UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node navigates to its Manifest. Pan and zoom are enabled.
 _Avoid_: Diagram, map, graph
 
 **TopologyGraph**:

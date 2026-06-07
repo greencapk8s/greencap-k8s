@@ -67,6 +67,12 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 
 ## Sprints Concluídas
 
+### Sprint 45 — Topologia: ocultar pods de Jobs/CronJobs
+- `CONTEXT.md`: definição de `Topologia` ampliada com nota explicando que pods owned por Job (direto ou via CronJob) são deliberadamente excluídos — representam execuções efêmeras de tarefas finitas, não a topologia de serviço de longa duração que a view mapeia
+- `TopologyService.buildGraph()`: lista de pods filtrada logo após o fetch, removendo pods cujo `ownerReferences` contenha `kind == "Job"` — antes de qualquer agrupamento por ReplicaSet
+- Novo método privado `isOwnedByJob(Pod pod)`, ao lado de `ownerReplicaSetName()`
+- Cobre tanto Jobs disparados manualmente quanto Jobs criados por CronJobs — o Pod sempre referencia o Job diretamente, nunca o CronJob
+
 ### Sprint 44 — Networking — Ingresses (read-only)
 - Termo `Ingress` adicionado ao `CONTEXT.md`: namespaced, IngressClass opcional (`"—"` se ausente), hosts colapsados, TLS como boolean, Address de `status.loadBalancer.ingress`
 - `Permission.NETWORKING_INGRESS_VIEW` adicionado ao enum; incluído em `allPermissions()`, `operatorPermissions()` e `viewerPermissions()`
