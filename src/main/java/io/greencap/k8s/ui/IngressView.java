@@ -33,6 +33,9 @@ import java.util.List;
 @PermitAll
 public class IngressView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Ingresses";
+    private static final String HELP_TEXT = "An Ingress is a resource that routes external HTTP/HTTPS traffic to Services, based on host and path rules. It can have an associated IngressClass, which defines which controller handles the requests.\n\nThe TLS badge indicates whether encryption is configured (\"Secure\") or not (\"Plain\").";
+
     private final NetworkingService networkingService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildIngressGrid();
 
-        add(UiConstants.buildSectionHeader("Ingresses", this::loadIngresses), noClusterMessage, ingressGrid);
+        add(UiConstants.buildSectionHeader("Ingresses", this::loadIngresses, HELP_TITLE, HELP_TEXT), noClusterMessage, ingressGrid);
     }
 
     @Override

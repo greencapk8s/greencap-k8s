@@ -35,6 +35,9 @@ import java.util.List;
 @PermitAll
 public class JobsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Jobs";
+    private static final String HELP_TEXT = "A Job is a Workload that runs a finite task to completion. It tracks how many Pods succeeded (completions) out of the total desired.\n\nThe status shown (Complete, Failed, Running or Suspended) is derived from the resource's conditions in the cluster. This screen allows you to delete a Job.";
+
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
 
@@ -57,7 +60,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("Jobs", this::loadJobs), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("Jobs", this::loadJobs, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

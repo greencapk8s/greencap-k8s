@@ -3,7 +3,10 @@ package io.greencap.k8s.ui;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
@@ -30,6 +33,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PageTitle("Topologia — GreenCap K8s")
 @PermitAll
 public class TopologiaView extends VerticalLayout implements BeforeEnterObserver {
+
+    private static final String HELP_TITLE = "Topology";
+    private static final String HELP_TEXT = "Topology displays a graph of the cluster's resources and their relationships: Deployments, ReplicaSets, Pods and Services in the active namespace.\n\nClick a node to see its details in the side panel. Pods created by Jobs or CronJobs do not appear in the graph — being ephemeral runs of finite tasks, they would clutter the visualization without adding value to understanding the topology.";
 
     private final TopologyService topologyService;
     private final ClusterContext clusterContext;
@@ -59,6 +65,17 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
 
         drawer = new TopologyNodeDrawer();
 
+        var helpIcon = VaadinIcon.QUESTION_CIRCLE.create();
+        helpIcon.setSize(UiConstants.ICON_SIZE);
+        Button helpBtn = new Button(helpIcon, e -> HelpDialog.open(HELP_TITLE, HELP_TEXT));
+        helpBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_CONTRAST);
+        helpBtn.getElement().setAttribute("title", "Help");
+        helpBtn.getStyle()
+                .set("position", "absolute")
+                .set("top", "var(--lumo-space-m)")
+                .set("right", "var(--lumo-space-m)")
+                .set("z-index", "1");
+
         graphComponent.getElement().addEventListener("node-clicked", event -> {
             JsonObject detail = event.getEventData().getObject("event.detail");
             drawer.open(detail);
@@ -68,7 +85,7 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
             drawer.close();
         });
 
-        add(noClusterMessage, loadingLayout, emptyLayout, graphComponent, drawer);
+        add(noClusterMessage, loadingLayout, emptyLayout, graphComponent, drawer, helpBtn);
         setFlexGrow(1, graphComponent);
     }
 

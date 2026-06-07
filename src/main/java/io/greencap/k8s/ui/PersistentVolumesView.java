@@ -35,6 +35,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class PersistentVolumesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Persistent Volumes";
+    private static final String HELP_TEXT = "A Persistent Volume (PV) is a storage resource provisioned in the cluster, independent of any Pod's lifecycle. It is bound to a Persistent Volume Claim (PVC) that requests compatible characteristics. Its status indicates whether it is already bound to a PVC or still available.";
+
     private final StorageService storageService;
     private final ClusterContext clusterContext;
     private final UserService userService;
@@ -56,7 +59,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

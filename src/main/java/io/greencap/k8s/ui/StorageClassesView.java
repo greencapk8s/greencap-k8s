@@ -32,6 +32,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class StorageClassesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Storage Classes";
+    private static final String HELP_TEXT = "A Storage Class defines how storage volumes are provisioned in the cluster — the storage type, the provisioner, and the retention and expansion policies.\n\nWhen a PVC references a Storage Class, the cluster automatically provisions a compatible Persistent Volume.";
+
     private final StorageService storageService;
     private final ClusterContext clusterContext;
 
@@ -51,7 +54,7 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("Storage Classes", this::loadStorageClasses), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("Storage Classes", this::loadStorageClasses, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

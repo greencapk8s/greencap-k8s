@@ -33,6 +33,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class ServicesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Services";
+    private static final String HELP_TEXT = "A Service exposes a set of Pods under a stable IP and port, distributing network traffic among them. There are four types: ClusterIP, NodePort, LoadBalancer and ExternalName.\n\nA Service does not run code — it only routes traffic to the Pods.";
+
     private final NetworkingService networkingService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildServiceGrid();
 
-        add(UiConstants.buildSectionHeader("Services", this::loadServices), noClusterMessage, serviceGrid);
+        add(UiConstants.buildSectionHeader("Services", this::loadServices, HELP_TITLE, HELP_TEXT), noClusterMessage, serviceGrid);
     }
 
     @Override

@@ -35,6 +35,9 @@ import java.util.List;
 @PermitAll
 public class PodsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Pods";
+    private static final String HELP_TEXT = "A Pod is the smallest Workload unit in Kubernetes — one or more containers running together, sharing network and storage.";
+
     private final WorkloadService workloadService;
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
@@ -62,7 +65,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         buildJobFilterBanner();
         buildPodGrid();
 
-        add(UiConstants.buildSectionHeader("Pods", this::loadPods), jobFilterBanner, noClusterMessage, podGrid);
+        add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT), jobFilterBanner, noClusterMessage, podGrid);
     }
 
     @Override

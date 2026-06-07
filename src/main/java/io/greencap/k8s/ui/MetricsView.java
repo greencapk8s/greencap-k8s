@@ -27,6 +27,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class MetricsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Metrics: Top Pods";
+    private static final String HELP_TEXT = "This screen shows resource usage metrics (CPU and memory) for the cluster's Pods, collected by the Kubernetes Metrics Server.\n\nUse it to quickly identify which Pods are consuming the most resources right now.";
+
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
 
@@ -46,7 +49,7 @@ public class MetricsView extends VerticalLayout implements BeforeEnterObserver, 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildMetricsGrid();
 
-        add(UiConstants.buildSectionHeader("Metrics: Top Pods", this::loadMetrics), noClusterMessage, metricsGrid);
+        add(UiConstants.buildSectionHeader("Metrics: Top Pods", this::loadMetrics, HELP_TITLE, HELP_TEXT), noClusterMessage, metricsGrid);
     }
 
     @Override

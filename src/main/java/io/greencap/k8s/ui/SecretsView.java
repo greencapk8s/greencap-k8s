@@ -33,6 +33,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class SecretsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Secrets";
+    private static final String HELP_TEXT = "A Secret stores sensitive data (credentials, tokens, certificates) in the cluster, in key-value format. For security reasons, only metadata (name, type and key count) is shown — the values are never decoded or displayed.";
+
     private final ConfigurationService configurationService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class SecretsView extends VerticalLayout implements BeforeEnterObserver, 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildSecretGrid();
 
-        add(UiConstants.buildSectionHeader("Secrets", this::loadSecrets), noClusterMessage, secretGrid);
+        add(UiConstants.buildSectionHeader("Secrets", this::loadSecrets, HELP_TITLE, HELP_TEXT), noClusterMessage, secretGrid);
     }
 
     @Override

@@ -41,6 +41,9 @@ import java.util.Map;
 @PermitAll
 public class DeploymentsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Deployments";
+    private static final String HELP_TEXT = "A Deployment is a Workload that manages a set of replica Pods through one or more ReplicaSets. It ensures that the desired number of replicas is always running.\n\nOn this screen you can: Scale — change the desired replica count — and Restart — perform a rolling restart, replacing pods one by one without service interruption.";
+
     private final WorkloadService workloadService;
     private final AutoScalingService autoScalingService;
     private final ObservabilityService observabilityService;
@@ -65,7 +68,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildDeployGrid();
 
-        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments), noClusterMessage, deployGrid);
+        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT), noClusterMessage, deployGrid);
     }
 
     @Override

@@ -33,6 +33,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class PersistentVolumeClaimsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Volume Claims (PVC)";
+    private static final String HELP_TEXT = "A Persistent Volume Claim (PVC) is a request for storage made by a Workload. It is bound to a Persistent Volume that meets the requested requirements (size, access mode, Storage Class). Its binding status can be bound (fulfilled) or pending (waiting for a compatible volume).";
+
     private final StorageService storageService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("Volume Claims (PVC)", this::loadPersistentVolumeClaims), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("Volume Claims (PVC)", this::loadPersistentVolumeClaims, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

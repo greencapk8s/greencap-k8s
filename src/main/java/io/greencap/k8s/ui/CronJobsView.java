@@ -36,6 +36,9 @@ import java.util.List;
 @PermitAll
 public class CronJobsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "CronJobs";
+    private static final String HELP_TEXT = "A CronJob automatically creates Jobs on a recurring schedule, defined by a cron expression. It can own zero or more active Jobs at any given time.\n\nOn this screen you can: Trigger — create a Job immediately, bypassing the schedule —, Suspend/Resume — pause or resume the creation of new Jobs without affecting those already running — and Delete.";
+
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
 
@@ -59,7 +62,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("CronJobs", this::loadCronJobs), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("CronJobs", this::loadCronJobs, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

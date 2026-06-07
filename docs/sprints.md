@@ -52,6 +52,8 @@
 | 42 | Workloads — Jobs/CronJobs: operações de escrita | ✅ Concluído |
 | 43 | Infrastructure — Nodes | ✅ Concluído |
 | 44 | Networking — Ingresses (read-only) | ✅ Concluído |
+| 45 | Topologia: ocultar pods de Jobs/CronJobs | ✅ Concluído |
+| 46 | UX — botão de Help em todas as views | ✅ Concluído |
 
 ---
 
@@ -66,6 +68,13 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 46 — UX: botão de Help em todas as views
+- `HelpDialog`: novo componente estático (mesmo padrão de `EventsDialog`) — `Dialog` modal com título e parágrafos de texto explicativo, botão "Close"
+- `UiConstants.buildSectionHeader`: novo parâmetro de conteúdo de ajuda; botão `VaadinIcon.QUESTION_CIRCLE` adicionado à esquerda do botão de refresh — header final: `Título — [Help] — [Refresh]`
+- 16 views migradas com constantes próprias `HELP_TITLE`/`HELP_TEXT`, em inglês, explicando o que é o recurso e quais operações a tela permite (Deployments, ReplicaSets, Pods, Jobs, CronJobs, Services, Ingresses, ConfigMaps, Secrets, Horizontal Scalers, Volume Claims, Nodes, Events, Metrics, Persistent Volumes, Storage Classes)
+- `TopologiaView`: botão de Help flutuante no canto superior direito do canvas (a view não usa `buildSectionHeader` por ser full-canvas), abrindo o mesmo `HelpDialog`
+- Textos focados na definição do recurso e nas operações disponíveis na tela — sem menções a "somente leitura" nem ao papel do GreenCap na exibição dos dados
 
 ### Sprint 45 — Topologia: ocultar pods de Jobs/CronJobs
 - `CONTEXT.md`: definição de `Topologia` ampliada com nota explicando que pods owned por Job (direto ou via CronJob) são deliberadamente excluídos — representam execuções efêmeras de tarefas finitas, não a topologia de serviço de longa duração que a view mapeia

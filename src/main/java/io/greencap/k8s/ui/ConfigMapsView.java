@@ -32,6 +32,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "ConfigMaps";
+    private static final String HELP_TEXT = "A ConfigMap stores configuration data in key-value format, unencrypted, that can be injected into Workloads as environment variables or mounted files.\n\nThis screen shows only metadata and the key count — the values are not displayed.";
+
     private final ConfigurationService configurationService;
     private final ClusterContext clusterContext;
 
@@ -51,7 +54,7 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildConfigMapGrid();
 
-        add(UiConstants.buildSectionHeader("ConfigMaps", this::loadConfigMaps), noClusterMessage, configMapGrid);
+        add(UiConstants.buildSectionHeader("ConfigMaps", this::loadConfigMaps, HELP_TITLE, HELP_TEXT), noClusterMessage, configMapGrid);
     }
 
     @Override

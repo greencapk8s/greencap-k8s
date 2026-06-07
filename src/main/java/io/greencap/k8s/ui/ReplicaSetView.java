@@ -33,6 +33,9 @@ import io.greencap.k8s.domain.user.Permission;
 @PermitAll
 public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "ReplicaSets";
+    private static final String HELP_TEXT = "A ReplicaSet maintains a stable set of replica Pods. It is almost always created and managed by a Deployment — each new rollout produces a new ReplicaSet, and previous ones are kept to allow rollback.\n\nThe Owner column indicates the responsible Deployment (or \"—\" for orphan ReplicaSets).";
+
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("ReplicaSets", this::loadReplicaSets), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("ReplicaSets", this::loadReplicaSets, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

@@ -33,6 +33,9 @@ import java.util.List;
 @PermitAll
 public class NodesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Nodes";
+    private static final String HELP_TEXT = "A Node is a machine (physical or virtual) that is part of the Kubernetes cluster's infrastructure, responsible for running Pods, with its own CPU, memory and storage capacity.";
+
     private final StorageService storageService;
     private final ClusterContext clusterContext;
 
@@ -52,7 +55,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("Nodes", this::loadNodes), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("Nodes", this::loadNodes, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

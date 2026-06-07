@@ -37,6 +37,9 @@ import java.util.List;
 @PermitAll
 public class HorizontalScalerView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
+    private static final String HELP_TITLE = "Horizontal Scalers";
+    private static final String HELP_TEXT = "A Horizontal Pod Autoscaler (HPA) automatically adjusts the number of replicas of a Workload based on observed metrics, such as CPU or memory usage, keeping it within defined minimum and maximum limits.";
+
     private final AutoScalingService autoScalingService;
     private final ClusterContext clusterContext;
 
@@ -56,7 +59,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
 
-        add(UiConstants.buildSectionHeader("Horizontal Scalers", this::loadScalers), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("Horizontal Scalers", this::loadScalers, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
     }
 
     @Override

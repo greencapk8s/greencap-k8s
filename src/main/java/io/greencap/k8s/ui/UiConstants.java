@@ -37,8 +37,15 @@ final class UiConstants {
         return layout;
     }
 
-    static HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh) {
+    static HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
+                                                String helpTitle, String helpText) {
         H3 heading = new H3(title);
+
+        var helpIcon = VaadinIcon.QUESTION_CIRCLE.create();
+        helpIcon.setSize(ICON_SIZE);
+        Button helpBtn = new Button(helpIcon, e -> HelpDialog.open(helpTitle, helpText));
+        helpBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        helpBtn.getElement().setAttribute("title", "Help");
 
         var refreshIcon = VaadinIcon.REFRESH.create();
         refreshIcon.setSize(ICON_SIZE);
@@ -53,7 +60,7 @@ final class UiConstants {
         refreshBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
         refreshBtn.getElement().setAttribute("title", "Refresh");
 
-        HorizontalLayout header = new HorizontalLayout(heading, refreshBtn);
+        HorizontalLayout header = new HorizontalLayout(heading, helpBtn, refreshBtn);
         header.setDefaultVerticalComponentAlignment(Alignment.CENTER);
         header.setWidthFull();
         header.expand(heading);
