@@ -14,6 +14,8 @@ interface NodeData {
   serviceType: string;
   capacity: string;
   accessMode: string;
+  partOfGroup: string;
+  componentGroup: string;
 }
 
 interface EdgeData {
@@ -48,6 +50,9 @@ export class TopologyGraph extends LitElement {
   @property({ type: String })
   graphData = '';
 
+  @property({ type: Boolean })
+  groupingEnabled = true;
+
   static styles = css`
     :host {
       display: block;
@@ -68,9 +73,53 @@ export class TopologyGraph extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
-    if (changedProps.has('graphData') && this.graphData) {
+    if ((changedProps.has('graphData') || changedProps.has('groupingEnabled')) && this.graphData) {
       this._renderGraph();
     }
+  }
+
+  /**
+   * Resolves the compound parent id for a node, creating the group container
+   * elements (part-of outer box, optional component inner box) along the way.
+   */
+  private _resolveParent(
+    node: NodeData,
+    groupElements: Map<string, ElementDefinition>,
+  ): string | undefined {
+    if (!this.groupingEnabled) return undefined;
+
+    const partOf = node.partOfGroup;
+    const component = node.componentGroup;
+
+    if (partOf) {
+      const partOfId = `group/part-of/${partOf}`;
+      if (!groupElements.has(partOfId)) {
+        groupElements.set(partOfId, {
+          data: { id: partOfId, label: `part-of: ${partOf}`, isGroup: true },
+        });
+      }
+      if (!component) return partOfId;
+
+      const componentId = `${partOfId}/component/${component}`;
+      if (!groupElements.has(componentId)) {
+        groupElements.set(componentId, {
+          data: { id: componentId, label: `component: ${component}`, isGroup: true, parent: partOfId },
+        });
+      }
+      return componentId;
+    }
+
+    if (component) {
+      const componentId = `group/component/${component}`;
+      if (!groupElements.has(componentId)) {
+        groupElements.set(componentId, {
+          data: { id: componentId, label: `component: ${component}`, isGroup: true },
+        });
+      }
+      return componentId;
+    }
+
+    return undefined;
   }
 
   private _renderGraph() {
@@ -88,25 +137,30 @@ export class TopologyGraph extends LitElement {
       this.cy.destroy();
     }
 
+    const groupElements = new Map<string, ElementDefinition>();
+    const nodeElements: ElementDefinition[] = graph.nodes.map((n: NodeData) => ({
+      data: {
+        id: n.id,
+        label: `${n.label}\n${n.type}`,
+        type: n.type,
+        status: n.status,
+        manifestUrl: n.manifestUrl,
+        labels: n.labels,
+        readyReplicas: n.readyReplicas,
+        desiredReplicas: n.desiredReplicas,
+        serviceType: n.serviceType,
+        capacity: n.capacity,
+        accessMode: n.accessMode,
+        nodeLabel: n.label,
+        color: NODE_COLORS[n.type] ?? '#64748B',
+        borderColor: STATUS_BORDER[n.status] ?? '#94A3B8',
+        parent: this._resolveParent(n, groupElements),
+      },
+    }));
+
     const elements: ElementDefinition[] = [
-      ...graph.nodes.map((n: NodeData) => ({
-        data: {
-          id: n.id,
-          label: `${n.label}\n${n.type}`,
-          type: n.type,
-          status: n.status,
-          manifestUrl: n.manifestUrl,
-          labels: n.labels,
-          readyReplicas: n.readyReplicas,
-          desiredReplicas: n.desiredReplicas,
-          serviceType: n.serviceType,
-          capacity: n.capacity,
-          accessMode: n.accessMode,
-          nodeLabel: n.label,
-          color: NODE_COLORS[n.type] ?? '#64748B',
-          borderColor: STATUS_BORDER[n.status] ?? '#94A3B8',
-        },
-      })),
+      ...groupElements.values(),
+      ...nodeElements,
       ...graph.edges.map((e: EdgeData) => ({
         data: { source: e.sourceId, target: e.targetId },
       })),
@@ -153,6 +207,28 @@ export class TopologyGraph extends LitElement {
             width: 144,
             height: 76,
             shape: 'round-rectangle',
+          },
+        },
+        {
+          selector: 'node[?isGroup]',
+          style: {
+            'background-color': '#F1F5F9',
+            'background-opacity': 0.6,
+            'border-color': '#94A3B8',
+            'border-width': 2,
+            'border-style': 'dashed',
+            shape: 'round-rectangle',
+            label: 'data(label)',
+            color: '#475569',
+            'text-valign': 'top',
+            'text-halign': 'center',
+            'font-size': '16px',
+            'font-weight': 'bold',
+            'text-margin-y': -10,
+            'padding-left': '24px',
+            'padding-right': '24px',
+            'padding-top': '24px',
+            'padding-bottom': '24px',
           },
         },
         {

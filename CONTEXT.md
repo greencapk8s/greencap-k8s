@@ -145,7 +145,7 @@ UI section within Settings grouping cluster-scoped infrastructure resources. Cur
 _Avoid_: Admin, cluster resources, system
 
 **Topologia**:
-UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node navigates to its Manifest. Pan and zoom are enabled.
+UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node navigates to its Manifest. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.
 _Avoid_: Diagram, map, graph
 
 **TopologyGraph**:
@@ -159,6 +159,10 @@ _Avoid_: Node, vertex, element
 **TopologyEdge**:
 A directed relationship in the `TopologyGraph` between two `TopologyNode` ids. Direction always flows from owner/controller to owned (Deployment→ReplicaSet→Pod) or from Service to its target Pods.
 _Avoid_: Link, connection, arrow
+
+**TopologyGroup**:
+A visual container drawn around `TopologyNode`s that share the same `app.kubernetes.io/part-of` and/or `app.kubernetes.io/component` label value, rendered as a Cytoscape compound node. Grouping is nested: an outer group by `part-of` value, with an inner group by `component` value for nodes that also carry it. A node carrying only `component` (no `part-of`) forms its own outer-level group. Nodes without either label are not grouped — they render normally outside any container. Labels for synthetic nodes (PodGroup) are derived from the first Pod in the group; PersistentVolumeClaim nodes use their own metadata labels. Purely visual — groups do not collapse or expand. Toggled on `Topologia` via a control that is on by default; group boxes are labeled `key: value` (e.g. `part-of: payments`).
+_Avoid_: Cluster, container, namespace grouping, folder
 
 **PlatformSettings**:
 User-scoped preferences that control GreenCap's behavior across sessions. Not related to Kubernetes resources — these are settings about the platform itself. Persisted per User in the database so they follow the user across devices. Currently contains: auto-refresh interval. Accessed via the Settings menu item in the sidebar Settings section.

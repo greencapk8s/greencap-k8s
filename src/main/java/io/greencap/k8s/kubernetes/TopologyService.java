@@ -28,6 +28,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TopologyService {
 
+    private static final String LABEL_PART_OF = "app.kubernetes.io/part-of";
+    private static final String LABEL_COMPONENT = "app.kubernetes.io/component";
+
     private final KubernetesClientFactory clientFactory;
     private final EncryptionService encryptionService;
 
@@ -143,7 +146,7 @@ public class TopologyService {
                 "Deployment",
                 status,
                 manifestUrl("deployment", namespace, d.getMetadata().getName()),
-                labels, ready, desired, "", "", "");
+                labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode replicaSetNode(ReplicaSet rs, String namespace) {
@@ -157,7 +160,7 @@ public class TopologyService {
                 "ReplicaSet",
                 status,
                 manifestUrl("replicaset", namespace, rs.getMetadata().getName()),
-                labels, ready, desired, "", "", "");
+                labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode podGroupNode(String rsName, List<Pod> group) {
@@ -166,13 +169,14 @@ public class TopologyService {
         String status = aggregatePodStatus(group);
         // Strip the RS template-hash suffix to get the base name
         String baseName = stripLastSegment(rsName);
+        Map<String, String> labels = Optional.ofNullable(group.get(0).getMetadata().getLabels()).orElse(Map.of());
         return new TopologyNode(
                 podGroupId(rsName),
                 baseName,
                 countLabel,
                 status,
                 "workloads/pods",
-                Map.of(), 0, count, "", "", "");
+                Map.of(), 0, count, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode podNode(Pod pod, String namespace) {
@@ -184,7 +188,7 @@ public class TopologyService {
                 "1 Pod",
                 phase,
                 manifestUrl("pod", namespace, pod.getMetadata().getName()),
-                labels, 0, 0, "", "", "");
+                labels, 0, 0, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode serviceNode(Service svc, String namespace) {
@@ -196,10 +200,11 @@ public class TopologyService {
                 "Service",
                 "Active",
                 manifestUrl("service", namespace, svc.getMetadata().getName()),
-                labels, 0, 0, serviceType, "", "");
+                labels, 0, 0, serviceType, "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode pvcNode(PersistentVolumeClaim pvc, String namespace) {
+        Map<String, String> labels = Optional.ofNullable(pvc.getMetadata().getLabels()).orElse(Map.of());
         String phase = Optional.ofNullable(pvc.getStatus()).map(s -> s.getPhase()).orElse("Unknown");
         String status = derivePvcStatus(pvc, phase);
         String storageClass = Optional.ofNullable(pvc.getSpec()).map(s -> s.getStorageClassName()).orElse("");
@@ -219,7 +224,7 @@ public class TopologyService {
                 "PersistentVolumeClaim",
                 status,
                 manifestUrl("persistentvolumeclaim", namespace, pvc.getMetadata().getName()),
-                Map.of(), 0, 0, storageClass, capacity, accessMode);
+                Map.of(), 0, 0, storageClass, capacity, accessMode, partOfGroup(labels), componentGroup(labels));
     }
 
     private String derivePvcStatus(PersistentVolumeClaim pvc, String phase) {
@@ -287,6 +292,14 @@ public class TopologyService {
 
     private String podGroupId(String rsName) {
         return "pod-group/" + rsName;
+    }
+
+    private String partOfGroup(Map<String, String> labels) {
+        return labels.getOrDefault(LABEL_PART_OF, "");
+    }
+
+    private String componentGroup(Map<String, String> labels) {
+        return labels.getOrDefault(LABEL_COMPONENT, "");
     }
 
     private String nodeId(String type, String name) {

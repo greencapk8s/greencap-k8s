@@ -54,6 +54,7 @@
 | 44 | Networking — Ingresses (read-only) | ✅ Concluído |
 | 45 | Topologia: ocultar pods de Jobs/CronJobs | ✅ Concluído |
 | 46 | UX — botão de Help em todas as views | ✅ Concluído |
+| 47 | Topologia — agrupamento de nós por labels part-of/component | ✅ Concluído |
 
 ---
 
@@ -68,6 +69,13 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 47 — Topologia: agrupamento de nós por labels part-of/component
+- `CONTEXT.md`: novo termo `TopologyGroup` — container visual em torno de nós que compartilham `app.kubernetes.io/part-of` e/ou `app.kubernetes.io/component`, agrupamento aninhado (part-of por fora, component por dentro)
+- `TopologyNode`: dois novos campos `partOfGroup`/`componentGroup`, derivados das labels de cada recurso (incluindo `PodGroup`, a partir do primeiro Pod do grupo, e `PersistentVolumeClaim`, a partir do próprio metadata)
+- `topology-graph.ts`: renderiza os grupos como compound nodes do Cytoscape — caixa externa `part-of: <valor>`, caixa interna aninhada `component: <valor>`; nó com `component` mas sem `part-of` forma seu próprio grupo de nível externo; nó sem nenhuma das labels permanece solto, fora de qualquer caixa
+- `TopologiaView`: checkbox "Group by labels" no canto superior direito do grafo, ligado por padrão — ao desligar, o grafo volta ao layout plano; texto de Help atualizado explicando o agrupamento
+- Caixas são puramente visuais — sem colapsar/expandir
 
 ### Sprint 46 — UX: botão de Help em todas as views
 - `HelpDialog`: novo componente estático (mesmo padrão de `EventsDialog`) — `Dialog` modal com título e parágrafos de texto explicativo, botão "Close"

@@ -19,4 +19,8 @@ public class TopologyGraphComponent extends Component implements HasSize {
     public void setGraphData(String graphDataJson) {
         getElement().setProperty("graphData", graphDataJson);
     }
+
+    public void setGroupingEnabled(boolean groupingEnabled) {
+        getElement().setProperty("groupingEnabled", groupingEnabled);
+    }
 }

@@ -13,5 +13,7 @@ public record TopologyNode(
         int desiredReplicas,
         String serviceType,
         String capacity,
-        String accessMode
+        String accessMode,
+        String partOfGroup,
+        String componentGroup
 ) {}
