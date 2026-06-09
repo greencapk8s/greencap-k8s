@@ -14,12 +14,31 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
 
 final class UiConstants {
 
     static final int NOTIFICATION_DURATION_MS = 6000;
     static final String ICON_SIZE = "28px";
+    static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
+
+    static VerticalLayout buildClusterUnreachableMessage() {
+        Span text = new Span("Could not connect to the cluster. The cluster may be offline or the kubeconfig may be outdated.");
+        text.addClassNames(LumoUtility.TextColor.ERROR, LumoUtility.FontSize.MEDIUM);
+
+        Button goToClusters = new Button("Check Cluster Settings", VaadinIcon.COG.create(),
+                e -> UI.getCurrent().navigate(ClustersView.class));
+        goToClusters.addThemeVariants(ButtonVariant.LUMO_ERROR);
+
+        VerticalLayout layout = new VerticalLayout(text, goToClusters);
+        layout.setDefaultHorizontalComponentAlignment(Alignment.CENTER);
+        layout.setJustifyContentMode(JustifyContentMode.CENTER);
+        layout.setSizeFull();
+        layout.setVisible(false);
+        return layout;
+    }
 
     static VerticalLayout buildNoClusterMessage() {
         Span text = new Span("No active cluster. Select a cluster in Settings → Clusters.");

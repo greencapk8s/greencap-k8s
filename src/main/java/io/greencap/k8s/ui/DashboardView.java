@@ -26,6 +26,9 @@ import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.user.Permission;
 
@@ -34,6 +37,8 @@ import io.greencap.k8s.domain.user.Permission;
 @PageTitle("Dashboard — GreenCap K8s")
 @PermitAll
 public class DashboardView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
+
+    private static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ClusterContext clusterContext;
     private final WorkloadService workloadService;
@@ -89,8 +94,9 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
             return;
         }
         String namespace = clusterContext.getNamespace();
-        content.add(buildResourceCountSection(cluster, namespace));
-        content.add(buildMetricsSection(cluster, namespace));
+        UI ui = UI.getCurrent();
+        content.add(buildResourceCountSection(cluster, namespace, ui));
+        content.add(buildMetricsSection(cluster, namespace, ui));
     }
 
     private Div buildEmptyState() {
@@ -111,7 +117,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         return empty;
     }
 
-    private VerticalLayout buildResourceCountSection(Cluster cluster, String namespace) {
+    private VerticalLayout buildResourceCountSection(Cluster cluster, String namespace, UI ui) {
         H3 title = new H3("Resources in " + namespace);
         title.getStyle().set("margin", "0");
 
@@ -119,13 +125,13 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         row.setFlexWrap(FlexLayout.FlexWrap.WRAP);
         row.getStyle().set("gap", "var(--lumo-space-m)");
 
-        row.add(buildCountCard("Deployments",       safeCount(() -> workloadService.listDeployments(cluster, namespace).size()),        VaadinIcon.ROCKET,   DeploymentsView.class));
-        row.add(buildCountCard("Pods",              safeCount(() -> workloadService.listPods(cluster, namespace).size()),               VaadinIcon.CUBE,     PodsView.class));
-        row.add(buildCountCard("Services",          safeCount(() -> networkingService.listServices(cluster, namespace).size()),         VaadinIcon.SHARE,    ServicesView.class));
-        row.add(buildCountCard("ConfigMaps",        safeCount(() -> configurationService.listConfigMaps(cluster, namespace).size()),    VaadinIcon.FILE_TEXT, ConfigMapsView.class));
-        row.add(buildCountCard("Secrets",           safeCount(() -> configurationService.listSecrets(cluster, namespace).size()),       VaadinIcon.LOCK,     SecretsView.class));
-        row.add(buildCountCard("Volume Claims",     safeCount(() -> storageService.listPersistentVolumeClaims(cluster, namespace).size()), VaadinIcon.DATABASE, PersistentVolumeClaimsView.class));
-        row.add(buildCountCard("Horiz. Scalers",    safeCount(() -> autoScalingService.listHorizontalScalers(cluster, namespace).size()), VaadinIcon.RESIZE_H, HorizontalScalerView.class));
+        addAsyncCountCard(row, "Deployments",    VaadinIcon.ROCKET,    DeploymentsView.class,            () -> workloadService.listDeployments(cluster, namespace).size(),            ui);
+        addAsyncCountCard(row, "Pods",           VaadinIcon.CUBE,      PodsView.class,                   () -> workloadService.listPods(cluster, namespace).size(),                  ui);
+        addAsyncCountCard(row, "Services",       VaadinIcon.SHARE,     ServicesView.class,               () -> networkingService.listServices(cluster, namespace).size(),            ui);
+        addAsyncCountCard(row, "ConfigMaps",     VaadinIcon.FILE_TEXT, ConfigMapsView.class,             () -> configurationService.listConfigMaps(cluster, namespace).size(),       ui);
+        addAsyncCountCard(row, "Secrets",        VaadinIcon.LOCK,      SecretsView.class,                () -> configurationService.listSecrets(cluster, namespace).size(),          ui);
+        addAsyncCountCard(row, "Volume Claims",  VaadinIcon.DATABASE,  PersistentVolumeClaimsView.class, () -> storageService.listPersistentVolumeClaims(cluster, namespace).size(), ui);
+        addAsyncCountCard(row, "Horiz. Scalers", VaadinIcon.RESIZE_H,  HorizontalScalerView.class,       () -> autoScalingService.listHorizontalScalers(cluster, namespace).size(),  ui);
 
         VerticalLayout section = new VerticalLayout(title, row);
         section.setPadding(false);
@@ -133,7 +139,29 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         return section;
     }
 
-    private VerticalLayout buildMetricsSection(Cluster cluster, String namespace) {
+    private void addAsyncCountCard(FlexLayout row, String label, VaadinIcon icon,
+                                   Class<? extends com.vaadin.flow.component.Component> target,
+                                   CountSupplier supplier, UI ui) {
+        Span valueText = buildLoadingSpan();
+        row.add(buildCountCard(label, valueText, icon, target));
+
+        CompletableFuture.runAsync(() -> {
+            String value;
+            try {
+                value = String.valueOf(supplier.get());
+            } catch (Exception e) {
+                log.debug("Failed to fetch resource count: {}", e.getMessage());
+                value = "—";
+            }
+            String resolved = value;
+            ui.access(() -> {
+                valueText.setText(resolved);
+                valueText.getStyle().remove("color");
+            });
+        }, VIRTUAL_THREADS);
+    }
+
+    private VerticalLayout buildMetricsSection(Cluster cluster, String namespace, UI ui) {
         H3 title = new H3("Resource Usage");
         title.getStyle().set("margin", "0");
 
@@ -141,26 +169,45 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         row.setFlexWrap(FlexLayout.FlexWrap.WRAP);
         row.getStyle().set("gap", "var(--lumo-space-m)");
 
-        String cpuValue;
-        String memValue;
-        boolean metricsUnavailable = false;
-
-        try {
-            List<PodMetricInfo> metrics = observabilityService.listPodMetrics(cluster, namespace);
-            long totalCpu = metrics.stream().mapToLong(PodMetricInfo::cpuMillicores).sum();
-            long totalMem = metrics.stream().mapToLong(PodMetricInfo::memoryMiB).sum();
-            cpuValue = formatCpu(totalCpu);
-            memValue = formatMemory(totalMem);
-        } catch (KubernetesOperationException e) {
-            log.debug("metrics-server unavailable for cluster {}: {}", cluster.getName(), e.getMessage());
-            cpuValue = "N/A";
-            memValue = "N/A";
-            metricsUnavailable = true;
-        }
-
-        Div cpuCard = buildMetricCard("CPU", cpuValue, VaadinIcon.CHART_LINE, metricsUnavailable);
-        Div memCard = buildMetricCard("Memory", memValue, VaadinIcon.STORAGE, metricsUnavailable);
+        Span cpuValueText = buildLoadingSpan();
+        Span memValueText = buildLoadingSpan();
+        Div cpuCard = buildMetricCard("CPU",    cpuValueText, VaadinIcon.CHART_LINE);
+        Div memCard = buildMetricCard("Memory", memValueText, VaadinIcon.STORAGE);
         row.add(cpuCard, memCard);
+
+        CompletableFuture.runAsync(() -> {
+            String cpuValue;
+            String memValue;
+            boolean unavailable = false;
+            try {
+                List<PodMetricInfo> metrics = observabilityService.listPodMetrics(cluster, namespace);
+                long totalCpu = metrics.stream().mapToLong(PodMetricInfo::cpuMillicores).sum();
+                long totalMem = metrics.stream().mapToLong(PodMetricInfo::memoryMiB).sum();
+                cpuValue = formatCpu(totalCpu);
+                memValue = formatMemory(totalMem);
+            } catch (KubernetesOperationException e) {
+                log.debug("metrics-server unavailable for cluster {}: {}", cluster.getName(), e.getMessage());
+                cpuValue = "N/A";
+                memValue = "N/A";
+                unavailable = true;
+            }
+            String resolvedCpu = cpuValue;
+            String resolvedMem = memValue;
+            boolean resolvedUnavailable = unavailable;
+            ui.access(() -> {
+                cpuValueText.setText(resolvedCpu);
+                memValueText.setText(resolvedMem);
+                if (resolvedUnavailable) {
+                    cpuValueText.getStyle().set("color", "var(--lumo-secondary-text-color)");
+                    memValueText.getStyle().set("color", "var(--lumo-secondary-text-color)");
+                    cpuCard.getElement().setAttribute("title", "metrics-server not available on this cluster");
+                    memCard.getElement().setAttribute("title", "metrics-server not available on this cluster");
+                } else {
+                    cpuValueText.getStyle().remove("color");
+                    memValueText.getStyle().remove("color");
+                }
+            });
+        }, VIRTUAL_THREADS);
 
         VerticalLayout section = new VerticalLayout(title, row);
         section.setPadding(false);
@@ -168,13 +215,18 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         return section;
     }
 
-    private Div buildCountCard(String label, String value, VaadinIcon icon, Class<? extends com.vaadin.flow.component.Component> target) {
-        Span valueText = new Span(value);
-        valueText.getStyle()
+    private Span buildLoadingSpan() {
+        Span span = new Span("…");
+        span.getStyle()
                 .set("font-size", "2.5rem")
                 .set("font-weight", "bold")
-                .set("line-height", "1");
+                .set("line-height", "1")
+                .set("color", "var(--lumo-contrast-30pct)");
+        return span;
+    }
 
+    private Div buildCountCard(String label, Span valueText, VaadinIcon icon,
+                               Class<? extends com.vaadin.flow.component.Component> target) {
         Span labelSpan = new Span(label);
         labelSpan.getStyle()
                 .set("font-size", "var(--lumo-font-size-s)")
@@ -203,16 +255,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         return card;
     }
 
-    private Div buildMetricCard(String label, String value, VaadinIcon icon, boolean unavailable) {
-        Span valueText = new Span(value);
-        valueText.getStyle()
-                .set("font-size", "2.5rem")
-                .set("font-weight", "bold")
-                .set("line-height", "1");
-        if (unavailable) {
-            valueText.getStyle().set("color", "var(--lumo-secondary-text-color)");
-        }
-
+    private Div buildMetricCard(String label, Span valueText, VaadinIcon icon) {
         Span labelSpan = new Span(label);
         labelSpan.getStyle()
                 .set("font-size", "var(--lumo-font-size-s)")
@@ -237,11 +280,6 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
 
         Div card = new Div(cardContent);
         applyCardStyle(card);
-
-        if (unavailable) {
-            card.getElement().setAttribute("title", "metrics-server not available on this cluster");
-        }
-
         return card;
     }
 
@@ -254,15 +292,6 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                 .set("min-width", "160px")
                 .set("cursor", "pointer")
                 .set("box-shadow", "var(--lumo-box-shadow-xs)");
-    }
-
-    private String safeCount(CountSupplier supplier) {
-        try {
-            return String.valueOf(supplier.get());
-        } catch (Exception e) {
-            log.debug("Failed to fetch resource count: {}", e.getMessage());
-            return "—";
-        }
     }
 
     private String formatCpu(long millicores) {

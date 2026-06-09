@@ -15,6 +15,8 @@ public class KubernetesClientFactory {
         Config config = Config.fromKubeconfig(kubeconfigContent);
         config.setConnectionTimeout(CONNECTION_TIMEOUT_MS);
         config.setRequestTimeout(REQUEST_TIMEOUT_MS);
+        // Disable retries so failures surface within the configured timeout instead of after 10x backoff
+        config.setRequestRetryBackoffLimit(0);
         return new KubernetesClientBuilder().withConfig(config).build();
     }
 }

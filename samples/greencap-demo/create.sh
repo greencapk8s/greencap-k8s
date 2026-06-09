@@ -4,10 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFESTS_DIR="$SCRIPT_DIR/manifests"
 NAMESPACE="greencap-demo"
+PROFILE="greencap-demo"
 
+echo "==> Switching kubectl context to $PROFILE..."
+kubectl config use-context "$PROFILE"
+
+echo ""
 echo "==> Enabling addons..."
-minikube addons enable metrics-server
-minikube addons enable ingress
+minikube addons enable metrics-server -p "$PROFILE"
+minikube addons enable ingress -p "$PROFILE"
 
 echo ""
 echo "==> Waiting for ingress-nginx controller to be ready..."
@@ -35,8 +40,8 @@ echo "    Resources :"
 kubectl get all,configmap,secret,pvc,hpa,ingress -n "$NAMESPACE" --ignore-not-found
 echo ""
 echo "    To access the frontend:"
-echo "    minikube service frontend -n $NAMESPACE"
+echo "    minikube service frontend -n $NAMESPACE -p $PROFILE"
 echo ""
 echo "    Ingress host: greencap-demo.local"
 echo "    Add to /etc/hosts (run with sudo):"
-echo "    echo \"$(minikube ip)  greencap-demo.local\" | sudo tee -a /etc/hosts"
+echo "    echo \"\$(minikube ip -p $PROFILE)  greencap-demo.local\" | sudo tee -a /etc/hosts"

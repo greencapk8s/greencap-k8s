@@ -27,9 +27,13 @@ import io.greencap.k8s.kubernetes.WorkloadService;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
 import jakarta.annotation.security.PermitAll;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Route(value = "workloads/pods", layout = MainLayout.class)
 @PageTitle("Pods — GreenCap K8s")
 @PermitAll
@@ -44,6 +48,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     private final Grid<PodInfo> podGrid = new Grid<>(PodInfo.class, false);
     private final VerticalLayout noClusterMessage;
+    private final VerticalLayout clusterErrorMessage;
     private final HorizontalLayout jobFilterBanner = new HorizontalLayout();
 
     private final List<PodInfo> allItems = new ArrayList<>();
@@ -62,10 +67,11 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
+        clusterErrorMessage = UiConstants.buildClusterUnreachableMessage();
         buildJobFilterBanner();
         buildPodGrid();
 
-        add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT), jobFilterBanner, noClusterMessage, podGrid);
+        add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT), jobFilterBanner, noClusterMessage, clusterErrorMessage, podGrid);
     }
 
     @Override
@@ -81,9 +87,10 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
+        clusterErrorMessage.setVisible(false);
         podGrid.setVisible(hasCluster);
         if (hasCluster) {
-            loadPods();
+            loadPodsAsync(UI.getCurrent());
         }
     }
 
@@ -182,13 +189,42 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            clusterErrorMessage.setVisible(false);
+            podGrid.setVisible(true);
             return true;
         } catch (KubernetesOperationException e) {
-            notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            clusterErrorMessage.setVisible(true);
+            podGrid.setVisible(false);
             return false;
         }
+    }
+
+    private void loadPodsAsync(UI ui) {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        String namespace = clusterContext.getNamespace();
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<PodInfo> items = workloadService.listPods(cluster, namespace);
+                ui.access(() -> {
+                    allItems.clear();
+                    allItems.addAll(items);
+                    dataProvider.refreshAll();
+                    clusterErrorMessage.setVisible(false);
+                    podGrid.setVisible(true);
+                });
+            } catch (KubernetesOperationException e) {
+                log.debug("Failed to load pods for cluster {}: {}", cluster.getName(), e.getMessage());
+                ui.access(() -> {
+                    allItems.clear();
+                    dataProvider.refreshAll();
+                    clusterErrorMessage.setVisible(true);
+                    podGrid.setVisible(false);
+                });
+            }
+        }, UiConstants.VIRTUAL_THREADS);
     }
 
     private Span phaseBadge(String phase) {

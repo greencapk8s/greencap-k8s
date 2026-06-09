@@ -32,10 +32,14 @@ import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import jakarta.annotation.security.PermitAll;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Route(value = "workloads/deployments", layout = MainLayout.class)
 @PageTitle("Deployments — GreenCap K8s")
 @PermitAll
@@ -51,6 +55,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
     private final Grid<DeploymentInfo> deployGrid = new Grid<>(DeploymentInfo.class, false);
     private final VerticalLayout noClusterMessage;
+    private final VerticalLayout clusterErrorMessage;
 
     private final List<DeploymentInfo> allItems = new ArrayList<>();
     private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
@@ -66,9 +71,10 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
+        clusterErrorMessage = UiConstants.buildClusterUnreachableMessage();
         buildDeployGrid();
 
-        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT), noClusterMessage, deployGrid);
+        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT), noClusterMessage, clusterErrorMessage, deployGrid);
     }
 
     @Override
@@ -79,9 +85,10 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
+        clusterErrorMessage.setVisible(false);
         deployGrid.setVisible(hasCluster);
         if (hasCluster) {
-            loadDeployments();
+            loadDeploymentsAsync(UI.getCurrent());
         }
     }
 
@@ -135,13 +142,42 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            clusterErrorMessage.setVisible(false);
+            deployGrid.setVisible(true);
             return true;
         } catch (KubernetesOperationException e) {
-            notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            clusterErrorMessage.setVisible(true);
+            deployGrid.setVisible(false);
             return false;
         }
+    }
+
+    private void loadDeploymentsAsync(UI ui) {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        String namespace = clusterContext.getNamespace();
+        CompletableFuture.runAsync(() -> {
+            try {
+                List<DeploymentInfo> items = workloadService.listDeployments(cluster, namespace);
+                ui.access(() -> {
+                    allItems.clear();
+                    allItems.addAll(items);
+                    dataProvider.refreshAll();
+                    clusterErrorMessage.setVisible(false);
+                    deployGrid.setVisible(true);
+                });
+            } catch (KubernetesOperationException e) {
+                log.debug("Failed to load deployments for cluster {}: {}", cluster.getName(), e.getMessage());
+                ui.access(() -> {
+                    allItems.clear();
+                    dataProvider.refreshAll();
+                    clusterErrorMessage.setVisible(true);
+                    deployGrid.setVisible(false);
+                });
+            }
+        }, UiConstants.VIRTUAL_THREADS);
     }
 
     private Span replicasBadge(int ready, int desired) {

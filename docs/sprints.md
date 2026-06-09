@@ -68,9 +68,26 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
 
+### ⚡ UX — Carregamento assíncrono nas views restantes
+
+- **Aplicar padrão async + banner "cluster inacessível" nas views de workload** — `DeploymentsView` e `PodsView` já implementados como referência (sprint 50). Aplicar o mesmo padrão nas views restantes que fazem chamadas Kubernetes síncronas no `beforeEnter`: `ServicesView`, `ConfigMapsView`, `SecretsView`, `NodesView`, `EventsView`, `HorizontalScalerView`, `IngressView`, `JobsView`, `CronJobsView`, `ReplicaSetView`, `PersistentVolumeClaimsView`, `PersistentVolumesView`, `StorageClassesView`, `MetricsView`, `TopologiaView`. Padrão: criar `loadXxxAsync(UI ui)` com `CompletableFuture` + `UiConstants.VIRTUAL_THREADS`; adicionar `clusterErrorMessage` via `UiConstants.buildClusterUnreachableMessage()`; exibir banner e ocultar grid em caso de `KubernetesOperationException`.
+
+### 🔧 Infraestrutura de Demo
+
+- **Validar drivers minikube com suporte estável a multi-node** — driver `virtualbox` falha ao provisionar multi-node no Linux após reboot (DHCP do host-only network não atribui IP às VMs extras). Avaliar `--driver=docker` e `--driver=kvm2` com 3 nós: provisionar, reiniciar host e verificar que o cluster volta healthy automaticamente. Documentar driver recomendado e atualizar `cluster-provision.sh` + README de `samples/greencap-demo/`. Issue: `.scratch/sprint-50/issues/03-minikube-multinode-driver-validation.md`
+
 ---
 
 ## Sprints Concluídas
+
+### Sprint 50 ✅ — Demo: cluster-provision + UX async loading
+- `samples/greencap-demo/cluster-provision.sh`: novo script para provisionar o cluster minikube `greencap-demo` (1 nó, 2 CPUs, 4 GiB) via driver `virtualbox`; ajuste de 3 nodes para 1 após instabilidade do driver virtualbox com multi-node (issue backlog: validar docker/kvm2)
+- `samples/greencap-demo/create.sh`: corrigido para usar `-p greencap-demo` nos comandos minikube e `kubectl config use-context` automático; evita falha por perfil padrão não encontrado
+- `topology-graph.ts`: nós com tamanho dinâmico baseado no label (`width: label`, `height: label`, `min-width: 144`, `min-height: 76`, padding interno); cast `as cytoscape.Css.Node` para resolver erro de tipo TS2353 no Vite build
+- `KubernetesClientFactory`: retries desabilitados (`requestRetryBackoffLimit=0`); o default do Fabric8 era 10, causando timeouts de ~50s em vez dos 5–10s configurados — afeta todas as views
+- `UiConstants`: novo `buildClusterUnreachableMessage()` — banner de erro com botão "Check Cluster Settings" navegando para `ClustersView`; `VIRTUAL_THREADS` executor compartilhado
+- `DashboardView`: refatorado para carregamento paralelo — todos os cards (7 contadores + 2 métricas) renderizam imediatamente com estado de loading `…` e atualizam individualmente via `ui.access()` ao chegar o resultado
+- `DeploymentsView` + `PodsView`: carregamento assíncrono no `beforeEnter` via `loadXxxAsync(UI ui)`; banner `clusterErrorMessage` exibido em caso de `KubernetesOperationException` com orientação ao usuário; padrão de referência para views restantes (registrado como candidato a sprint)
 
 ### Sprint 49 — Topologia: persistência do TopologyLayout
 - `CONTEXT.md`: novo termo `TopologyLayout` — snapshot persistido do estado visual da Topologia por User + Cluster + Namespace; armazena posições dos nós e estado do toggle `groupingEnabled`; auto-save após cada drag; nós removidos são descartados na próxima gravação; nós novos são posicionados pelo fcose enquanto os conhecidos ficam fixos
