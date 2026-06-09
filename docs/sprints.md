@@ -55,6 +55,7 @@
 | 45 | Topologia: ocultar pods de Jobs/CronJobs | ✅ Concluído |
 | 46 | UX — botão de Help em todas as views | ✅ Concluído |
 | 47 | Topologia — agrupamento de nós por labels part-of/component | ✅ Concluído |
+| 48 | Topologia — migração para layout fcose (elimina sobreposição de grupos) | ✅ Concluído |
 
 ---
 
@@ -69,6 +70,12 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 48 — Topologia: migração para layout fcose
+- `TopologyGraphComponent.java`: adicionado `@NpmPackage(value = "cytoscape-fcose", version = "2.2.0")`
+- `topology-graph.ts`: importado e registrado `cytoscape-fcose`; layout substituído de `breadthfirst` para `fcose` com parâmetros `nodeSeparation: 80`, `idealEdgeLength: 120`, `nodeRepulsion: 12000`, `padding: 48`; lógica de `rootIds` removida (exclusiva do breadthfirst)
+- `cytoscape-fcose.d.ts`: declaração de tipos criada no frontend (pacote não tem tipos oficiais)
+- `fcose` suporta compound nodes nativamente — elimina sobreposição de `TopologyGroup` que ocorria com `breadthfirst`; aplicado nos dois modos (com e sem agrupamento)
 
 ### Sprint 47 — Topologia: agrupamento de nós por labels part-of/component
 - `CONTEXT.md`: novo termo `TopologyGroup` — container visual em torno de nós que compartilham `app.kubernetes.io/part-of` e/ou `app.kubernetes.io/component`, agrupamento aninhado (part-of por fora, component por dentro)

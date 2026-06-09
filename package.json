@@ -16,6 +16,7 @@
     "@vaadin/vaadin-usage-statistics": "2.1.2",
     "construct-style-sheets-polyfill": "3.1.0",
     "cytoscape": "3.30.2",
+    "cytoscape-fcose": "2.2.0",
     "date-fns": "2.29.3",
     "lit": "3.1.4",
     "react": "18.3.1",
@@ -58,6 +59,7 @@
       "@vaadin/vaadin-usage-statistics": "2.1.2",
       "construct-style-sheets-polyfill": "3.1.0",
       "cytoscape": "3.30.2",
+      "cytoscape-fcose": "2.2.0",
       "date-fns": "2.29.3",
       "lit": "3.1.4",
       "react": "18.3.1",
@@ -85,7 +87,7 @@
       "workbox-core": "7.1.0",
       "workbox-precaching": "7.1.0"
     },
-    "hash": "e9e07bca350391d062921895e82dccfc2594c4efac040547c82e4cd5b16a55df"
+    "hash": "577942846dc6c6e3974cbe7d351769b1d6adad251720d7c195511cfe48cba6b6"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -105,6 +107,7 @@
     "date-fns": "$date-fns",
     "@vaadin/vaadin-themable-mixin": "$@vaadin/vaadin-themable-mixin",
     "@vaadin/vaadin-lumo-styles": "$@vaadin/vaadin-lumo-styles",
-    "@vaadin/vaadin-material-styles": "$@vaadin/vaadin-material-styles"
+    "@vaadin/vaadin-material-styles": "$@vaadin/vaadin-material-styles",
+    "cytoscape-fcose": "$cytoscape-fcose"
   }
 }

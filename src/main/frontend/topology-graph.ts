@@ -1,6 +1,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import cytoscape, { ElementDefinition, EventObject, NodeSingular } from 'cytoscape';
+import fcose from 'cytoscape-fcose';
+
+cytoscape.use(fcose);
 
 interface NodeData {
   id: string;
@@ -166,30 +169,25 @@ export class TopologyGraph extends LitElement {
       })),
     ];
 
-    const deploymentIds = graph.nodes
-      .filter((n: NodeData) => n.type === 'Deployment')
-      .map((n: NodeData) => n.id);
-
-    const serviceIds = graph.nodes
-      .filter((n: NodeData) => n.type === 'Service')
-      .map((n: NodeData) => n.id);
-
-    const connectedTargets = new Set(graph.edges.map((e: EdgeData) => e.targetId));
-    const rootIds = [
-      ...deploymentIds,
-      ...serviceIds.filter((id) => !connectedTargets.has(id)),
-    ];
-
     this.cy = cytoscape({
       container,
       elements,
       layout: {
-        name: 'breadthfirst',
-        directed: true,
-        roots: rootIds.length > 0 ? rootIds : undefined,
-        padding: 32,
-        spacingFactor: 1.4,
-      } as cytoscape.BreadthFirstLayoutOptions,
+        name: 'fcose',
+        quality: 'default',
+        randomize: false,
+        animate: false,
+        padding: 48,
+        nodeSeparation: 80,
+        idealEdgeLength: 120,
+        nodeRepulsion: 12000,
+        gravity: 0.4,
+        gravityRange: 3.8,
+        numIter: 2500,
+        tile: true,
+        tilingPaddingVertical: 32,
+        tilingPaddingHorizontal: 32,
+      } as unknown as cytoscape.LayoutOptions,
       style: [
         {
           selector: 'node',

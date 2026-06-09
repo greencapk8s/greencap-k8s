@@ -12,6 +12,7 @@ import com.vaadin.flow.component.dependency.NpmPackage;
  */
 @Tag("topology-graph")
 @NpmPackage(value = "cytoscape", version = "3.30.2")
+@NpmPackage(value = "cytoscape-fcose", version = "2.2.0")
 @NpmPackage(value = "@types/cytoscape", version = "3.21.7", dev = true)
 @JsModule("./topology-graph.ts")
 public class TopologyGraphComponent extends Component implements HasSize {
