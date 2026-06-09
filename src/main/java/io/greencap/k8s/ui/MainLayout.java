@@ -560,10 +560,19 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
                 function applyWidth(w) {
                     appLayout.style.setProperty('--vaadin-app-layout-drawer-width', w + 'px');
-                    if (drawerPart)  drawerPart.style.width = w + 'px';
-                    if (navbarPart)  navbarPart.style.left  = w + 'px';
-                    if (contentPart) contentPart.style.marginInlineStart = w + 'px';
+                    if (drawerPart) drawerPart.style.width = w + 'px';
+                    const isOpen = appLayout.hasAttribute('drawer-opened');
+                    if (navbarPart)  navbarPart.style.left  = isOpen ? w + 'px' : '0px';
+                    if (contentPart) contentPart.style.marginInlineStart = isOpen ? w + 'px' : '0px';
                 }
+
+                const drawerObserver = new MutationObserver(() => {
+                    const w = parseInt(drawerPart ? drawerPart.style.width : initial) || initial;
+                    const isOpen = appLayout.hasAttribute('drawer-opened');
+                    if (navbarPart)  navbarPart.style.left  = isOpen ? w + 'px' : '0px';
+                    if (contentPart) contentPart.style.marginInlineStart = isOpen ? w + 'px' : '0px';
+                });
+                drawerObserver.observe(appLayout, { attributes: true, attributeFilter: ['drawer-opened'] });
 
                 applyWidth(initial);
 

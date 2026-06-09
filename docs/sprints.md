@@ -59,6 +59,7 @@
 | 49 | Topologia — persistência do TopologyLayout (posições dos nós + toggle) | ✅ Concluído |
 | 50 | Demo: cluster-provision + UX async loading | ✅ Concluído |
 | 51 | Gerenciamento ativo — Delete em todas as views PROJECT | ✅ Concluído |
+| 52 | Fix — Navbar não acompanha o hide do drawer | ✅ Concluído |
 
 ---
 
@@ -81,6 +82,11 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 52 ✅ — Fix: Navbar não acompanha o hide do drawer
+
+- `MainLayout.initResizableDrawer()`: `applyWidth()` agora verifica `appLayout.hasAttribute('drawer-opened')` antes de aplicar o offset — usa `w + 'px'` se aberto, `'0px'` se fechado
+- `MutationObserver` adicionado sobre o atributo `drawer-opened` do AppLayout: sempre que o drawer abre ou fecha, recalcula `navbarPart.style.left` e `contentPart.style.marginInlineStart` conforme o novo estado
 
 ### Sprint 51 ✅ — Gerenciamento ativo: Delete em todas as views PROJECT
 - `CONTEXT.md`: GreenCap declarado como plataforma de gerenciamento ativo (não somente leitura); `Pod` e `ReplicaSet` atualizados para incluir Delete como write operation
