@@ -20,14 +20,20 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import elemental.json.JsonObject;
+import io.greencap.k8s.config.SecurityUtils;
+import io.greencap.k8s.domain.user.Permission;
+import io.greencap.k8s.domain.user.TopologyLayout;
+import io.greencap.k8s.domain.user.TopologyLayoutService;
+import io.greencap.k8s.domain.user.UserRepository;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.TopologyService;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
+import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.Optional;
 
 @Slf4j
 @Route(value = "topologia", layout = MainLayout.class)
@@ -41,17 +47,26 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
     private final TopologyService topologyService;
     private final ClusterContext clusterContext;
     private final ObjectMapper objectMapper;
+    private final TopologyLayoutService topologyLayoutService;
+    private final UserRepository userRepository;
 
     private final VerticalLayout noClusterMessage;
     private final VerticalLayout loadingLayout;
     private final VerticalLayout emptyLayout;
     private final TopologyGraphComponent graphComponent;
     private final TopologyNodeDrawer drawer;
+    private final Checkbox groupingToggle;
 
-    public TopologiaView(TopologyService topologyService, ClusterContext clusterContext, ObjectMapper objectMapper) {
+    public TopologiaView(TopologyService topologyService,
+                         ClusterContext clusterContext,
+                         ObjectMapper objectMapper,
+                         TopologyLayoutService topologyLayoutService,
+                         UserRepository userRepository) {
         this.topologyService = topologyService;
         this.clusterContext = clusterContext;
         this.objectMapper = objectMapper;
+        this.topologyLayoutService = topologyLayoutService;
+        this.userRepository = userRepository;
 
         setSizeFull();
         setPadding(true);
@@ -61,11 +76,10 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
         loadingLayout = buildLoadingLayout();
         emptyLayout = buildEmptyLayout();
 
-        graphComponent = new TopologyGraphComponent();
+        graphComponent = new TopologyGraphComponent(topologyLayoutService, userRepository);
         graphComponent.setSizeFull();
-        graphComponent.setGroupingEnabled(true);
 
-        Checkbox groupingToggle = new Checkbox("Group by labels", true);
+        groupingToggle = new Checkbox("Group by labels", true);
         groupingToggle.getElement().setAttribute("title",
                 "Group nodes that share app.kubernetes.io/part-of and app.kubernetes.io/component labels");
         groupingToggle.addValueChangeListener(e -> graphComponent.setGroupingEnabled(e.getValue()));
@@ -118,6 +132,20 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
 
         UI ui = UI.getCurrent();
         String namespace = clusterContext.getNamespace();
+        Long clusterId = clusterContext.getCluster().getId();
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        graphComponent.setContext(clusterId, namespace);
+
+        Optional<TopologyLayout> savedLayout = userRepository.findByUsername(username)
+                .flatMap(user -> topologyLayoutService.findLayout(user.getId(), clusterId, namespace));
+
+        boolean savedGroupingEnabled = savedLayout.map(TopologyLayout::isGroupingEnabled).orElse(true);
+        String savedPositions = savedLayout.map(TopologyLayout::getNodePositions).orElse(null);
+
+        groupingToggle.setValue(savedGroupingEnabled);
+        graphComponent.setGroupingEnabled(savedGroupingEnabled);
+        graphComponent.setSavedPositions(savedPositions);
 
         Thread.ofVirtual().start(() -> {
             try {

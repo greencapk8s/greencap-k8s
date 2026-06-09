@@ -48,6 +48,11 @@ const STATUS_BORDER: Record<string, string> = {
   Unknown: '#94A3B8',
 };
 
+interface SavedPosition {
+  x: number;
+  y: number;
+}
+
 @customElement('topology-graph')
 export class TopologyGraph extends LitElement {
   @property({ type: String })
@@ -55,6 +60,9 @@ export class TopologyGraph extends LitElement {
 
   @property({ type: Boolean })
   groupingEnabled = true;
+
+  @property({ type: String })
+  savedPositions = '';
 
   static styles = css`
     :host {
@@ -76,8 +84,16 @@ export class TopologyGraph extends LitElement {
   }
 
   updated(changedProps: Map<string, unknown>) {
-    if ((changedProps.has('graphData') || changedProps.has('groupingEnabled')) && this.graphData) {
+    const graphChanged = changedProps.has('graphData');
+    const groupingChanged = changedProps.has('groupingEnabled');
+
+    if ((graphChanged || groupingChanged) && this.graphData) {
       this._renderGraph();
+      // Persist toggle changes immediately; graph reloads are not persisted here
+      // (positions are persisted via dragfree)
+      if (groupingChanged && !graphChanged) {
+        this._saveLayout();
+      }
     }
   }
 
@@ -140,6 +156,15 @@ export class TopologyGraph extends LitElement {
       this.cy.destroy();
     }
 
+    let positionMap: Record<string, SavedPosition> = {};
+    if (this.savedPositions) {
+      try {
+        positionMap = JSON.parse(this.savedPositions);
+      } catch {
+        positionMap = {};
+      }
+    }
+
     const groupElements = new Map<string, ElementDefinition>();
     const nodeElements: ElementDefinition[] = graph.nodes.map((n: NodeData) => ({
       data: {
@@ -169,6 +194,11 @@ export class TopologyGraph extends LitElement {
       })),
     ];
 
+    const fixedNodeConstraint = Object.entries(positionMap).map(([nodeId, pos]) => ({
+      nodeId,
+      position: { x: pos.x, y: pos.y },
+    }));
+
     this.cy = cytoscape({
       container,
       elements,
@@ -187,6 +217,7 @@ export class TopologyGraph extends LitElement {
         tile: true,
         tilingPaddingVertical: 32,
         tilingPaddingHorizontal: 32,
+        fixedNodeConstraint: fixedNodeConstraint.length > 0 ? fixedNodeConstraint : undefined,
       } as unknown as cytoscape.LayoutOptions,
       style: [
         {
@@ -281,5 +312,25 @@ export class TopologyGraph extends LitElement {
         }));
       }
     });
+
+    this.cy.on('dragfree', 'node', () => {
+      this._saveLayout();
+    });
+  }
+
+  private _saveLayout() {
+    if (!this.cy) return;
+    const server = (this as unknown as { $server?: { saveLayout(json: string, grouping: boolean): void } }).$server;
+    if (!server) return;
+
+    const positions: Record<string, SavedPosition> = {};
+    this.cy.nodes().forEach(node => {
+      if (!node.data('isGroup')) {
+        const pos = node.position();
+        positions[node.id()] = { x: pos.x, y: pos.y };
+      }
+    });
+
+    server.saveLayout(JSON.stringify(positions), this.groupingEnabled);
   }
 }

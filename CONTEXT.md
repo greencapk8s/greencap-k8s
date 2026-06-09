@@ -168,6 +168,10 @@ _Avoid_: Cluster, container, namespace grouping, folder
 User-scoped preferences that control GreenCap's behavior across sessions. Not related to Kubernetes resources — these are settings about the platform itself. Persisted per User in the database so they follow the user across devices. Currently contains: auto-refresh interval. Accessed via the Settings menu item in the sidebar Settings section.
 _Avoid_: Preferences, config, global settings
 
+**TopologyLayout**:
+A persisted snapshot of the visual state of the Topologia view for a specific User + Cluster + Namespace combination. Stores the pixel positions of all currently visible TopologyNodes (as a complete JSON snapshot, not incremental) and the `groupingEnabled` toggle state. Scoped per user+cluster+namespace so each combination has an independent layout. Saved automatically after each node drag (replacing the previous snapshot entirely — stale nodes from prior graph states are dropped on the next save). On load, saved positions are applied to matching nodes; new nodes with no saved position are placed by fcose. On first access (no saved layout), fcose positions all nodes normally.
+_Avoid_: Saved graph, layout cache, position state
+
 **PodLog**:
 A snapshot of the stdout/stderr output of a container within a Pod, fetched via the Kubernetes API with a configurable line limit (tail). In GreenCap, displayed in a dedicated read-only page (`logs/pod/{namespace}/{name}`) with auto-poll every 3 seconds. Supports two modes: current (active container) and previous (last terminated instance of the container — useful for CrashLoopBackOff diagnosis). When no previous log exists, the page shows an informative message instead of an error.
 _Avoid_: Output, stdout, console, terminal
