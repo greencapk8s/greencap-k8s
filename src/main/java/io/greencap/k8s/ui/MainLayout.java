@@ -16,6 +16,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.Scroller;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.sidenav.SideNav;
 import com.vaadin.flow.component.sidenav.SideNavItem;
@@ -33,6 +34,7 @@ import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NamespaceService;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
@@ -50,6 +52,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final UserService userService;
     private final NamespaceService namespaceService;
     private final ClusterService clusterService;
+    private final BuildProperties buildProperties;
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
     private final com.vaadin.flow.component.combobox.ComboBox<String> namespaceCombo = new com.vaadin.flow.component.combobox.ComboBox<>();
@@ -65,11 +68,12 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private String currentPath = "";
     private boolean suppressNavigation = false;
 
-    public MainLayout(ClusterContext clusterContext, UserService userService, NamespaceService namespaceService, ClusterService clusterService) {
+    public MainLayout(ClusterContext clusterContext, UserService userService, NamespaceService namespaceService, ClusterService clusterService, BuildProperties buildProperties) {
         this.clusterContext = clusterContext;
         this.userService = userService;
         this.namespaceService = namespaceService;
         this.clusterService = clusterService;
+        this.buildProperties = buildProperties;
         setPrimarySection(Section.DRAWER);
 
         clusterInfoLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -363,18 +367,43 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private VerticalLayout buildDrawer() {
-        VerticalLayout drawer = new VerticalLayout();
-        drawer.setSizeUndefined();
-        drawer.setWidthFull();
+        VerticalLayout navContent = new VerticalLayout();
+        navContent.setSizeUndefined();
+        navContent.setWidthFull();
+        navContent.setPadding(false);
+        navContent.setSpacing(false);
+        navContent.add(buildLogoSection());
+        navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav()));
+        navContent.add(buildNavSection("OBSERVABILITY", buildObservabilidadeNav()));
+        navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
+
+        Scroller scroller = new Scroller(navContent);
+        scroller.setWidthFull();
+
+        VerticalLayout drawer = new VerticalLayout(scroller, buildVersionFooter());
+        drawer.setSizeFull();
         drawer.setPadding(false);
         drawer.setSpacing(false);
-
-        drawer.add(buildLogoSection());
-        drawer.add(buildNavSection("PROJECT", buildVisaoGeralNav()));
-        drawer.add(buildNavSection("OBSERVABILITY", buildObservabilidadeNav()));
-        drawer.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
-
+        drawer.expand(scroller);
         return drawer;
+    }
+
+    private Div buildVersionFooter() {
+        String version = "v" + buildProperties.getVersion();
+        Span versionLabel = new Span(version);
+        versionLabel.addClassNames(
+                LumoUtility.FontSize.XXSMALL,
+                LumoUtility.TextColor.TERTIARY
+        );
+
+        Div footer = new Div(versionLabel);
+        footer.addClassNames(
+                LumoUtility.Display.FLEX,
+                LumoUtility.JustifyContent.CENTER,
+                LumoUtility.Padding.Vertical.SMALL
+        );
+        footer.setWidthFull();
+        return footer;
     }
 
     private HorizontalLayout buildLogoSection() {

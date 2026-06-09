@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "io.greencap"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.53-rc"
 
 java {
     toolchain {
@@ -83,4 +83,9 @@ tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
 
 vaadin {
     productionMode = System.getenv("VAADIN_PRODUCTION") == "true"
+}
+
+// Generates META-INF/build-info.properties — makes BuildProperties bean available at runtime
+springBoot {
+    buildInfo()
 }

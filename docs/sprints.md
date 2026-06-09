@@ -60,6 +60,7 @@
 | 50 | Demo: cluster-provision + UX async loading | ✅ Concluído |
 | 51 | Gerenciamento ativo — Delete em todas as views PROJECT | ✅ Concluído |
 | 52 | Fix — Navbar não acompanha o hide do drawer | ✅ Concluído |
+| 53 | Versão da plataforma visível no rodapé do drawer | ✅ Concluído |
 
 ---
 
@@ -82,6 +83,13 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 53 ✅ — Versão da plataforma visível no rodapé do drawer
+
+- `build.gradle.kts`: `springBoot { buildInfo() }` registra o task `bootBuildInfo` — gera `META-INF/build-info.properties` com a versão do projeto; disponível como bean `BuildProperties` em runtime
+- Formato de versão adotado: `v{major}.{minor}.{patch}-rc` para release candidates, `v{major}.{minor}.{patch}` para releases finais; controlado manualmente no `build.gradle.kts`; versão inicial: `0.1.53-rc`
+- `MainLayout`: `BuildProperties` injetado via construtor; `buildDrawer()` refatorado para separar nav content em `Scroller` + `VerticalLayout` externo com `expand(scroller)` para empurrar o rodapé ao fundo
+- `buildVersionFooter()`: `Div` centralizado com `Span` `v{version}` em `FontSize.XXSMALL` + `TextColor.TERTIARY`, fixado no fundo do drawer em todas as páginas
 
 ### Sprint 52 ✅ — Fix: Navbar não acompanha o hide do drawer
 
