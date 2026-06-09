@@ -17,3 +17,7 @@ Create a new file under `.scratch/<feature-slug>/` (creating the directory if ne
 ## When a skill says "fetch the relevant ticket"
 
 Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+
+## Archived sprints
+
+`.scratch/sprint-N/` directories for sprints outside the active window are moved to `.scratch/archive/sprint-N/`. They keep the same structure and remain greppable, just out of the active working set. See `docs/agents/sprint-archiving.md`.

@@ -101,6 +101,10 @@ Labels canônicos padrão do mattpocock/skills. Ver `docs/agents/triage-labels.m
 
 Single-context: `CONTEXT.md` na raiz + `docs/adr/`. Ver `docs/agents/domain.md`.
 
+### Sprint archiving
+
+`docs/sprints.md` mostra só as últimas 10 sprints em "Sprints Concluídas"; o restante vai para `docs/sprints-archive.md` e `.scratch/archive/`. Ver `docs/agents/sprint-archiving.md`.
+
 ### Fluxo de Sprint
 
 Toda sprint segue este ciclo antes de qualquer código:
@@ -110,6 +114,6 @@ Toda sprint segue este ciclo antes de qualquer código:
 3. **Implementação** — codificar seguindo as convenções deste guia, marcando a issue como `in-progress`
 4. **Testes automatizados** — compilar (`./gradlew compileJava`) e rodar testes (`./gradlew test`); reportar resultado ao usuário
 5. **Aceite manual** — aguardar o usuário validar os fluxos no browser e confirmar o aceite; não avançar sem essa confirmação
-6. **Fechamento** — somente após aceite explícito do usuário: marcar a issue como `done`, atualizar `docs/sprints.md` (status ✅ e entrada na seção Sprints Concluídas) e fazer commit incluindo tudo
+6. **Fechamento** — somente após aceite explícito do usuário: marcar a issue como `done`, atualizar `docs/sprints.md` (status ✅ e entrada na seção Sprints Concluídas), aplicar a rotina de `docs/agents/sprint-archiving.md` se a seção ultrapassar 10 entradas, e fazer commit incluindo tudo
 
 > ⚠️ **NUNCA** marcar issues como `done`, mudar o status da sprint para ✅ Concluído, adicionar a sprint na seção "Sprints Concluídas" do `docs/sprints.md`, ou criar o commit de fechamento antes de receber confirmação explícita de aceite do usuário. Testes automatizados passando **não** substituem o aceite manual.
