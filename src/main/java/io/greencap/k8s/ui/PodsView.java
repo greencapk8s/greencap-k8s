@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
@@ -135,6 +136,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_DELETE);
         podGrid.addComponentColumn(p -> {
             var manifestIcon = VaadinIcon.CODE.create();
             manifestIcon.setSize(UiConstants.ICON_SIZE);
@@ -157,10 +159,18 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             logsBtn.getElement().setAttribute("title", "Logs");
             logsBtn.addClickListener(e -> UI.getCurrent().navigate("logs/pod/" + p.namespace() + "/" + p.name()));
 
-            HorizontalLayout actions = new HorizontalLayout(manifestBtn, eventsBtn, logsBtn);
+            var deleteIcon = VaadinIcon.TRASH.create();
+            deleteIcon.setSize(UiConstants.ICON_SIZE);
+            Button deleteBtn = new Button(deleteIcon);
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+            deleteBtn.getElement().setAttribute("title", "Delete");
+            deleteBtn.setEnabled(canDelete);
+            deleteBtn.addClickListener(e -> openDeleteDialog(p));
+
+            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn, eventsBtn, logsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("160px").setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(4)).setFlexGrow(0);
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
@@ -225,6 +235,27 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
                 });
             }
         }, UiConstants.VIRTUAL_THREADS);
+    }
+
+    private void openDeleteDialog(PodInfo pod) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete Pod");
+        dialog.setText("Deleting this Pod will remove it from the cluster. If managed by a controller, it will be recreated automatically. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.deletePod(cluster, pod.namespace(), pod.name());
+                loadPods();
+                notify("Pod " + pod.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private Span phaseBadge(String phase) {

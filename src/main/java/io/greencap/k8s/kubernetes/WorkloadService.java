@@ -313,6 +313,39 @@ public class WorkloadService {
         }
     }
 
+    public void deleteDeployment(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().deployments().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted deployment {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete deployment {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Deployment: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteReplicaSet(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().replicaSets().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted replicaset {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete replicaset {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete ReplicaSet: " + e.getMessage(), e);
+        }
+    }
+
+    public void deletePod(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.pods().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted pod {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete pod {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Pod: " + e.getMessage(), e);
+        }
+    }
+
     private String deriveJobStatus(io.fabric8.kubernetes.api.model.batch.v1.Job job) {
         if (Boolean.TRUE.equals(Optional.ofNullable(job.getSpec()).map(s -> s.getSuspend()).orElse(false))) {
             return "Suspended";

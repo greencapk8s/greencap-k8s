@@ -57,6 +57,8 @@
 | 47 | Topologia — agrupamento de nós por labels part-of/component | ✅ Concluído |
 | 48 | Topologia — migração para layout fcose (elimina sobreposição de grupos) | ✅ Concluído |
 | 49 | Topologia — persistência do TopologyLayout (posições dos nós + toggle) | ✅ Concluído |
+| 50 | Demo: cluster-provision + UX async loading | ✅ Concluído |
+| 51 | Gerenciamento ativo — Delete em todas as views PROJECT | ✅ Concluído |
 
 ---
 
@@ -79,6 +81,20 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 ---
 
 ## Sprints Concluídas
+
+### Sprint 51 ✅ — Gerenciamento ativo: Delete em todas as views PROJECT
+- `CONTEXT.md`: GreenCap declarado como plataforma de gerenciamento ativo (não somente leitura); `Pod` e `ReplicaSet` atualizados para incluir Delete como write operation
+- `Permission.java`: 9 novos `_DELETE` adicionados (`WORKLOADS_DEPLOYMENTS_DELETE`, `WORKLOADS_REPLICASETS_DELETE`, `WORKLOADS_PODS_DELETE`, `NETWORKING_SERVICES_DELETE`, `NETWORKING_INGRESS_DELETE`, `PARAMETERS_CONFIGMAPS_DELETE`, `PARAMETERS_SECRETS_DELETE`, `AUTOSCALING_HORIZONTALSCALER_DELETE`, `STORAGE_PVC_DELETE`); `operatorPermissions()` atualizado para incluir todos; `viewerPermissions()` inalterado
+- `V17__add_delete_permissions.sql`: concede os 9 novos deletes a Admin e Operator (identificados por `SETTINGS_CLUSTERS_WRITE`)
+- `WorkloadService`: `deleteDeployment`, `deleteReplicaSet`, `deletePod`
+- `NetworkingService`: `deleteService`, `deleteIngress`; `listServices()` enriquecido com `hasReadyEndpoints` — busca todos os Endpoints do namespace em uma chamada e deriva se cada Service tem Pods prontos
+- `ConfigurationService`: `deleteConfigMap`, `deleteSecret`
+- `AutoScalingService`: `deleteHorizontalScaler`; `listHorizontalScalers()` enriquecido com `targetMissing` — verifica se o Deployment alvo ainda existe
+- `StorageService`: `deletePersistentVolumeClaim`
+- 9 views receberam botão Delete (`TRASH`, `LUMO_ERROR`, desabilitado para Viewer): `DeploymentsView`, `ReplicaSetView`, `PodsView`, `ServicesView`, `IngressView`, `ConfigMapsView`, `SecretsView`, `HorizontalScalerView`, `PersistentVolumeClaimsView`
+- `ConfirmDialog` com texto específico por recurso descrevendo consequências de cascade onde aplicável
+- `HorizontalScalerView`: coluna Target exibe badge `"Not Found"` (error) quando o Deployment alvo foi deletado
+- `ServicesView`: coluna Type exibe badge `"No Endpoints"` (error) quando o Service não tem Pods prontos para receber tráfego
 
 ### Sprint 50 ✅ — Demo: cluster-provision + UX async loading
 - `samples/greencap-demo/cluster-provision.sh`: novo script para provisionar o cluster minikube `greencap-demo` (1 nó, 2 CPUs, 4 GiB) via driver `virtualbox`; ajuste de 3 nodes para 1 após instabilidade do driver virtualbox com multi-node (issue backlog: validar docker/kvm2)

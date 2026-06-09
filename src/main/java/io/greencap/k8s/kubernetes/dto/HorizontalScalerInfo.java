@@ -8,5 +8,6 @@ public record HorizontalScalerInfo(
         int maxReplicas,
         int currentReplicas,
         String metrics,
-        String age
+        String age,
+        boolean targetMissing
 ) {}

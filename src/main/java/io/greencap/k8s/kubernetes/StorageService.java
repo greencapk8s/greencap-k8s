@@ -173,6 +173,17 @@ public class StorageService {
         }
     }
 
+    public void deletePersistentVolumeClaim(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.persistentVolumeClaims().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted PVC {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete PVC {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete PersistentVolumeClaim: " + e.getMessage(), e);
+        }
+    }
+
     private String formatMemoryGib(String kiString) {
         try {
             String digits = kiString.replaceAll("[^0-9]", "");

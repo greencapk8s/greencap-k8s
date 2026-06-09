@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
@@ -101,6 +102,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
         boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
         boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_DELETE);
         deployGrid.addComponentColumn(d -> {
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
@@ -112,11 +114,14 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             restartBtn.setEnabled(canRestart);
             Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(d));
             rollbackBtn.setEnabled(canRollback);
+            Button deleteBtn = buildActionButton(VaadinIcon.TRASH, "Delete", e -> openDeleteDialog(d));
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
+            deleteBtn.setEnabled(canDelete);
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn, manifestBtn, eventsBtn);
+            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn, deleteBtn, manifestBtn, eventsBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(5)).setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(6)).setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 
@@ -296,6 +301,27 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         dialog.add(message);
         dialog.getFooter().add(cancelBtn, restartBtn);
+        dialog.open();
+    }
+
+    private void openDeleteDialog(DeploymentInfo deployment) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete Deployment");
+        dialog.setText("Deleting this Deployment will also remove all its ReplicaSets and Pods. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.deleteDeployment(cluster, deployment.namespace(), deployment.name());
+                loadDeployments();
+                notify("Deployment " + deployment.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
         dialog.open();
     }
 

@@ -3,10 +3,12 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
@@ -85,7 +87,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
 
     private void buildGrid() {
         var nameCol   = grid.addColumn(HorizontalScalerInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
-        var targetCol = grid.addComponentColumn(h -> navigationLink(h.target(), DeploymentsView.class))
+        var targetCol = grid.addComponentColumn(h -> targetCell(h.target(), h.targetMissing()))
                 .setHeader("Target").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::minReplicas).setHeader("Min").setWidth("70px").setResizable(true);
         grid.addComponentColumn(h -> replicasBadge(h.currentReplicas(), h.maxReplicas()))
@@ -93,16 +95,20 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         boolean canWrite = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_DELETE);
         grid.addComponentColumn(h -> {
             Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
                     e -> UI.getCurrent().navigate("yaml/horizontalscaler/" + h.namespace() + "/" + h.name()));
             Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
             editBtn.setEnabled(canWrite);
+            Button deleteBtn = buildActionButton(VaadinIcon.TRASH, "Delete", e -> openDeleteDialog(h));
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
+            deleteBtn.setEnabled(canDelete);
 
-            HorizontalLayout actions = new HorizontalLayout(editBtn, manifestBtn);
+            HorizontalLayout actions = new HorizontalLayout(editBtn, deleteBtn, manifestBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth("110px").setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -142,12 +148,22 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         }
     }
 
-    private com.vaadin.flow.component.Component navigationLink(String label, Class<? extends com.vaadin.flow.component.Component> target) {
-        if ("—".equals(label)) return new Span(label);
-        Button link = new Button(label);
+    private com.vaadin.flow.component.Component targetCell(String targetName, boolean targetMissing) {
+        if ("—".equals(targetName)) return new Span(targetName);
+        if (targetMissing) {
+            Span nameSpan = new Span(targetName);
+            Span badge = new Span("Not Found");
+            badge.getElement().getThemeList().add("badge");
+            badge.getElement().getThemeList().add("error");
+            badge.getStyle().set("margin-left", "6px");
+            Div wrapper = new Div(nameSpan, badge);
+            wrapper.getStyle().set("display", "flex").set("align-items", "center");
+            return wrapper;
+        }
+        Button link = new Button(targetName);
         link.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         link.getStyle().set("cursor", "pointer");
-        link.addClickListener(e -> UI.getCurrent().navigate(target));
+        link.addClickListener(e -> UI.getCurrent().navigate(DeploymentsView.class));
         return link;
     }
 
@@ -188,6 +204,27 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
     private boolean matches(String value, String filter) {
         return filter == null || filter.isBlank() ||
                (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
+    }
+
+    private void openDeleteDialog(HorizontalScalerInfo hpa) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete HorizontalPodAutoscaler");
+        dialog.setText("Deleting this HorizontalPodAutoscaler will remove automatic scaling for its target. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                autoScalingService.deleteHorizontalScaler(cluster, hpa.namespace(), hpa.name());
+                loadScalers();
+                notify("HPA " + hpa.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private void openEditDialog(HorizontalScalerInfo hpa) {

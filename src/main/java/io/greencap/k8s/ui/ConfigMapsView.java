@@ -3,11 +3,13 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -75,15 +77,27 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
         var nameCol = configMapGrid.addColumn(ConfigMapInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         configMapGrid.addColumn(cm -> cm.keyCount() + " keys").setHeader("Keys").setWidth("100px").setResizable(true);
         configMapGrid.addColumn(ConfigMapInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_DELETE);
         configMapGrid.addComponentColumn(cm -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate("yaml/configmap/" + cm.namespace() + "/" + cm.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+            var manifestIcon = VaadinIcon.CODE.create();
+            manifestIcon.setSize(UiConstants.ICON_SIZE);
+            Button manifestBtn = new Button(manifestIcon);
+            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            manifestBtn.getElement().setAttribute("title", "View Manifest");
+            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/configmap/" + cm.namespace() + "/" + cm.name()));
+
+            var deleteIcon = VaadinIcon.TRASH.create();
+            deleteIcon.setSize(UiConstants.ICON_SIZE);
+            Button deleteBtn = new Button(deleteIcon);
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+            deleteBtn.getElement().setAttribute("title", "Delete");
+            deleteBtn.setEnabled(canDelete);
+            deleteBtn.addClickListener(e -> openDeleteDialog(cm));
+
+            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         configMapGrid.setDataProvider(dataProvider);
 
@@ -98,6 +112,27 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
 
         configMapGrid.setSizeFull();
         configMapGrid.setVisible(false);
+    }
+
+    private void openDeleteDialog(ConfigMapInfo configMap) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete ConfigMap");
+        dialog.setText("Deleting this ConfigMap will remove it from the cluster. Workloads that depend on it may fail. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                configurationService.deleteConfigMap(cluster, configMap.namespace(), configMap.name());
+                loadConfigMaps();
+                notify("ConfigMap " + configMap.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private boolean loadConfigMaps() {

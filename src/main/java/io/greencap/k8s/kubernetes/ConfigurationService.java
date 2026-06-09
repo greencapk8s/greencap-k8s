@@ -63,6 +63,28 @@ public class ConfigurationService {
         }
     }
 
+    public void deleteConfigMap(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.configMaps().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted configmap {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete configmap {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete ConfigMap: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteSecret(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.secrets().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted secret {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete secret {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Secret: " + e.getMessage(), e);
+        }
+    }
+
     private boolean isAllNamespaces(String namespace) {
         return namespace == null || namespace.isBlank() || "all".equalsIgnoreCase(namespace);
     }

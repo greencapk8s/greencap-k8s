@@ -1,6 +1,6 @@
 # GreenCap K8s
 
-A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform.
+A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Permissions granted to each User.
 
 ## Language
 
@@ -29,7 +29,7 @@ A deployable unit running inside a Namespace. In GreenCap, the concrete types ar
 _Avoid_: Resource, object, service
 
 **Pod**:
-The smallest Workload unit — one or more containers running together. Read-only in GreenCap (observed, not managed).
+The smallest Workload unit — one or more containers running together. In GreenCap, supports one write operation: Delete (removes the Pod from the cluster; the owning ReplicaSet or controller will recreate it if applicable).
 _Avoid_: Container, instance, process
 
 **Deployment**:
@@ -45,7 +45,7 @@ A write operation on a Deployment that triggers a rolling restart — Kubernetes
 _Avoid_: redeploy, bounce, kill
 
 **ReplicaSet**:
-A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed read-only under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans).
+A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans). Supports one write operation: Delete.
 _Avoid_: RS, replica controller
 
 **Job**:

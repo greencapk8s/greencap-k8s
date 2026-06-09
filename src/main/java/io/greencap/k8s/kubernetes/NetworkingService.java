@@ -29,22 +29,47 @@ public class NetworkingService {
                     ? client.services().inAnyNamespace().list().getItems()
                     : client.services().inNamespace(namespace).list().getItems();
 
+            var endpointsByName = (isAllNamespaces(namespace)
+                    ? client.endpoints().inAnyNamespace().list().getItems()
+                    : client.endpoints().inNamespace(namespace).list().getItems())
+                    .stream()
+                    .collect(java.util.stream.Collectors.toMap(
+                            ep -> ep.getMetadata().getName(),
+                            ep -> ep,
+                            (a, b) -> a
+                    ));
+
             return items.stream()
-                    .map(svc -> new ServiceInfo(
-                            svc.getMetadata().getName(),
-                            svc.getMetadata().getNamespace(),
-                            Optional.ofNullable(svc.getSpec()).map(s -> s.getType()).orElse("ClusterIP"),
-                            Optional.ofNullable(svc.getSpec()).map(s -> s.getClusterIP()).orElse("-"),
-                            formatPorts(Optional.ofNullable(svc.getSpec())
-                                    .map(s -> s.getPorts())
-                                    .orElse(List.of())),
-                            NamespaceService.age(svc.getMetadata().getCreationTimestamp())
-                    ))
+                    .map(svc -> {
+                        String svcType = Optional.ofNullable(svc.getSpec()).map(s -> s.getType()).orElse("ClusterIP");
+                        boolean hasReadyEndpoints = hasReadyAddresses(endpointsByName.get(svc.getMetadata().getName()), svcType);
+                        return new ServiceInfo(
+                                svc.getMetadata().getName(),
+                                svc.getMetadata().getNamespace(),
+                                svcType,
+                                Optional.ofNullable(svc.getSpec()).map(s -> s.getClusterIP()).orElse("-"),
+                                formatPorts(Optional.ofNullable(svc.getSpec())
+                                        .map(s -> s.getPorts())
+                                        .orElse(List.of())),
+                                NamespaceService.age(svc.getMetadata().getCreationTimestamp()),
+                                hasReadyEndpoints
+                        );
+                    })
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list services for cluster {}: {}", cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to list services: " + e.getMessage(), e);
         }
+    }
+
+    private boolean hasReadyAddresses(io.fabric8.kubernetes.api.model.Endpoints endpoints, String serviceType) {
+        // ExternalName services route via DNS — no endpoints object is meaningful
+        if ("ExternalName".equals(serviceType)) return true;
+        if (endpoints == null) return false;
+        var subsets = endpoints.getSubsets();
+        if (subsets == null || subsets.isEmpty()) return false;
+        return subsets.stream()
+                .anyMatch(s -> s.getAddresses() != null && !s.getAddresses().isEmpty());
     }
 
     public List<IngressInfo> listIngresses(Cluster cluster, String namespace) {
@@ -100,6 +125,28 @@ public class NetworkingService {
         } catch (Exception e) {
             log.error("Failed to list ingresses for cluster {}: {}", cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to list ingresses: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteService(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.services().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted service {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete service {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Service: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteIngress(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.network().v1().ingresses().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted ingress {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete ingress {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete Ingress: " + e.getMessage(), e);
         }
     }
 

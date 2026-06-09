@@ -3,12 +3,14 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -79,16 +81,28 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         grid.addComponentColumn(rs -> replicasBadge(rs.ready(), rs.desired()))
                 .setHeader("Ready / Desired").setWidth("130px").setResizable(true);
         grid.addColumn(ReplicaSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_DELETE);
         grid.addComponentColumn(rs -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
+            var manifestIcon = VaadinIcon.CODE.create();
+            manifestIcon.setSize(UiConstants.ICON_SIZE);
+            Button manifestBtn = new Button(manifestIcon);
+            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            manifestBtn.getElement().setAttribute("title", "View Manifest");
+            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "yaml/replicaset/" + rs.namespace() + "/" + rs.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+
+            var deleteIcon = VaadinIcon.TRASH.create();
+            deleteIcon.setSize(UiConstants.ICON_SIZE);
+            Button deleteBtn = new Button(deleteIcon);
+            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+            deleteBtn.getElement().setAttribute("title", "Delete");
+            deleteBtn.setEnabled(canDelete);
+            deleteBtn.addClickListener(e -> openDeleteDialog(rs));
+
+            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
+            actions.setSpacing(false);
+            return actions;
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -126,6 +140,27 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             dataProvider.refreshAll();
             return false;
         }
+    }
+
+    private void openDeleteDialog(ReplicaSetInfo rs) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete ReplicaSet");
+        dialog.setText("Deleting this ReplicaSet will also remove all its Pods. If owned by a Deployment, a new ReplicaSet will be created. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                workloadService.deleteReplicaSet(cluster, rs.namespace(), rs.name());
+                loadReplicaSets();
+                notify("ReplicaSet " + rs.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private com.vaadin.flow.component.Component navigationLink(String label, Class<? extends com.vaadin.flow.component.Component> target) {

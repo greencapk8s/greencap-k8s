@@ -29,8 +29,15 @@ public class AutoScalingService {
                     ? client.autoscaling().v2().horizontalPodAutoscalers().inAnyNamespace().list().getItems()
                     : client.autoscaling().v2().horizontalPodAutoscalers().inNamespace(namespace).list().getItems();
 
+            var existingDeployments = (isAllNamespaces(namespace)
+                    ? client.apps().deployments().inAnyNamespace().list().getItems()
+                    : client.apps().deployments().inNamespace(namespace).list().getItems())
+                    .stream()
+                    .map(d -> d.getMetadata().getName())
+                    .collect(java.util.stream.Collectors.toSet());
+
             return items.stream()
-                    .map(this::toInfo)
+                    .map(hpa -> toInfo(hpa, existingDeployments))
                     .toList();
 
         } catch (Exception e) {
@@ -39,7 +46,7 @@ public class AutoScalingService {
         }
     }
 
-    private HorizontalScalerInfo toInfo(HorizontalPodAutoscaler hpa) {
+    private HorizontalScalerInfo toInfo(HorizontalPodAutoscaler hpa, java.util.Set<String> existingDeployments) {
         String target = Optional.ofNullable(hpa.getSpec())
                 .map(s -> s.getScaleTargetRef().getName())
                 .orElse("-");
@@ -58,6 +65,8 @@ public class AutoScalingService {
 
         String metrics = buildMetricsSummary(hpa);
 
+        boolean targetMissing = !"-".equals(target) && !existingDeployments.contains(target);
+
         return new HorizontalScalerInfo(
                 hpa.getMetadata().getName(),
                 hpa.getMetadata().getNamespace(),
@@ -66,7 +75,8 @@ public class AutoScalingService {
                 maxReplicas,
                 currentReplicas,
                 metrics,
-                NamespaceService.age(hpa.getMetadata().getCreationTimestamp())
+                NamespaceService.age(hpa.getMetadata().getCreationTimestamp()),
+                targetMissing
         );
     }
 
@@ -126,7 +136,7 @@ public class AutoScalingService {
                                     .map(s -> s.getScaleTargetRef().getName())
                                     .orElse(null)))
                     .findFirst()
-                    .map(this::toInfo);
+                    .map(hpa -> toInfo(hpa, java.util.Set.of(deploymentName)));
         } catch (Exception e) {
             log.error("Failed to find HPA for deployment {}/{}: {}", namespace, deploymentName, e.getMessage());
             throw new KubernetesOperationException("Failed to find HPA: " + e.getMessage(), e);
@@ -148,6 +158,17 @@ public class AutoScalingService {
         } catch (Exception e) {
             log.error("Failed to update HPA {}/{}: {}", namespace, name, e.getMessage());
             throw new KubernetesOperationException("Failed to update HPA: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteHorizontalScaler(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.autoscaling().v2().horizontalPodAutoscalers().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted HPA {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete HPA {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete HorizontalPodAutoscaler: " + e.getMessage(), e);
         }
     }
 

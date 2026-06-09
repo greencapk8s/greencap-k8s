@@ -6,5 +6,6 @@ public record ServiceInfo(
         String type,
         String clusterIP,
         String ports,
-        String age
+        String age,
+        boolean hasReadyEndpoints
 ) {}
