@@ -1,0 +1,3 @@
+greencap:
+  encryption:
+    key: ${GREENCAP_ENCRYPTION_KEY}

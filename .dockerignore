@@ -1,0 +1,27 @@
+# Gradle
+.gradle/
+build/
+bin/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Vaadin
+node_modules/
+**/frontend/generated/
+.vaadin/
+
+# Git / docs / scratch
+.git/
+.scratch/
+docs/
+
+# Env / secrets
+.env
+*.env
+
+# Logs
+*.log
+logs/

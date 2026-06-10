@@ -2,13 +2,14 @@ services:
 
   greencap:
     build:
-      context: ..
+      context: .
       dockerfile: docker/Dockerfile
     image: greencap-k8s:latest
     container_name: greencap
     ports:
       - "8080:8080"
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/greencap
       SPRING_DATASOURCE_USERNAME: ${DB_USER:-greencap}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-changeme}
@@ -17,6 +18,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
     restart: unless-stopped
     networks:
       - greencap-net

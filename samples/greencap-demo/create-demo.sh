@@ -39,8 +39,6 @@ echo "    Namespace : $NAMESPACE"
 echo "    Resources :"
 kubectl get all,configmap,secret,pvc,hpa,ingress -n "$NAMESPACE" --ignore-not-found
 echo ""
-echo "    To access the frontend:"
-echo "    minikube service frontend -n $NAMESPACE -p $PROFILE"
 echo ""
 echo "    Ingress host: greencap-demo.local"
 echo "    Add to /etc/hosts (run with sudo):"

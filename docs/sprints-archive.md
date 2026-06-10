@@ -1,6 +1,6 @@
 # GreenCap K8s — Sprints Arquivadas
 
-> Detalhamento das sprints fora da janela das últimas 10 (ver `docs/sprints.md` para a tabela "Status Geral" completa e as sprints recentes). Ordem cronológica crescente. Ver `docs/agents/sprint-archiving.md` para a regra de archiving.
+> Detalhamento das sprints fora da janela das últimas 10. Ordem cronológica crescente. Ver `docs/agents/sprint-archiving.md` para a regra de archiving.
 
 ---
 
@@ -427,3 +427,9 @@
 - `samples/greencap-demo/create.sh`: habilita addon `ingress` + aguarda controller pronto antes de aplicar manifests; exibe comando `/etc/hosts` com IP resolvido
 - `samples/greencap-demo/add-hosts.sh`: script auxiliar para adicionar entrada no `/etc/hosts`
 - `README.md`: seção "Ambiente de demonstração" apontando para `samples/greencap-demo/create.sh`
+
+### Sprint 45 — Topologia: ocultar pods de Jobs/CronJobs
+- `CONTEXT.md`: definição de `Topologia` ampliada com nota explicando que pods owned por Job (direto ou via CronJob) são deliberadamente excluídos — representam execuções efêmeras de tarefas finitas, não a topologia de serviço de longa duração que a view mapeia
+- `TopologyService.buildGraph()`: lista de pods filtrada logo após o fetch, removendo pods cujo `ownerReferences` contenha `kind == "Job"` — antes de qualquer agrupamento por ReplicaSet
+- Novo método privado `isOwnedByJob(Pod pod)`, ao lado de `ownerReplicaSetName()`
+- Cobre tanto Jobs disparados manualmente quanto Jobs criados por CronJobs — o Pod sempre referencia o Job diretamente, nunca o CronJob

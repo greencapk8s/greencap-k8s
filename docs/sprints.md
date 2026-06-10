@@ -8,51 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 1 | Setup + Auth + Login | ✅ Concluído |
-| 2 | Conexão de Clusters (kubeconfig) | ✅ Concluído |
-| 3 | Visualização de Workloads | ✅ Concluído |
-| 4 | Estabilização + Ambiente Local | ✅ Concluído |
-| 5 | Redesign de Layout + UX | ✅ Concluído |
-| 6 | Login, Logout + UX de autenticação | ✅ Concluído |
-| 7 | Cluster Atual por Sessão | ✅ Concluído |
-| 8 | Refinamento de Navegação + Workloads | ✅ Concluído |
-| 9 | Rede, Configuração e Demo | ✅ Concluído |
-| 10 | UI Language Standardization | ✅ Concluído |
-| 11 | UI Polish — ícones e navegação | ✅ Concluído |
-| 12 | Observabilidade: Events | ✅ Concluído |
-| 13 | Observabilidade: Metrics + UX global | ✅ Concluído |
-| 14 | Persistência do Namespace ativo | ✅ Concluído |
-| 15 | Visualização de Manifest (YAML) | ✅ Concluído |
-| 16 | UX pós-login com cluster inacessível | ✅ Concluído |
-| 17 | Auto Scaling — HorizontalScaler (HPA) | ✅ Concluído |
-| 18 | Workloads — ReplicaSets | ✅ Concluído |
-| 19 | Storage — PersistentVolumeClaims | ✅ Concluído |
-| 20 | Infrastructure — PersistentVolumes + StorageClasses | ✅ Concluído |
-| 21 | UX — Links entre recursos + Sidebar redimensionável | ✅ Concluído |
-| 22 | UX — Remoção de Namespace redundante + Filtros por coluna | ✅ Concluído |
-| 23 | Topology — visualização gráfica de objetos Kubernetes | ✅ Concluído |
-| 24 | Topology — Drawer lateral com resumo do recurso ao clicar no nó | ✅ Concluído |
-| 25 | Regressão de UI — labels do sidebar sem formatação | ✅ Concluído |
-| 26 | Migração para repositório oficial greencapk8s | ✅ Concluído |
-| 27 | Topology — PersistentVolumeClaim no grafo | ✅ Concluído |
-| 28 | Dev workflow — skills greencap-run e greencap-stop | ✅ Concluído |
-| 29 | Workloads — Scale e Restart de Deployment | ✅ Concluído |
-| 30 | Auto refresh nas listing views | ✅ Concluído |
-| 31 | Observabilidade — Events scoped por recurso | ✅ Concluído |
-| 32 | Troubleshooting — PodLog viewer em página dedicada | ✅ Concluído |
-| 33 | Observabilidade — Dashboard de namespace | ✅ Concluído |
-| 34 | UX — Melhorias de navbar, dashboard e ReplicaSets | ✅ Concluído |
-| 35 | Platform Settings — tela de configurações globais | ✅ Concluído |
-| 36 | UX — Drawer width no banco, tema dark/light, poll interval do PodLog | ✅ Concluído |
-| 37 | RBAC — controle de acesso por role e gerenciamento de usuários | ✅ Concluído |
-| 38 | RBAC granular — permissões por funcionalidade com TreeView | ✅ Concluído |
-| 39 | Workloads — Deployment Rollback (Rollout Undo) | ✅ Concluído |
-| 40 | Workloads — Jobs e CronJobs (read-only) | ✅ Concluído |
-| 41 | Workloads — Jobs/CronJobs: navegação contextual para logs | ✅ Concluído |
-| 42 | Workloads — Jobs/CronJobs: operações de escrita | ✅ Concluído |
-| 43 | Infrastructure — Nodes | ✅ Concluído |
-| 44 | Networking — Ingresses (read-only) | ✅ Concluído |
-| 45 | Topologia: ocultar pods de Jobs/CronJobs | ✅ Concluído |
 | 46 | UX — botão de Help em todas as views | ✅ Concluído |
 | 47 | Topologia — agrupamento de nós por labels part-of/component | ✅ Concluído |
 | 48 | Topologia — migração para layout fcose (elimina sobreposição de grupos) | ✅ Concluído |
@@ -62,12 +17,11 @@
 | 52 | Fix — Navbar não acompanha o hide do drawer | ✅ Concluído |
 | 53 | Versão da plataforma visível no rodapé do drawer | ✅ Concluído |
 | 54 | Manutenção — archiving de sprints.md e .scratch | ✅ Concluído |
+| 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
-
-Prioridade recomendada com base na evolução da plataforma (sprint 44):
 
 ### 🟢 Diferencial — visão de cluster
 
@@ -81,16 +35,22 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 
 - **Validar drivers minikube com suporte estável a multi-node** — driver `virtualbox` falha ao provisionar multi-node no Linux após reboot (DHCP do host-only network não atribui IP às VMs extras). Avaliar `--driver=docker` e `--driver=kvm2` com 3 nós: provisionar, reiniciar host e verificar que o cluster volta healthy automaticamente. Documentar driver recomendado e atualizar `cluster-provision.sh` + README de `samples/greencap-demo/`. Issue: `.scratch/sprint-50/issues/03-minikube-multinode-driver-validation.md`
 
-### 🐳 Infraestrutura de Produção
-
-- **`Dockerfile` + `docker-compose` validados ponta a ponta** — hoje só existe `docker-compose.yml`/`docker-compose.dev.yml` (PostgreSQL); falta um `Dockerfile` da aplicação Spring Boot e validação do stack completo via `docker-compose up`.
-- **`GREENCAP_ENCRYPTION_KEY` obrigatória em produção** — `application.yaml` hoje tem fallback `dev-encryption-key-change-me-32x`; adicionar validação no startup que falha se a variável não estiver definida em profile de produção.
-
 ---
 
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 55 ✅ — Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod)
+
+- `docker/Dockerfile` (novo): build multi-stage — stage `builder` (`eclipse-temurin:21-jdk`) roda `./gradlew bootJar -x jar` (gera o frontend Vaadin de produção via plugin, sem Node instalado no host); stage `runtime` (`eclipse-temurin:21-jre` + `curl`) só com o JAR final
+- `.dockerignore` (novo): exclui `build/`, `bin/`, `node_modules/`, `.git/`, `.gradle/`, `.scratch/`, `docs/` do contexto de build
+- `docker-compose.yml`: corrigido bug pré-existente em `build.context: ..` (apontava um nível acima do diretório do projeto, fazendo `docker compose up` falhar sempre); adicionado `SPRING_PROFILES_ACTIVE: prod` e `healthcheck` via `/actuator/health` no serviço `greencap`
+- `src/main/resources/application-prod.yaml` (novo): `greencap.encryption.key: ${GREENCAP_ENCRYPTION_KEY}` sem fallback — falha rápido no startup se a variável não estiver definida (testado isoladamente: erro claro de placeholder não resolvido)
+- `.env.example`: `ENCRYPTION_KEY`, `DB_USER`, `DB_PASSWORD` agora com valores padrão funcionais para Quick Start, com aviso para troca em produção real; `GREENCAP_ENCRYPTION_KEY` documentado separadamente para o fluxo Gradle/dev
+- `README.md`: nova seção "Quick Start (Docker)" como caminho principal (clone → `cp .env.example .env` → `docker compose up -d --build` → `http://localhost:8080`, login `admin`/`admin`); fluxo Gradle movido para "Para desenvolvedores"
+- Validado ponta a ponta: `docker compose up -d --build` sobe `db` + `greencap`, container `greencap` fica `healthy`, login acessível
+- `docs/agents/sprint-archiving.md`: regra ajustada — "Status Geral" agora acompanha a mesma janela de 10 sprints de "Sprints Concluídas" (em vez de manter histórico completo)
 
 ### Sprint 54 ✅ — Manutenção: archiving de sprints.md e .scratch
 
@@ -164,12 +124,6 @@ Prioridade recomendada com base na evolução da plataforma (sprint 44):
 - 16 views migradas com constantes próprias `HELP_TITLE`/`HELP_TEXT`, em inglês, explicando o que é o recurso e quais operações a tela permite (Deployments, ReplicaSets, Pods, Jobs, CronJobs, Services, Ingresses, ConfigMaps, Secrets, Horizontal Scalers, Volume Claims, Nodes, Events, Metrics, Persistent Volumes, Storage Classes)
 - `TopologiaView`: botão de Help flutuante no canto superior direito do canvas (a view não usa `buildSectionHeader` por ser full-canvas), abrindo o mesmo `HelpDialog`
 - Textos focados na definição do recurso e nas operações disponíveis na tela — sem menções a "somente leitura" nem ao papel do GreenCap na exibição dos dados
-
-### Sprint 45 — Topologia: ocultar pods de Jobs/CronJobs
-- `CONTEXT.md`: definição de `Topologia` ampliada com nota explicando que pods owned por Job (direto ou via CronJob) são deliberadamente excluídos — representam execuções efêmeras de tarefas finitas, não a topologia de serviço de longa duração que a view mapeia
-- `TopologyService.buildGraph()`: lista de pods filtrada logo após o fetch, removendo pods cujo `ownerReferences` contenha `kind == "Job"` — antes de qualquer agrupamento por ReplicaSet
-- Novo método privado `isOwnedByJob(Pod pod)`, ao lado de `ownerReplicaSetName()`
-- Cobre tanto Jobs disparados manualmente quanto Jobs criados por CronJobs — o Pod sempre referencia o Job diretamente, nunca o CronJob
 
 ---
 
