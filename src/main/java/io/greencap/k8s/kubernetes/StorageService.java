@@ -155,6 +155,11 @@ public class StorageService {
                                 .map(q -> formatMemoryGib(q.toString()))
                                 .orElse("—");
 
+                        boolean schedulingDisabled = Boolean.TRUE.equals(
+                                Optional.ofNullable(node.getSpec())
+                                        .map(s -> s.getUnschedulable())
+                                        .orElse(false));
+
                         return new NodeInfo(
                                 node.getMetadata().getName(),
                                 status,
@@ -163,13 +168,28 @@ public class StorageService {
                                 os,
                                 cpu,
                                 memory,
-                                NamespaceService.age(node.getMetadata().getCreationTimestamp())
+                                NamespaceService.age(node.getMetadata().getCreationTimestamp()),
+                                schedulingDisabled
                         );
                     })
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list nodes for cluster {}: {}", cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to list Nodes: " + e.getMessage(), e);
+        }
+    }
+
+    public void cordonNode(Cluster cluster, String nodeName, boolean cordon) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.nodes().withName(nodeName).edit(node -> {
+                node.getSpec().setUnschedulable(cordon);
+                return node;
+            });
+            log.info("{} node {}", cordon ? "Cordoned" : "Uncordoned", nodeName);
+        } catch (Exception e) {
+            log.error("Failed to {} node {}: {}", cordon ? "cordon" : "uncordon", nodeName, e.getMessage());
+            throw new KubernetesOperationException("Failed to " + (cordon ? "cordon" : "uncordon") + " Node: " + e.getMessage(), e);
         }
     }
 

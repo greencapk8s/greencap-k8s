@@ -6,9 +6,11 @@ import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -34,13 +36,15 @@ import java.util.List;
 public class NodesView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private static final String HELP_TITLE = "Nodes";
-    private static final String HELP_TEXT = "A Node is a machine (physical or virtual) that is part of the Kubernetes cluster's infrastructure, responsible for running Pods, with its own CPU, memory and storage capacity.";
+    private static final String HELP_TEXT = "A Node is a machine (physical or virtual) that is part of the Kubernetes cluster's infrastructure, responsible for running Pods, with its own CPU, memory and storage capacity.\n\nOn this screen you can: Cordon — mark a Node as unschedulable, preventing new Pods from being placed on it without affecting Pods already running — and Uncordon — mark it schedulable again.";
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
 
     private final Grid<NodeInfo> grid = new Grid<>(NodeInfo.class, false);
     private final VerticalLayout noClusterMessage;
+
+    private boolean canCordon;
 
     private final List<NodeInfo> allItems = new ArrayList<>();
     private final ListDataProvider<NodeInfo> dataProvider = new ListDataProvider<>(allItems);
@@ -73,23 +77,18 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
     }
 
     private void buildGrid() {
+        canCordon = SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_CORDON);
+
         var nameCol   = grid.addColumn(NodeInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var statusCol = grid.addComponentColumn(node -> statusBadge(node.status())).setHeader("Status").setWidth("110px").setSortable(false).setResizable(true);
+        grid.addComponentColumn(node -> schedulingBadge(node.schedulingDisabled())).setHeader("Scheduling").setWidth("120px").setSortable(false).setResizable(true);
         grid.addColumn(NodeInfo::role).setHeader("Role").setWidth("130px").setSortable(true).setResizable(true);
         grid.addColumn(NodeInfo::version).setHeader("Version").setWidth("130px").setResizable(true);
         grid.addColumn(NodeInfo::os).setHeader("OS").setFlexGrow(2).setResizable(true);
         grid.addColumn(NodeInfo::cpu).setHeader("CPU").setWidth("80px").setResizable(true);
         grid.addColumn(NodeInfo::memory).setHeader("Memory").setWidth("100px").setResizable(true);
         grid.addColumn(NodeInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(node -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate("yaml/node/-/" + node.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
+        grid.addComponentColumn(this::buildActionsLayout).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -109,6 +108,36 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
 
         grid.setSizeFull();
         grid.setVisible(false);
+    }
+
+    private HorizontalLayout buildActionsLayout(NodeInfo node) {
+        Icon cordonIcon = node.schedulingDisabled() ? VaadinIcon.PLAY.create() : VaadinIcon.PAUSE.create();
+        cordonIcon.setSize(UiConstants.ICON_SIZE);
+        Button cordonBtn = new Button(cordonIcon);
+        cordonBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        cordonBtn.getElement().setAttribute("title", node.schedulingDisabled() ? "Uncordon" : "Cordon");
+        cordonBtn.setEnabled(canCordon);
+        cordonBtn.addClickListener(e -> toggleCordon(node));
+
+        Button manifestBtn = buildIconButton(VaadinIcon.CODE, "View Manifest");
+        manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/node/-/" + node.name()));
+
+        HorizontalLayout actions = new HorizontalLayout(cordonBtn, manifestBtn);
+        actions.setSpacing(false);
+        return actions;
+    }
+
+    private void toggleCordon(NodeInfo node) {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        boolean cordon = !node.schedulingDisabled();
+        try {
+            storageService.cordonNode(cluster, node.name(), cordon);
+            notify("Node " + node.name() + (cordon ? " cordoned" : " uncordoned"), NotificationVariant.LUMO_SUCCESS);
+            loadNodes();
+        } catch (KubernetesOperationException ex) {
+            notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+        }
     }
 
     private boolean loadNodes() {
@@ -149,6 +178,22 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
             default         -> badge.getElement().getThemeList().add("contrast");
         }
         return badge;
+    }
+
+    private Span schedulingBadge(boolean schedulingDisabled) {
+        Span badge = new Span(schedulingDisabled ? "Cordoned" : "Schedulable");
+        badge.getElement().getThemeList().add("badge");
+        badge.getElement().getThemeList().add(schedulingDisabled ? "contrast" : "success");
+        return badge;
+    }
+
+    private Button buildIconButton(VaadinIcon icon, String title) {
+        Icon iconElement = icon.create();
+        iconElement.setSize(UiConstants.ICON_SIZE);
+        Button btn = new Button(iconElement);
+        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+        btn.getElement().setAttribute("title", title);
+        return btn;
     }
 
     private TextField buildFilterField() {

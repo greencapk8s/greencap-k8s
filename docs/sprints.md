@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 46 | UX — botão de Help em todas as views | ✅ Concluído |
 | 47 | Topologia — agrupamento de nós por labels part-of/component | ✅ Concluído |
 | 48 | Topologia — migração para layout fcose (elimina sobreposição de grupos) | ✅ Concluído |
 | 49 | Topologia — persistência do TopologyLayout (posições dos nós + toggle) | ✅ Concluído |
@@ -18,10 +17,15 @@
 | 53 | Versão da plataforma visível no rodapé do drawer | ✅ Concluído |
 | 54 | Manutenção — archiving de sprints.md e .scratch | ✅ Concluído |
 | 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
+| 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
 
 ---
 
 ## Candidatos para Próximas Sprints
+
+### 🔵 Gerenciamento ativo — próximas operações de escrita
+
+- **Atualizar imagem do Deployment (`kubectl set image`)** — patch em `spec.template.spec.containers[].image`. Requer UI para escolher o container quando o Pod tem múltiplos (multi-container) — maior complexidade de UX que as demais ações de write já implementadas.
 
 ### 🟢 Diferencial — visão de cluster
 
@@ -40,6 +44,17 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 56 ✅ — Infrastructure: Cordon/Uncordon de Nodes
+
+- `CONTEXT.md`: definição de `Node` atualizada para incluir Cordon/Uncordon como write operation; novo termo `Cordon` adicionado ao glossário, no formato de `Suspend`
+- `Permission.SETTINGS_INFRASTRUCTURE_CORDON` adicionado ao enum; incluído em `operatorPermissions()`; ausente em `viewerPermissions()`
+- `V18__add_node_cordon_permission.sql`: concede `SETTINGS_INFRASTRUCTURE_CORDON` a Admin e Operator (identificados por `SETTINGS_CLUSTERS_WRITE`, mesmo padrão de `V17`)
+- `NodeInfo`: novo campo `schedulingDisabled`
+- `StorageService`: `listNodes()` popula `schedulingDisabled` a partir de `spec.unschedulable`; novo método `cordonNode(Cluster, String, boolean)` faz patch via `client.nodes().withName(name).edit(...)`
+- `NodesView`: nova coluna "Scheduling" com badge `Schedulable`/`Cordoned`; botão toggle Cordon/Uncordon (`PAUSE`/`PLAY`) na coluna de ações, desabilitado para Viewer, mesmo padrão de Suspend/Resume do `CronJobsView`; `HELP_TEXT` atualizado
+- `UserManagementView` não foi alterado — segue o mesmo gap pré-existente dos 9 `_DELETE` da sprint 51 (permission concedida via migration, sem editor por usuário)
+- Issue: `.scratch/sprint-56/issues/01-node-cordon-uncordon.md`
 
 ### Sprint 55 ✅ — Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod)
 
@@ -117,13 +132,6 @@
 - `topology-graph.ts`: renderiza os grupos como compound nodes do Cytoscape — caixa externa `part-of: <valor>`, caixa interna aninhada `component: <valor>`; nó com `component` mas sem `part-of` forma seu próprio grupo de nível externo; nó sem nenhuma das labels permanece solto, fora de qualquer caixa
 - `TopologiaView`: checkbox "Group by labels" no canto superior direito do grafo, ligado por padrão — ao desligar, o grafo volta ao layout plano; texto de Help atualizado explicando o agrupamento
 - Caixas são puramente visuais — sem colapsar/expandir
-
-### Sprint 46 — UX: botão de Help em todas as views
-- `HelpDialog`: novo componente estático (mesmo padrão de `EventsDialog`) — `Dialog` modal com título e parágrafos de texto explicativo, botão "Close"
-- `UiConstants.buildSectionHeader`: novo parâmetro de conteúdo de ajuda; botão `VaadinIcon.QUESTION_CIRCLE` adicionado à esquerda do botão de refresh — header final: `Título — [Help] — [Refresh]`
-- 16 views migradas com constantes próprias `HELP_TITLE`/`HELP_TEXT`, em inglês, explicando o que é o recurso e quais operações a tela permite (Deployments, ReplicaSets, Pods, Jobs, CronJobs, Services, Ingresses, ConfigMaps, Secrets, Horizontal Scalers, Volume Claims, Nodes, Events, Metrics, Persistent Volumes, Storage Classes)
-- `TopologiaView`: botão de Help flutuante no canto superior direito do canvas (a view não usa `buildSectionHeader` por ser full-canvas), abrindo o mesmo `HelpDialog`
-- Textos focados na definição do recurso e nas operações disponíveis na tela — sem menções a "somente leitura" nem ao papel do GreenCap na exibição dos dados
 
 ---
 

@@ -8,5 +8,6 @@ public record NodeInfo(
         String os,
         String cpu,
         String memory,
-        String age
+        String age,
+        boolean schedulingDisabled
 ) {}

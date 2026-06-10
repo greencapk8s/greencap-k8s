@@ -433,3 +433,10 @@
 - `TopologyService.buildGraph()`: lista de pods filtrada logo após o fetch, removendo pods cujo `ownerReferences` contenha `kind == "Job"` — antes de qualquer agrupamento por ReplicaSet
 - Novo método privado `isOwnedByJob(Pod pod)`, ao lado de `ownerReplicaSetName()`
 - Cobre tanto Jobs disparados manualmente quanto Jobs criados por CronJobs — o Pod sempre referencia o Job diretamente, nunca o CronJob
+
+### Sprint 46 — UX: botão de Help em todas as views
+- `HelpDialog`: novo componente estático (mesmo padrão de `EventsDialog`) — `Dialog` modal com título e parágrafos de texto explicativo, botão "Close"
+- `UiConstants.buildSectionHeader`: novo parâmetro de conteúdo de ajuda; botão `VaadinIcon.QUESTION_CIRCLE` adicionado à esquerda do botão de refresh — header final: `Título — [Help] — [Refresh]`
+- 16 views migradas com constantes próprias `HELP_TITLE`/`HELP_TEXT`, em inglês, explicando o que é o recurso e quais operações a tela permite (Deployments, ReplicaSets, Pods, Jobs, CronJobs, Services, Ingresses, ConfigMaps, Secrets, Horizontal Scalers, Volume Claims, Nodes, Events, Metrics, Persistent Volumes, Storage Classes)
+- `TopologiaView`: botão de Help flutuante no canto superior direito do canvas (a view não usa `buildSectionHeader` por ser full-canvas), abrindo o mesmo `HelpDialog`
+- Textos focados na definição do recurso e nas operações disponíveis na tela — sem menções a "somente leitura" nem ao papel do GreenCap na exibição dos dados
