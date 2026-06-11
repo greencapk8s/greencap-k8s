@@ -7,6 +7,9 @@ public enum Permission {
     // Project — Topology
     TOPOLOGY_VIEW,
 
+    // Project — Manifest
+    MANIFEST_EDIT,
+
     // Project — Workloads
     WORKLOADS_DEPLOYMENTS_VIEW,
     WORKLOADS_DEPLOYMENTS_SCALE,
@@ -66,6 +69,7 @@ public enum Permission {
     public static Set<Permission> operatorPermissions() {
         return Set.of(
                 TOPOLOGY_VIEW,
+                MANIFEST_EDIT,
                 WORKLOADS_DEPLOYMENTS_VIEW, WORKLOADS_DEPLOYMENTS_SCALE, WORKLOADS_DEPLOYMENTS_RESTART,
                 WORKLOADS_DEPLOYMENTS_ROLLBACK, WORKLOADS_DEPLOYMENTS_DELETE,
                 WORKLOADS_REPLICASETS_VIEW, WORKLOADS_REPLICASETS_DELETE,

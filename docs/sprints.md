@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 49 | Topologia — persistência do TopologyLayout (posições dos nós + toggle) | ✅ Concluído |
 | 50 | Demo: cluster-provision + UX async loading | ✅ Concluído |
 | 51 | Gerenciamento ativo — Delete em todas as views PROJECT | ✅ Concluído |
 | 52 | Fix — Navbar não acompanha o hide do drawer | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
 | 57 | UX — barra de seleção e ações na barra de título (14 views) | ✅ Concluído |
 | 58 | Polish de listagens — nome do recurso na confirmação de remoção e espaçamento das colunas de ações | ✅ Concluído |
+| 59 | YAML do Manifest editável (Edit + Apply) | ✅ Concluído |
 
 ---
 
@@ -44,6 +44,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 59 ✅ — YAML do Manifest editável (Edit + Apply)
+
+- `CONTEXT.md`: termo `Manifest` atualizado — deixa de ser somente leitura; documenta os 11 tipos namespaced editáveis (Pod, Deployment, ReplicaSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, HorizontalScaler, PersistentVolumeClaim) vs. os 3 cluster-scoped que permanecem read-only (Node, PersistentVolume, StorageClass); novo termo `Apply` definido como replace completo (PUT)
+- `docs/adr/0005-manifest-apply-as-full-replace.md`: nova ADR registrando por que Apply remove `resourceVersion`/`uid`/`creationTimestamp`/`generation`/`managedFields`/`status` antes do `update()` — evita 409 espúrio por churn de `status` em recursos reconciliados continuamente; semântica de replace completo (não merge estilo `kubectl apply`)
+- `Permission.java`: novo grupo "Project — Manifest" com `MANIFEST_EDIT`; incluído em `operatorPermissions()`, ausente de `viewerPermissions()`
+- `V19__add_manifest_edit_permission.sql`: concede `MANIFEST_EDIT` a usuários com `SETTINGS_CLUSTERS_WRITE` (Admin/Operator)
+- `ManifestService`: novo método `applyYaml()` — parseia o YAML editado via `YAMLMapper`, valida `kind`/`metadata.name`/`metadata.namespace` contra os parâmetros da URL (bloqueia divergências sem chamar a API), remove campos gerenciados pelo servidor e o nó `status`, e aplica via `client.resource(yaml).inNamespace(namespace).update()`; novo `isEditable(resourceType)` com o mapa dos 11 tipos editáveis → `kind` esperado
+- `ManifestView`: botões **Edit** e **Apply** no header — Edit alterna para Cancelar (descarta alterações e volta ao YAML original), Apply só visível em modo edição e abre `ConfirmDialog` antes de enviar; editor é um `TextArea` monoespaçado que substitui o `Pre` em modo edição e recebe foco automático; sucesso re-busca o YAML e volta ao modo leitura com notificação, falha mantém o texto editado com notificação de erro; Edit visível apenas para os 11 tipos editáveis e desabilitado (com tooltip) sem `MANIFEST_EDIT`
+- Issue: `.scratch/sprint-59/issues/01-yaml-manifest-editavel.md`
 
 ### Sprint 58 ✅ — Polish de listagens: nome do recurso na confirmação de remoção e espaçamento das colunas de ações
 
@@ -135,15 +145,6 @@
 - `UiConstants`: novo `buildClusterUnreachableMessage()` — banner de erro com botão "Check Cluster Settings" navegando para `ClustersView`; `VIRTUAL_THREADS` executor compartilhado
 - `DashboardView`: refatorado para carregamento paralelo — todos os cards (7 contadores + 2 métricas) renderizam imediatamente com estado de loading `…` e atualizam individualmente via `ui.access()` ao chegar o resultado
 - `DeploymentsView` + `PodsView`: carregamento assíncrono no `beforeEnter` via `loadXxxAsync(UI ui)`; banner `clusterErrorMessage` exibido em caso de `KubernetesOperationException` com orientação ao usuário; padrão de referência para views restantes (registrado como candidato a sprint)
-
-### Sprint 49 — Topologia: persistência do TopologyLayout
-- `CONTEXT.md`: novo termo `TopologyLayout` — snapshot persistido do estado visual da Topologia por User + Cluster + Namespace; armazena posições dos nós e estado do toggle `groupingEnabled`; auto-save após cada drag; nós removidos são descartados na próxima gravação; nós novos são posicionados pelo fcose enquanto os conhecidos ficam fixos
-- Migration `V16__add_topology_layouts.sql`: tabela `topology_layouts` com `unique(user_id, cluster_id, namespace)`, coluna `node_positions` (TEXT), `grouping_enabled` (BOOLEAN), `updated_at`
-- `TopologyLayout.java` + `TopologyLayoutRepository.java`: entidade JPA e repository com `findByUserIdAndClusterIdAndNamespace`
-- `TopologyLayoutService.java`: método `upsertLayout` — cria ou atualiza o layout salvo para o contexto; método `findLayout` para leitura
-- `TopologyGraphComponent.java`: injeção de `TopologyLayoutService` e `UserRepository`; método `@ClientCallable saveLayout(String, boolean)` chamado pelo frontend após cada drag; `setSavedPositions()` para passar posições ao frontend; `setContext(clusterId, namespace)` para contextualizar o save
-- `TopologiaView.java`: ao entrar na view, carrega o `TopologyLayout` salvo — restaura o toggle antes da renderização e passa `savedPositions` ao componente; injeção de `TopologyLayoutService` e `UserRepository`
-- `topology-graph.ts`: nova property `savedPositions`; ao renderizar, constrói `fixedNodeConstraint` com os nós conhecidos (fcose os pina nas posições salvas, nós novos são posicionados livremente); listener `dragfree` dispara `_saveLayout()` com snapshot completo; mudança no toggle também dispara `_saveLayout()`
 
 ---
 

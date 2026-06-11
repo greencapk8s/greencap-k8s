@@ -109,8 +109,12 @@ A Kubernetes-native occurrence record emitted by the control plane or controller
 _Avoid_: Log, alert, notification
 
 **Manifest**:
-The full YAML representation of a Kubernetes resource as returned by the API server. Read-only in GreenCap — displayed in a dedicated page per resource, reachable via an action icon in each listing view. The page URL encodes resource type, namespace, and name (e.g., `/yaml/pod/payments/my-pod`) to support deep-linking and future editing.
+The full YAML representation of a Kubernetes resource as returned by the API server. Displayed in a dedicated page per resource, reachable via an action icon in each listing view. The page URL encodes resource type, namespace, and name (e.g., `/yaml/pod/payments/my-pod`) to support deep-linking. For the 11 namespaced resource types covered by GreenCap's listing views (Pod, Deployment, ReplicaSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, HorizontalScaler, PersistentVolumeClaim), the Manifest supports the Apply write operation. Node, PersistentVolume and StorageClass (cluster-scoped) remain read-only.
 _Avoid_: Config, definition, spec
+
+**Apply**:
+A write operation on a Manifest that submits user-edited YAML back to the cluster as a full replace (PUT) of the resource — closer to `kubectl replace`/`kubectl edit` than to `kubectl apply`'s three-way merge. An Edit toggle makes the Manifest's YAML editable and focuses the editor; Apply then submits the edited content and, on success, returns to the read-only view with the refreshed Manifest. Before submitting, GreenCap strips server-managed fields (`resourceVersion`, `uid`, `creationTimestamp`, `generation`, `managedFields`, `status`) so the replace targets the latest server state — last-write-wins on `spec`/`metadata`, unaffected by `status` churn from controllers. Rejected before submission if the edited `kind`, `metadata.name`, or `metadata.namespace` no longer match the page's resource. Protected by the `MANIFEST_EDIT` permission, which also gates the Edit toggle.
+_Avoid_: kubectl apply (different semantics — three-way merge, not full replace), Save, Update, Patch
 
 **HorizontalScaler**:
 A Kubernetes `HorizontalPodAutoscaler` resource that automatically adjusts the replica count of a target Workload (typically a Deployment) based on observed metrics. In GreenCap, displayed read-only under the Auto Scaling section, scoped to the active Namespace.
