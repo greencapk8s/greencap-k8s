@@ -57,7 +57,9 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
                 .set("background", "var(--lumo-contrast-5pct)")
                 .set("border-radius", "var(--lumo-border-radius-m)")
                 .set("overflow", "auto")
-                .set("white-space", "pre")
+                .set("overflow-x", "hidden")
+                .set("white-space", "pre-wrap")
+                .set("overflow-wrap", "anywhere")
                 .set("width", "100%")
                 .set("flex", "1");
 
