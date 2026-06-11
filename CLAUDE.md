@@ -109,9 +109,9 @@ Single-context: `CONTEXT.md` na raiz + `docs/adr/`. Ver `docs/agents/domain.md`.
 
 Toda sprint segue este ciclo antes de qualquer código:
 
-1. **Planejamento** — usar `/grill-with-docs` para definir escopo, requisitos e restrições da sprint
+1. **Planejamento** — antes de iniciar, lembrar o usuário de alterar o effort para `high` (`/effort high`); usar `/grill-with-docs` para definir escopo, requisitos e restrições da sprint
 2. **Issues** — criar uma issue por entrega em `.scratch/sprint-N/issues/NN-slug.md` (ver `docs/agents/issue-tracker.md`)
-3. **Implementação** — codificar seguindo as convenções deste guia, marcando a issue como `in-progress`
+3. **Implementação** — antes de iniciar, lembrar o usuário de alterar o effort para `medium` (`/effort medium`); codificar seguindo as convenções deste guia, marcando a issue como `in-progress`
 4. **Testes automatizados** — compilar (`./gradlew compileJava`) e rodar testes (`./gradlew test`); reportar resultado ao usuário
 5. **Aceite manual** — aguardar o usuário validar os fluxos no browser e confirmar o aceite; não avançar sem essa confirmação
 6. **Fechamento** — somente após aceite explícito do usuário: marcar a issue como `done`, atualizar `docs/sprints.md` (status ✅ e entrada na seção Sprints Concluídas), aplicar a rotina de `docs/agents/sprint-archiving.md` se a seção ultrapassar 10 entradas, e fazer commit incluindo tudo

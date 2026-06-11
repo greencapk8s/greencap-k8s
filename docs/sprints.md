@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 48 | Topologia — migração para layout fcose (elimina sobreposição de grupos) | ✅ Concluído |
 | 49 | Topologia — persistência do TopologyLayout (posições dos nós + toggle) | ✅ Concluído |
 | 50 | Demo: cluster-provision + UX async loading | ✅ Concluído |
 | 51 | Gerenciamento ativo — Delete em todas as views PROJECT | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
 | 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
 | 57 | UX — barra de seleção e ações na barra de título (14 views) | ✅ Concluído |
+| 58 | Polish de listagens — nome do recurso na confirmação de remoção e espaçamento das colunas de ações | ✅ Concluído |
 
 ---
 
@@ -44,6 +44,15 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 58 ✅ — Polish de listagens: nome do recurso na confirmação de remoção e espaçamento das colunas de ações
+
+- `ConfirmDialog` de remoção atualizado em 11 views para incluir o nome do recurso na mensagem: `PodsView`, `DeploymentsView`, `ReplicaSetView`, `JobsView`, `CronJobsView` (ambas as variantes, com e sem Jobs ativos), `ServicesView`, `IngressView`, `ConfigMapsView`, `SecretsView`, `HorizontalScalerView`, `PersistentVolumeClaimsView`
+- Fix: último botão (lado direito) das colunas de ações ficava colado/cortado na borda da grid — causa raiz era o `HorizontalLayout` padrão (padding/spacing) das colunas de componente, não considerado em `actionsColumnWidth`
+- `UiConstants.actionsColumnWidth`: agora soma `ACTION_BUTTON_WIDTH_PX` (48px) por botão + `ACTIONS_COLUMN_RIGHT_PADDING_PX` (8px) de respiro
+- Novo helper `UiConstants.addActionsColumn(grid, buttonCount, buttonsProvider)`: monta a coluna de ações com `HorizontalLayout` sem padding/spacing padrão e `padding-right` consistente — substitui o padrão duplicado em 8 views: `NodesView`, `DeploymentsView`, `PodsView`, `JobsView`, `CronJobsView`, `HorizontalScalerView`, `ClustersView`, `UserManagementView`
+- `CronJobsView`: `buildActionsLayout` refatorado para `buildActionButtons` (retorna `List<Button>`); `ClustersView`/`UserManagementView`: `buildActions` passam a retornar `List<Button>` em vez de `HorizontalLayout`
+- Issues: `.scratch/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`
 
 ### Sprint 57 ✅ — UX: barra de seleção e ações na barra de título (14 views)
 
@@ -135,12 +144,6 @@
 - `TopologyGraphComponent.java`: injeção de `TopologyLayoutService` e `UserRepository`; método `@ClientCallable saveLayout(String, boolean)` chamado pelo frontend após cada drag; `setSavedPositions()` para passar posições ao frontend; `setContext(clusterId, namespace)` para contextualizar o save
 - `TopologiaView.java`: ao entrar na view, carrega o `TopologyLayout` salvo — restaura o toggle antes da renderização e passa `savedPositions` ao componente; injeção de `TopologyLayoutService` e `UserRepository`
 - `topology-graph.ts`: nova property `savedPositions`; ao renderizar, constrói `fixedNodeConstraint` com os nós conhecidos (fcose os pina nas posições salvas, nós novos são posicionados livremente); listener `dragfree` dispara `_saveLayout()` com snapshot completo; mudança no toggle também dispara `_saveLayout()`
-
-### Sprint 48 — Topologia: migração para layout fcose
-- `TopologyGraphComponent.java`: adicionado `@NpmPackage(value = "cytoscape-fcose", version = "2.2.0")`
-- `topology-graph.ts`: importado e registrado `cytoscape-fcose`; layout substituído de `breadthfirst` para `fcose` com parâmetros `nodeSeparation: 80`, `idealEdgeLength: 120`, `nodeRepulsion: 12000`, `padding: 48`; lógica de `rootIds` removida (exclusiva do breadthfirst)
-- `cytoscape-fcose.d.ts`: declaração de tipos criada no frontend (pacote não tem tipos oficiais)
-- `fcose` suporta compound nodes nativamente — elimina sobreposição de `TopologyGroup` que ocorria com `breadthfirst`; aplicado nos dois modos (com e sem agrupamento)
 
 ---
 

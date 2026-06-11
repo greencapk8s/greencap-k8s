@@ -138,7 +138,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
     private void openDeleteDialog(IngressInfo ingress) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Ingress");
-        dialog.setText("Deleting this Ingress will remove all its routing rules. External traffic to the associated hosts will stop. This action cannot be undone.");
+        dialog.setText("Deleting Ingress \"" + ingress.name() + "\" will remove all its routing rules. External traffic to the associated hosts will stop. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

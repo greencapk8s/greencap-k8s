@@ -11,7 +11,6 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -100,7 +99,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         grid.addColumn(CronJobInfo::active).setHeader("Active").setWidth("80px").setResizable(true);
         grid.addColumn(CronJobInfo::lastScheduleTime).setHeader("Last Schedule").setWidth("120px").setResizable(true);
         grid.addColumn(CronJobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(this::buildActionsLayout).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
+        UiConstants.addActionsColumn(grid, 3, this::buildActionButtons);
 
         grid.setDataProvider(dataProvider);
 
@@ -118,7 +117,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         grid.setVisible(false);
     }
 
-    private HorizontalLayout buildActionsLayout(CronJobInfo cj) {
+    private List<Button> buildActionButtons(CronJobInfo cj) {
         Button triggerBtn = buildIconButton(VaadinIcon.FAST_FORWARD, "Trigger Job", canRunNow);
         triggerBtn.addClickListener(e -> openTriggerDialog(cj));
 
@@ -133,9 +132,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         Button jobsBtn = buildIconButton(VaadinIcon.LIST, "View Jobs", true);
         jobsBtn.addClickListener(e -> UI.getCurrent().navigate("workloads/jobs?cronjob=" + cj.name()));
 
-        HorizontalLayout actions = new HorizontalLayout(triggerBtn, suspendBtn, jobsBtn);
-        actions.setSpacing(false);
-        return actions;
+        return List.of(triggerBtn, suspendBtn, jobsBtn);
     }
 
     private Button buildIconButton(VaadinIcon icon, String title, boolean enabled) {
@@ -187,9 +184,9 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete CronJob");
         if (cj.active() > 0) {
-            dialog.setText("This CronJob has " + cj.active() + " active Job(s). Deleting it will also delete all associated Jobs and Pods. This action cannot be undone.");
+            dialog.setText("CronJob \"" + cj.name() + "\" has " + cj.active() + " active Job(s). Deleting it will also delete all associated Jobs and Pods. This action cannot be undone.");
         } else {
-            dialog.setText("Deleting this CronJob will also delete all associated Jobs and Pods. This action cannot be undone.");
+            dialog.setText("Deleting CronJob \"" + cj.name() + "\" will also delete all associated Jobs and Pods. This action cannot be undone.");
         }
         dialog.setCancelable(true);
         dialog.setCancelText("Cancel");

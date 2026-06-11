@@ -84,7 +84,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         grid.addComponentColumn(this::permissionCountBadge).setHeader("Permissions").setWidth("140px").setResizable(true);
         grid.addComponentColumn(this::activeBadge).setHeader("Status").setWidth("100px").setResizable(true);
         grid.addColumn(u -> u.getCreatedAt().format(DATE_FORMATTER)).setHeader("Created").setWidth("160px").setResizable(true);
-        grid.addComponentColumn(this::buildActions).setHeader("").setWidth("140px").setFlexGrow(0);
+        UiConstants.addActionsColumn(grid, 2, this::buildActions);
         grid.setSizeFull();
         return grid;
     }
@@ -111,7 +111,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         return badge;
     }
 
-    private HorizontalLayout buildActions(User user) {
+    private List<Button> buildActions(User user) {
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         boolean isSelf = user.getUsername().equals(currentUsername);
         boolean canWrite = SecurityUtils.hasPermission(Permission.SETTINGS_USERS_WRITE);
@@ -134,7 +134,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         deactivateBtn.getElement().setAttribute("title", "Deactivate user");
         deactivateBtn.setEnabled(user.isActive() && !isSelf && canWrite);
 
-        return new HorizontalLayout(editBtn, deactivateBtn);
+        return List.of(editBtn, deactivateBtn);
     }
 
     private void confirmDeactivate(User user) {

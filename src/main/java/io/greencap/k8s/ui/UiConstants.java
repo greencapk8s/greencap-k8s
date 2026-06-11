@@ -35,6 +35,9 @@ final class UiConstants {
     static final String ICON_SIZE = "28px";
     static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
 
+    private static final int ACTION_BUTTON_WIDTH_PX = 48;
+    private static final int ACTIONS_COLUMN_RIGHT_PADDING_PX = 8;
+
     private static final String SELECTION_VIEW_KEY = "selectionViewKey";
 
     static VerticalLayout buildClusterUnreachableMessage() {
@@ -185,7 +188,20 @@ final class UiConstants {
     }
 
     static String actionsColumnWidth(int buttonCount) {
-        return (buttonCount * 48) + "px";
+        return (buttonCount * ACTION_BUTTON_WIDTH_PX + ACTIONS_COLUMN_RIGHT_PADDING_PX) + "px";
+    }
+
+    static <T> void addActionsColumn(Grid<T> grid, int buttonCount, Function<T, ? extends List<? extends Component>> buttonsProvider) {
+        grid.addComponentColumn(item -> buildActionsLayout(buttonsProvider.apply(item)))
+                .setHeader("").setWidth(actionsColumnWidth(buttonCount)).setFlexGrow(0);
+    }
+
+    private static HorizontalLayout buildActionsLayout(List<? extends Component> buttons) {
+        HorizontalLayout actions = new HorizontalLayout(buttons.toArray(Component[]::new));
+        actions.setSpacing(false);
+        actions.setPadding(false);
+        actions.getStyle().set("padding-right", ACTIONS_COLUMN_RIGHT_PADDING_PX + "px");
+        return actions;
     }
 
     record SelectionAction<T>(VaadinIcon icon, String title, boolean enabled, boolean destructive, Consumer<T> handler) {

@@ -138,7 +138,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
     private void openDeleteDialog(PersistentVolumeClaimInfo pvc) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete PersistentVolumeClaim");
-        dialog.setText("Deleting this PersistentVolumeClaim may result in permanent data loss depending on the reclaim policy. This action cannot be undone.");
+        dialog.setText("Deleting PersistentVolumeClaim \"" + pvc.name() + "\" may result in permanent data loss depending on the reclaim policy. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

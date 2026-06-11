@@ -136,7 +136,7 @@ public class SecretsView extends VerticalLayout implements BeforeEnterObserver, 
     private void openDeleteDialog(SecretInfo secret) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Secret");
-        dialog.setText("Deleting this Secret will remove it from the cluster. Workloads that depend on it may fail. This action cannot be undone.");
+        dialog.setText("Deleting Secret \"" + secret.name() + "\" will remove it from the cluster. Workloads that depend on it may fail. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

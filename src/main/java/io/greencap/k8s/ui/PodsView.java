@@ -150,15 +150,15 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        podGrid.addComponentColumn(p -> {
+        UiConstants.addActionsColumn(podGrid, 1, p -> {
             var logsIcon = VaadinIcon.TERMINAL.create();
             logsIcon.setSize(UiConstants.ICON_SIZE);
             Button logsBtn = new Button(logsIcon);
             logsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
             logsBtn.getElement().setAttribute("title", "Logs");
             logsBtn.addClickListener(e -> UI.getCurrent().navigate("logs/pod/" + p.namespace() + "/" + p.name()));
-            return logsBtn;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
+            return List.of(logsBtn);
+        });
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
@@ -238,7 +238,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private void openDeleteDialog(PodInfo pod) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Pod");
-        dialog.setText("Deleting this Pod will remove it from the cluster. If managed by a controller, it will be recreated automatically. This action cannot be undone.");
+        dialog.setText("Deleting Pod \"" + pod.name() + "\" will remove it from the cluster. If managed by a controller, it will be recreated automatically. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

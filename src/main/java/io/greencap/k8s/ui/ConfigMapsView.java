@@ -106,7 +106,7 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
     private void openDeleteDialog(ConfigMapInfo configMap) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete ConfigMap");
-        dialog.setText("Deleting this ConfigMap will remove it from the cluster. Workloads that depend on it may fail. This action cannot be undone.");
+        dialog.setText("Deleting ConfigMap \"" + configMap.name() + "\" will remove it from the cluster. Workloads that depend on it may fail. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

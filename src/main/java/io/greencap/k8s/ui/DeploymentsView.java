@@ -12,7 +12,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -116,7 +115,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
         boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
         boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
-        deployGrid.addComponentColumn(d -> {
+        UiConstants.addActionsColumn(deployGrid, 3, d -> {
             Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
             scaleBtn.setEnabled(canScale);
             Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
@@ -124,10 +123,8 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(d));
             rollbackBtn.setEnabled(canRollback);
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
+            return List.of(scaleBtn, restartBtn, rollbackBtn);
+        });
 
         deployGrid.setDataProvider(dataProvider);
 
@@ -321,7 +318,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private void openDeleteDialog(DeploymentInfo deployment) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Deployment");
-        dialog.setText("Deleting this Deployment will also remove all its ReplicaSets and Pods. This action cannot be undone.");
+        dialog.setText("Deleting Deployment \"" + deployment.name() + "\" will also remove all its ReplicaSets and Pods. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

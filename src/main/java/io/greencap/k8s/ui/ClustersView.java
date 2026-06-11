@@ -38,6 +38,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Route(value = "clusters", layout = MainLayout.class)
 @PageTitle("Clusters — GreenCap K8s")
@@ -88,7 +89,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         grid.addColumn(c -> c.getProvider().name()).setHeader("Provider").setWidth("120px").setResizable(true);
         grid.addComponentColumn(c -> statusBadge(c.getConnectionStatus()))
                 .setHeader("Status").setWidth("140px").setResizable(true);
-        grid.addComponentColumn(this::buildActions).setHeader("Actions").setWidth("120px").setResizable(true);
+        UiConstants.addActionsColumn(grid, 2, this::buildActions);
         grid.setSizeFull();
         return grid;
     }
@@ -140,7 +141,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         return badge;
     }
 
-    private HorizontalLayout buildActions(Cluster cluster) {
+    private List<Button> buildActions(Cluster cluster) {
         var testIcon = VaadinIcon.CONNECT.create();
         testIcon.setSize(UiConstants.ICON_SIZE);
         Button testBtn = new Button(testIcon, e -> testConnection(cluster));
@@ -154,7 +155,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         deleteBtn.getElement().setAttribute("title", "Remove cluster");
         deleteBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_WRITE));
 
-        return new HorizontalLayout(testBtn, deleteBtn);
+        return List.of(testBtn, deleteBtn);
     }
 
     private void confirmDelete(Cluster cluster) {

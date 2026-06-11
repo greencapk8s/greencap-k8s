@@ -142,7 +142,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
     private void openDeleteDialog(ReplicaSetInfo rs) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete ReplicaSet");
-        dialog.setText("Deleting this ReplicaSet will also remove all its Pods. If owned by a Deployment, a new ReplicaSet will be created. This action cannot be undone.");
+        dialog.setText("Deleting ReplicaSet \"" + rs.name() + "\" will also remove all its Pods. If owned by a Deployment, a new ReplicaSet will be created. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

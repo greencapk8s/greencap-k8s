@@ -104,11 +104,11 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         boolean canWrite = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
-        grid.addComponentColumn(h -> {
+        UiConstants.addActionsColumn(grid, 1, h -> {
             Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
             editBtn.setEnabled(canWrite);
-            return editBtn;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
+            return List.of(editBtn);
+        });
 
         grid.setDataProvider(dataProvider);
 
@@ -218,7 +218,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
     private void openDeleteDialog(HorizontalScalerInfo hpa) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete HorizontalPodAutoscaler");
-        dialog.setText("Deleting this HorizontalPodAutoscaler will remove automatic scaling for its target. This action cannot be undone.");
+        dialog.setText("Deleting HorizontalPodAutoscaler \"" + hpa.name() + "\" will remove automatic scaling for its target. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");

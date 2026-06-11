@@ -105,7 +105,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
         grid.addColumn(JobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         var ownerCol = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
 
-        grid.addComponentColumn(job -> {
+        UiConstants.addActionsColumn(grid, 1, job -> {
             var podsIcon = VaadinIcon.LIST.create();
             podsIcon.setSize(UiConstants.ICON_SIZE);
             Button podsBtn = new Button(podsIcon);
@@ -113,8 +113,8 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             podsBtn.getElement().setAttribute("title", "View Pods");
             podsBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "workloads/pods?job=" + job.name()));
-            return podsBtn;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
+            return List.of(podsBtn);
+        });
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilterField.getValue()) &&
@@ -142,7 +142,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private void openDeleteJobDialog(JobInfo job) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Job");
-        dialog.setText("Deleting this Job will also remove all its Pods and logs. This action cannot be undone.");
+        dialog.setText("Deleting Job \"" + job.name() + "\" will also remove all its Pods and logs. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setCancelText("Cancel");
         dialog.setConfirmText("Delete");

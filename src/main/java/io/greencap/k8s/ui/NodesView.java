@@ -95,7 +95,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         grid.addColumn(NodeInfo::cpu).setHeader("CPU").setWidth("80px").setResizable(true);
         grid.addColumn(NodeInfo::memory).setHeader("Memory").setWidth("100px").setResizable(true);
         grid.addColumn(NodeInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(this::buildCordonButton).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
+        UiConstants.addActionsColumn(grid, 1, node -> List.of(buildCordonButton(node)));
 
         grid.setDataProvider(dataProvider);
 

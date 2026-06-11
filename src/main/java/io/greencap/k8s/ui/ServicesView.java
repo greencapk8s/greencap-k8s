@@ -138,7 +138,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
     private void openDeleteDialog(ServiceInfo service) {
         ConfirmDialog dialog = new ConfirmDialog();
         dialog.setHeader("Delete Service");
-        dialog.setText("Deleting this Service will remove its network endpoint. Workloads targeting it will lose connectivity. This action cannot be undone.");
+        dialog.setText("Deleting Service \"" + service.name() + "\" will remove its network endpoint. Workloads targeting it will lose connectivity. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");
