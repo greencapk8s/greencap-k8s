@@ -1,8 +1,6 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
@@ -11,7 +9,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -41,6 +38,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
 
     private final NetworkingService networkingService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<ServiceInfo> serviceGrid = new Grid<>(ServiceInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -48,17 +46,26 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
     private final List<ServiceInfo> allItems = new ArrayList<>();
     private final ListDataProvider<ServiceInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public ServicesView(NetworkingService networkingService, ClusterContext clusterContext) {
+    public ServicesView(NetworkingService networkingService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.networkingService = networkingService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildServiceGrid();
+        UiConstants.configureSingleSelection(serviceGrid, selectionMemory, getClass().getSimpleName(), ServiceInfo::name);
 
-        add(UiConstants.buildSectionHeader("Services", this::loadServices, HELP_TITLE, HELP_TEXT), noClusterMessage, serviceGrid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_DELETE);
+        List<UiConstants.SelectionAction<ServiceInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        s -> UI.getCurrent().navigate("yaml/service/" + s.namespace() + "/" + s.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Services", this::loadServices, HELP_TITLE, HELP_TEXT, serviceGrid, selectionActions), noClusterMessage, serviceGrid);
     }
 
     @Override
@@ -81,27 +88,6 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
         serviceGrid.addColumn(ServiceInfo::clusterIP).setHeader("Cluster IP").setWidth("140px").setResizable(true);
         serviceGrid.addColumn(ServiceInfo::ports).setHeader("Port(s)").setFlexGrow(1).setResizable(true);
         serviceGrid.addColumn(ServiceInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_DELETE);
-        serviceGrid.addComponentColumn(s -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/service/" + s.namespace() + "/" + s.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(s));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         serviceGrid.setDataProvider(dataProvider);
 
@@ -112,8 +98,14 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.type(), typeFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        typeFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(serviceGrid, dataProvider, ServiceInfo::name);
+        });
+        typeFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(serviceGrid, dataProvider, ServiceInfo::name);
+        });
 
         HeaderRow filterRow = serviceGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -132,11 +124,13 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(serviceGrid, dataProvider, ServiceInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(serviceGrid, dataProvider, ServiceInfo::name);
             return false;
         }
     }
@@ -191,6 +185,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(serviceGrid, dataProvider, ServiceInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

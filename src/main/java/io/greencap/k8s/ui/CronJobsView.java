@@ -41,6 +41,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
 
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<CronJobInfo> grid = new Grid<>(CronJobInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -52,17 +53,25 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
     private boolean canSuspend;
     private boolean canDelete;
 
-    public CronJobsView(WorkloadService workloadService, ClusterContext clusterContext) {
+    public CronJobsView(WorkloadService workloadService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), CronJobInfo::name);
 
-        add(UiConstants.buildSectionHeader("CronJobs", this::loadCronJobs, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        List<UiConstants.SelectionAction<CronJobInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        cj -> UI.getCurrent().navigate("yaml/cronjob/" + cj.namespace() + "/" + cj.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("CronJobs", this::loadCronJobs, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -91,13 +100,16 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         grid.addColumn(CronJobInfo::active).setHeader("Active").setWidth("80px").setResizable(true);
         grid.addColumn(CronJobInfo::lastScheduleTime).setHeader("Last Schedule").setWidth("120px").setResizable(true);
         grid.addColumn(CronJobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(this::buildActionsLayout).setHeader("").setWidth(UiConstants.actionsColumnWidth(5)).setFlexGrow(0);
+        grid.addComponentColumn(this::buildActionsLayout).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
         TextField nameFilter = buildFilterField();
         dataProvider.setFilter(item -> matches(item.name(), nameFilter.getValue()));
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, CronJobInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -121,15 +133,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         Button jobsBtn = buildIconButton(VaadinIcon.LIST, "View Jobs", true);
         jobsBtn.addClickListener(e -> UI.getCurrent().navigate("workloads/jobs?cronjob=" + cj.name()));
 
-        Button deleteBtn = buildIconButton(VaadinIcon.TRASH, "Delete", canDelete);
-        deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-        deleteBtn.addClickListener(e -> openDeleteDialog(cj));
-
-        Button manifestBtn = buildIconButton(VaadinIcon.CODE, "View Manifest", true);
-        manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
-                "yaml/cronjob/" + cj.namespace() + "/" + cj.name()));
-
-        HorizontalLayout actions = new HorizontalLayout(triggerBtn, suspendBtn, jobsBtn, deleteBtn, manifestBtn);
+        HorizontalLayout actions = new HorizontalLayout(triggerBtn, suspendBtn, jobsBtn);
         actions.setSpacing(false);
         return actions;
     }
@@ -214,11 +218,13 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, CronJobInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, CronJobInfo::name);
             return false;
         }
     }
@@ -240,6 +246,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, CronJobInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

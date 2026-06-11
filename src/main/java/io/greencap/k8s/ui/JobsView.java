@@ -10,7 +10,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -40,6 +39,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<JobInfo> grid = new Grid<>(JobInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -50,17 +50,26 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private TextField nameFilterField;
     private TextField ownerFilterField;
 
-    public JobsView(WorkloadService workloadService, ClusterContext clusterContext) {
+    public JobsView(WorkloadService workloadService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), JobInfo::name);
 
-        add(UiConstants.buildSectionHeader("Jobs", this::loadJobs, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_DELETE);
+        List<UiConstants.SelectionAction<JobInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteJobDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        job -> UI.getCurrent().navigate("yaml/job/" + job.namespace() + "/" + job.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Jobs", this::loadJobs, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -95,7 +104,6 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
         grid.addColumn(JobInfo::duration).setHeader("Duration").setWidth("110px").setResizable(true);
         grid.addColumn(JobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         var ownerCol = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_DELETE);
 
         grid.addComponentColumn(job -> {
             var podsIcon = VaadinIcon.LIST.create();
@@ -105,34 +113,21 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             podsBtn.getElement().setAttribute("title", "View Pods");
             podsBtn.addClickListener(e -> UI.getCurrent().navigate(
                     "workloads/pods?job=" + job.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteJobDialog(job));
-
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/job/" + job.namespace() + "/" + job.name()));
-
-            HorizontalLayout actions = new HorizontalLayout(podsBtn, deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
+            return podsBtn;
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilterField.getValue()) &&
             matches(item.owner(), ownerFilterField.getValue()));
 
-        nameFilterField.addValueChangeListener(e -> dataProvider.refreshAll());
-        ownerFilterField.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilterField.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
+        });
+        ownerFilterField.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
+        });
 
         grid.setDataProvider(dataProvider);
 
@@ -175,11 +170,13 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
             return false;
         }
     }
@@ -205,6 +202,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

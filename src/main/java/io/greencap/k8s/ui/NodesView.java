@@ -10,7 +10,6 @@ import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -40,6 +39,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<NodeInfo> grid = new Grid<>(NodeInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -49,17 +49,24 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
     private final List<NodeInfo> allItems = new ArrayList<>();
     private final ListDataProvider<NodeInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public NodesView(StorageService storageService, ClusterContext clusterContext) {
+    public NodesView(StorageService storageService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.storageService = storageService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), NodeInfo::name);
 
-        add(UiConstants.buildSectionHeader("Nodes", this::loadNodes, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        List<UiConstants.SelectionAction<NodeInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        node -> UI.getCurrent().navigate("yaml/node/-/" + node.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Nodes", this::loadNodes, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -88,7 +95,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         grid.addColumn(NodeInfo::cpu).setHeader("CPU").setWidth("80px").setResizable(true);
         grid.addColumn(NodeInfo::memory).setHeader("Memory").setWidth("100px").setResizable(true);
         grid.addColumn(NodeInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(this::buildActionsLayout).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
+        grid.addComponentColumn(this::buildCordonButton).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -99,8 +106,14 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.status(), statusFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        statusFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, NodeInfo::name);
+        });
+        statusFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, NodeInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -110,7 +123,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         grid.setVisible(false);
     }
 
-    private HorizontalLayout buildActionsLayout(NodeInfo node) {
+    private Button buildCordonButton(NodeInfo node) {
         Icon cordonIcon = node.schedulingDisabled() ? VaadinIcon.PLAY.create() : VaadinIcon.PAUSE.create();
         cordonIcon.setSize(UiConstants.ICON_SIZE);
         Button cordonBtn = new Button(cordonIcon);
@@ -118,13 +131,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         cordonBtn.getElement().setAttribute("title", node.schedulingDisabled() ? "Uncordon" : "Cordon");
         cordonBtn.setEnabled(canCordon);
         cordonBtn.addClickListener(e -> toggleCordon(node));
-
-        Button manifestBtn = buildIconButton(VaadinIcon.CODE, "View Manifest");
-        manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/node/-/" + node.name()));
-
-        HorizontalLayout actions = new HorizontalLayout(cordonBtn, manifestBtn);
-        actions.setSpacing(false);
-        return actions;
+        return cordonBtn;
     }
 
     private void toggleCordon(NodeInfo node) {
@@ -148,11 +155,13 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, NodeInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, NodeInfo::name);
             return false;
         }
     }
@@ -166,6 +175,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, NodeInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 
@@ -185,15 +195,6 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
         badge.getElement().getThemeList().add("badge");
         badge.getElement().getThemeList().add(schedulingDisabled ? "contrast" : "success");
         return badge;
-    }
-
-    private Button buildIconButton(VaadinIcon icon, String title) {
-        Icon iconElement = icon.create();
-        iconElement.setSize(UiConstants.ICON_SIZE);
-        Button btn = new Button(iconElement);
-        btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-        btn.getElement().setAttribute("title", title);
-        return btn;
     }
 
     private TextField buildFilterField() {

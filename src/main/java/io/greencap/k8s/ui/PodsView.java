@@ -46,6 +46,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private final WorkloadService workloadService;
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<PodInfo> podGrid = new Grid<>(PodInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -59,10 +60,11 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private TextField nameFilter;
     private TextField statusFilter;
 
-    public PodsView(WorkloadService workloadService, ObservabilityService observabilityService, ClusterContext clusterContext) {
+    public PodsView(WorkloadService workloadService, ObservabilityService observabilityService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.observabilityService = observabilityService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
@@ -71,8 +73,19 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         clusterErrorMessage = UiConstants.buildClusterUnreachableMessage();
         buildJobFilterBanner();
         buildPodGrid();
+        UiConstants.configureSingleSelection(podGrid, selectionMemory, getClass().getSimpleName(), PodInfo::name);
 
-        add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT), jobFilterBanner, noClusterMessage, clusterErrorMessage, podGrid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_DELETE);
+        List<UiConstants.SelectionAction<PodInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        p -> UI.getCurrent().navigate("yaml/pod/" + p.namespace() + "/" + p.name())),
+                UiConstants.SelectionAction.of(VaadinIcon.RECORDS, "Events",
+                        p -> EventsDialog.open(observabilityService, clusterContext, "Pod", p.name(), p.namespace()))
+        );
+
+        add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT, podGrid, selectionActions),
+                jobFilterBanner, noClusterMessage, clusterErrorMessage, podGrid);
     }
 
     @Override
@@ -124,6 +137,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         }
         if (dataProvider != null) {
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
         }
     }
 
@@ -136,49 +150,29 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_DELETE);
         podGrid.addComponentColumn(p -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/pod/" + p.namespace() + "/" + p.name()));
-
-            var eventsIcon = VaadinIcon.RECORDS.create();
-            eventsIcon.setSize(UiConstants.ICON_SIZE);
-            Button eventsBtn = new Button(eventsIcon);
-            eventsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            eventsBtn.getElement().setAttribute("title", "Events");
-            eventsBtn.addClickListener(e -> EventsDialog.open(observabilityService, clusterContext, "Pod", p.name(), p.namespace()));
-
             var logsIcon = VaadinIcon.TERMINAL.create();
             logsIcon.setSize(UiConstants.ICON_SIZE);
             Button logsBtn = new Button(logsIcon);
             logsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
             logsBtn.getElement().setAttribute("title", "Logs");
             logsBtn.addClickListener(e -> UI.getCurrent().navigate("logs/pod/" + p.namespace() + "/" + p.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(p));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn, eventsBtn, logsBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(4)).setFlexGrow(0);
+            return logsBtn;
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.phase(), statusFilter.getValue()) &&
             (jobFilter.isBlank() || jobFilter.equals(item.jobName())));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        statusFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
+        });
+        statusFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
+        });
 
         podGrid.setDataProvider(dataProvider);
 
@@ -199,12 +193,14 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
             clusterErrorMessage.setVisible(false);
             podGrid.setVisible(true);
             return true;
         } catch (KubernetesOperationException e) {
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
             clusterErrorMessage.setVisible(true);
             podGrid.setVisible(false);
             return false;
@@ -222,6 +218,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
                     allItems.clear();
                     allItems.addAll(items);
                     dataProvider.refreshAll();
+                    UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
                     clusterErrorMessage.setVisible(false);
                     podGrid.setVisible(true);
                 });
@@ -230,6 +227,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
                 ui.access(() -> {
                     allItems.clear();
                     dataProvider.refreshAll();
+                    UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
                     clusterErrorMessage.setVisible(true);
                     podGrid.setVisible(false);
                 });
@@ -288,6 +286,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

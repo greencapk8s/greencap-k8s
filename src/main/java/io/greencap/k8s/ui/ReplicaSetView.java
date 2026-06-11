@@ -40,6 +40,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
 
     private final WorkloadService workloadService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<ReplicaSetInfo> grid = new Grid<>(ReplicaSetInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -47,17 +48,27 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
     private final List<ReplicaSetInfo> allItems = new ArrayList<>();
     private final ListDataProvider<ReplicaSetInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public ReplicaSetView(WorkloadService workloadService, ClusterContext clusterContext) {
+    public ReplicaSetView(WorkloadService workloadService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), ReplicaSetInfo::name);
 
-        add(UiConstants.buildSectionHeader("ReplicaSets", this::loadReplicaSets, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_DELETE);
+        List<UiConstants.SelectionAction<ReplicaSetInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        rs -> UI.getCurrent().navigate("yaml/replicaset/" + rs.namespace() + "/" + rs.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("ReplicaSets", this::loadReplicaSets, HELP_TITLE, HELP_TEXT, grid, selectionActions),
+                noClusterMessage, grid);
     }
 
     @Override
@@ -81,28 +92,6 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         grid.addComponentColumn(rs -> replicasBadge(rs.ready(), rs.desired()))
                 .setHeader("Ready / Desired").setWidth("130px").setResizable(true);
         grid.addColumn(ReplicaSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_DELETE);
-        grid.addComponentColumn(rs -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/replicaset/" + rs.namespace() + "/" + rs.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(rs));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -113,8 +102,14 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.owner(), ownerFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        ownerFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
+        });
+        ownerFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -133,11 +128,13 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
             return false;
         }
     }
@@ -194,6 +191,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

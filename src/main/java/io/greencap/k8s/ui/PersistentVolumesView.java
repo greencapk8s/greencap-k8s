@@ -41,6 +41,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
     private final StorageService storageService;
     private final ClusterContext clusterContext;
     private final UserService userService;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<PersistentVolumeInfo> grid = new Grid<>(PersistentVolumeInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -48,18 +49,25 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
     private final List<PersistentVolumeInfo> allItems = new ArrayList<>();
     private final ListDataProvider<PersistentVolumeInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public PersistentVolumesView(StorageService storageService, ClusterContext clusterContext, UserService userService) {
+    public PersistentVolumesView(StorageService storageService, ClusterContext clusterContext, UserService userService, GridSelectionMemory selectionMemory) {
         this.storageService = storageService;
         this.clusterContext = clusterContext;
         this.userService = userService;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), PersistentVolumeInfo::name);
 
-        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        List<UiConstants.SelectionAction<PersistentVolumeInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        pv -> UI.getCurrent().navigate("yaml/persistentvolume/-/" + pv.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -85,16 +93,6 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
         grid.addColumn(PersistentVolumeInfo::storageClass).setHeader("Storage Class").setFlexGrow(1).setResizable(true);
         var claimCol  = grid.addComponentColumn(pv -> claimLink(pv.claim())).setHeader("Claim").setFlexGrow(2).setResizable(true);
         grid.addColumn(PersistentVolumeInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(pv -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/persistentvolume/-/" + pv.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -107,9 +105,18 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
             matches(item.status(), statusFilter.getValue()) &&
             matches(item.claim(), claimFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        statusFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        claimFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
+        });
+        statusFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
+        });
+        claimFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -128,11 +135,13 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
             return false;
         }
     }
@@ -175,6 +184,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

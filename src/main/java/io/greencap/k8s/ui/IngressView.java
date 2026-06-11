@@ -1,8 +1,6 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
@@ -10,7 +8,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -40,6 +37,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
 
     private final NetworkingService networkingService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<IngressInfo> ingressGrid = new Grid<>(IngressInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -47,17 +45,26 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
     private final List<IngressInfo> allItems = new ArrayList<>();
     private final ListDataProvider<IngressInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public IngressView(NetworkingService networkingService, ClusterContext clusterContext) {
+    public IngressView(NetworkingService networkingService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.networkingService = networkingService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildIngressGrid();
+        UiConstants.configureSingleSelection(ingressGrid, selectionMemory, getClass().getSimpleName(), IngressInfo::name);
 
-        add(UiConstants.buildSectionHeader("Ingresses", this::loadIngresses, HELP_TITLE, HELP_TEXT), noClusterMessage, ingressGrid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_DELETE);
+        List<UiConstants.SelectionAction<IngressInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        i -> UI.getCurrent().navigate("yaml/ingress/" + i.namespace() + "/" + i.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Ingresses", this::loadIngresses, HELP_TITLE, HELP_TEXT, ingressGrid, selectionActions), noClusterMessage, ingressGrid);
     }
 
     @Override
@@ -81,27 +88,6 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
         ingressGrid.addComponentColumn(i -> tlsBadge(i.tls())).setHeader("TLS").setWidth("100px").setResizable(true);
         ingressGrid.addColumn(IngressInfo::address).setHeader("Address").setWidth("150px").setResizable(true);
         ingressGrid.addColumn(IngressInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_DELETE);
-        ingressGrid.addComponentColumn(i -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/ingress/" + i.namespace() + "/" + i.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(i));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         ingressGrid.setDataProvider(dataProvider);
 
@@ -112,8 +98,14 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
                 matches(item.name(), nameFilter.getValue()) &&
                 matches(item.ingressClass(), classFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        classFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(ingressGrid, dataProvider, IngressInfo::name);
+        });
+        classFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(ingressGrid, dataProvider, IngressInfo::name);
+        });
 
         HeaderRow filterRow = ingressGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -132,11 +124,13 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(ingressGrid, dataProvider, IngressInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(ingressGrid, dataProvider, IngressInfo::name);
             return false;
         }
     }
@@ -182,6 +176,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(ingressGrid, dataProvider, IngressInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

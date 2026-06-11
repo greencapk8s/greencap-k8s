@@ -1,8 +1,6 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -37,6 +35,7 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<StorageClassInfo> grid = new Grid<>(StorageClassInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -44,17 +43,24 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
     private final List<StorageClassInfo> allItems = new ArrayList<>();
     private final ListDataProvider<StorageClassInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public StorageClassesView(StorageService storageService, ClusterContext clusterContext) {
+    public StorageClassesView(StorageService storageService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.storageService = storageService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), StorageClassInfo::name);
 
-        add(UiConstants.buildSectionHeader("Storage Classes", this::loadStorageClasses, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        List<UiConstants.SelectionAction<StorageClassInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        sc -> UI.getCurrent().navigate("yaml/storageclass/-/" + sc.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Storage Classes", this::loadStorageClasses, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -78,16 +84,6 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
         grid.addColumn(StorageClassInfo::volumeBindingMode).setHeader("Binding Mode").setWidth("180px").setResizable(true);
         grid.addColumn(StorageClassInfo::allowVolumeExpansion).setHeader("Allow Expansion").setWidth("150px").setResizable(true);
         grid.addColumn(StorageClassInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        grid.addComponentColumn(sc -> {
-            var icon = VaadinIcon.CODE.create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            Button btn = new Button(icon);
-            btn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            btn.getElement().setAttribute("title", "View Manifest");
-            btn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/storageclass/-/" + sc.name()));
-            return btn;
-        }).setHeader("").setWidth("60px").setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -98,8 +94,14 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.provisioner(), provisionerFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        provisionerFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StorageClassInfo::name);
+        });
+        provisionerFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StorageClassInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -117,11 +119,13 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StorageClassInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StorageClassInfo::name);
             return false;
         }
     }
@@ -135,6 +139,7 @@ public class StorageClassesView extends VerticalLayout implements BeforeEnterObs
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StorageClassInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

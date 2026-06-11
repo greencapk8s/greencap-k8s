@@ -1,15 +1,12 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -39,6 +36,7 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
 
     private final ConfigurationService configurationService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<ConfigMapInfo> configMapGrid = new Grid<>(ConfigMapInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -46,17 +44,26 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
     private final List<ConfigMapInfo> allItems = new ArrayList<>();
     private final ListDataProvider<ConfigMapInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public ConfigMapsView(ConfigurationService configurationService, ClusterContext clusterContext) {
+    public ConfigMapsView(ConfigurationService configurationService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.configurationService = configurationService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildConfigMapGrid();
+        UiConstants.configureSingleSelection(configMapGrid, selectionMemory, getClass().getSimpleName(), ConfigMapInfo::name);
 
-        add(UiConstants.buildSectionHeader("ConfigMaps", this::loadConfigMaps, HELP_TITLE, HELP_TEXT), noClusterMessage, configMapGrid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_DELETE);
+        List<UiConstants.SelectionAction<ConfigMapInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        cm -> UI.getCurrent().navigate("yaml/configmap/" + cm.namespace() + "/" + cm.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("ConfigMaps", this::loadConfigMaps, HELP_TITLE, HELP_TEXT, configMapGrid, selectionActions), noClusterMessage, configMapGrid);
     }
 
     @Override
@@ -77,27 +84,6 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
         var nameCol = configMapGrid.addColumn(ConfigMapInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         configMapGrid.addColumn(cm -> cm.keyCount() + " keys").setHeader("Keys").setWidth("100px").setResizable(true);
         configMapGrid.addColumn(ConfigMapInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_DELETE);
-        configMapGrid.addComponentColumn(cm -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate("yaml/configmap/" + cm.namespace() + "/" + cm.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(cm));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         configMapGrid.setDataProvider(dataProvider);
 
@@ -105,7 +91,10 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
 
         dataProvider.setFilter(item -> matches(item.name(), nameFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(configMapGrid, dataProvider, ConfigMapInfo::name);
+        });
 
         HeaderRow filterRow = configMapGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -144,11 +133,13 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(configMapGrid, dataProvider, ConfigMapInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(configMapGrid, dataProvider, ConfigMapInfo::name);
             return false;
         }
     }
@@ -162,6 +153,7 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(configMapGrid, dataProvider, ConfigMapInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

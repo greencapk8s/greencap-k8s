@@ -13,7 +13,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
@@ -44,6 +43,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
 
     private final AutoScalingService autoScalingService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<HorizontalScalerInfo> grid = new Grid<>(HorizontalScalerInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -51,17 +51,26 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
     private final List<HorizontalScalerInfo> allItems = new ArrayList<>();
     private final ListDataProvider<HorizontalScalerInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public HorizontalScalerView(AutoScalingService autoScalingService, ClusterContext clusterContext) {
+    public HorizontalScalerView(AutoScalingService autoScalingService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.autoScalingService = autoScalingService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), HorizontalScalerInfo::name);
 
-        add(UiConstants.buildSectionHeader("Horizontal Scalers", this::loadScalers, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_DELETE);
+        List<UiConstants.SelectionAction<HorizontalScalerInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        h -> UI.getCurrent().navigate("yaml/horizontalscaler/" + h.namespace() + "/" + h.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Horizontal Scalers", this::loadScalers, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -95,20 +104,11 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         boolean canWrite = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_DELETE);
         grid.addComponentColumn(h -> {
-            Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
-                    e -> UI.getCurrent().navigate("yaml/horizontalscaler/" + h.namespace() + "/" + h.name()));
             Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
             editBtn.setEnabled(canWrite);
-            Button deleteBtn = buildActionButton(VaadinIcon.TRASH, "Delete", e -> openDeleteDialog(h));
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
-            deleteBtn.setEnabled(canDelete);
-
-            HorizontalLayout actions = new HorizontalLayout(editBtn, deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
+            return editBtn;
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(1)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -119,8 +119,14 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.target(), targetFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        targetFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, HorizontalScalerInfo::name);
+        });
+        targetFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, HorizontalScalerInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -139,11 +145,13 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, HorizontalScalerInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, HorizontalScalerInfo::name);
             return false;
         }
     }
@@ -189,6 +197,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, HorizontalScalerInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

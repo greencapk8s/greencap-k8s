@@ -53,6 +53,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private final AutoScalingService autoScalingService;
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<DeploymentInfo> deployGrid = new Grid<>(DeploymentInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -62,11 +63,13 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
 
     public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService,
-                           ObservabilityService observabilityService, ClusterContext clusterContext) {
+                           ObservabilityService observabilityService, ClusterContext clusterContext,
+                           GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.autoScalingService = autoScalingService;
         this.observabilityService = observabilityService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
@@ -74,8 +77,19 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         noClusterMessage = UiConstants.buildNoClusterMessage();
         clusterErrorMessage = UiConstants.buildClusterUnreachableMessage();
         buildDeployGrid();
+        UiConstants.configureSingleSelection(deployGrid, selectionMemory, getClass().getSimpleName(), DeploymentInfo::name);
 
-        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT), noClusterMessage, clusterErrorMessage, deployGrid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_DELETE);
+        List<UiConstants.SelectionAction<DeploymentInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        d -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name())),
+                UiConstants.SelectionAction.of(VaadinIcon.RECORDS, "Events",
+                        d -> EventsDialog.open(observabilityService, clusterContext, "Deployment", d.name(), d.namespace()))
+        );
+
+        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT, deployGrid, selectionActions),
+                noClusterMessage, clusterErrorMessage, deployGrid);
     }
 
     @Override
@@ -102,26 +116,18 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
         boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
         boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_DELETE);
         deployGrid.addComponentColumn(d -> {
-            Button manifestBtn = buildActionButton(VaadinIcon.CODE, "View Manifest",
-                    e -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name()));
-            Button eventsBtn = buildActionButton(VaadinIcon.RECORDS, "Events",
-                    e -> EventsDialog.open(observabilityService, clusterContext, "Deployment", d.name(), d.namespace()));
             Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
             scaleBtn.setEnabled(canScale);
             Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
             restartBtn.setEnabled(canRestart);
             Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(d));
             rollbackBtn.setEnabled(canRollback);
-            Button deleteBtn = buildActionButton(VaadinIcon.TRASH, "Delete", e -> openDeleteDialog(d));
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_ERROR);
-            deleteBtn.setEnabled(canDelete);
 
-            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn, deleteBtn, manifestBtn, eventsBtn);
+            HorizontalLayout actions = new HorizontalLayout(scaleBtn, restartBtn, rollbackBtn);
             actions.setSpacing(false);
             return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(6)).setFlexGrow(0);
+        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(3)).setFlexGrow(0);
 
         deployGrid.setDataProvider(dataProvider);
 
@@ -129,7 +135,10 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         dataProvider.setFilter(item -> matches(item.name(), nameFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+        });
 
         HeaderRow filterRow = deployGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -147,12 +156,14 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
             clusterErrorMessage.setVisible(false);
             deployGrid.setVisible(true);
             return true;
         } catch (KubernetesOperationException e) {
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
             clusterErrorMessage.setVisible(true);
             deployGrid.setVisible(false);
             return false;
@@ -170,6 +181,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
                     allItems.clear();
                     allItems.addAll(items);
                     dataProvider.refreshAll();
+                    UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
                     clusterErrorMessage.setVisible(false);
                     deployGrid.setVisible(true);
                 });
@@ -178,6 +190,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
                 ui.access(() -> {
                     allItems.clear();
                     dataProvider.refreshAll();
+                    UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
                     clusterErrorMessage.setVisible(true);
                     deployGrid.setVisible(false);
                 });
@@ -207,6 +220,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 

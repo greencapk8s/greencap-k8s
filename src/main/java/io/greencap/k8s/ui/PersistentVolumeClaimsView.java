@@ -1,8 +1,6 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
-import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
@@ -10,7 +8,6 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -40,6 +37,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
 
     private final StorageService storageService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<PersistentVolumeClaimInfo> grid = new Grid<>(PersistentVolumeClaimInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -47,17 +45,26 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
     private final List<PersistentVolumeClaimInfo> allItems = new ArrayList<>();
     private final ListDataProvider<PersistentVolumeClaimInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public PersistentVolumeClaimsView(StorageService storageService, ClusterContext clusterContext) {
+    public PersistentVolumeClaimsView(StorageService storageService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.storageService = storageService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), PersistentVolumeClaimInfo::name);
 
-        add(UiConstants.buildSectionHeader("Volume Claims (PVC)", this::loadPersistentVolumeClaims, HELP_TITLE, HELP_TEXT), noClusterMessage, grid);
+        boolean canDelete = SecurityUtils.hasPermission(Permission.STORAGE_PVC_DELETE);
+        List<UiConstants.SelectionAction<PersistentVolumeClaimInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
+                        pvc -> UI.getCurrent().navigate("yaml/persistentvolumeclaim/" + pvc.namespace() + "/" + pvc.name()))
+        );
+
+        add(UiConstants.buildSectionHeader("Volume Claims (PVC)", this::loadPersistentVolumeClaims, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
     }
 
     @Override
@@ -81,28 +88,6 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
         grid.addColumn(PersistentVolumeClaimInfo::accessMode).setHeader("Access Mode").setWidth("150px").setResizable(true);
         grid.addColumn(PersistentVolumeClaimInfo::storageClass).setHeader("Storage Class").setFlexGrow(1).setResizable(true);
         grid.addColumn(PersistentVolumeClaimInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canDelete = SecurityUtils.hasPermission(Permission.STORAGE_PVC_DELETE);
-        grid.addComponentColumn(pvc -> {
-            var manifestIcon = VaadinIcon.CODE.create();
-            manifestIcon.setSize(UiConstants.ICON_SIZE);
-            Button manifestBtn = new Button(manifestIcon);
-            manifestBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-            manifestBtn.getElement().setAttribute("title", "View Manifest");
-            manifestBtn.addClickListener(e -> UI.getCurrent().navigate(
-                    "yaml/persistentvolumeclaim/" + pvc.namespace() + "/" + pvc.name()));
-
-            var deleteIcon = VaadinIcon.TRASH.create();
-            deleteIcon.setSize(UiConstants.ICON_SIZE);
-            Button deleteBtn = new Button(deleteIcon);
-            deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-            deleteBtn.getElement().setAttribute("title", "Delete");
-            deleteBtn.setEnabled(canDelete);
-            deleteBtn.addClickListener(e -> openDeleteDialog(pvc));
-
-            HorizontalLayout actions = new HorizontalLayout(deleteBtn, manifestBtn);
-            actions.setSpacing(false);
-            return actions;
-        }).setHeader("").setWidth(UiConstants.actionsColumnWidth(2)).setFlexGrow(0);
 
         grid.setDataProvider(dataProvider);
 
@@ -113,8 +98,14 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.status(), statusFilter.getValue()));
 
-        nameFilter.addValueChangeListener(e -> dataProvider.refreshAll());
-        statusFilter.addValueChangeListener(e -> dataProvider.refreshAll());
+        nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeClaimInfo::name);
+        });
+        statusFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeClaimInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
@@ -133,11 +124,13 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeClaimInfo::name);
             return true;
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
             allItems.clear();
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeClaimInfo::name);
             return false;
         }
     }
@@ -184,6 +177,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, PersistentVolumeClaimInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 
