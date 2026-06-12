@@ -1,0 +1,42 @@
+name: Docker Compose Validate
+
+on:
+  pull_request:
+    branches: [main]
+    paths: &watched-paths
+      - "docker-compose.yml"
+      - "docker/**"
+      - ".env.example"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
+      - "src/**"
+      - ".github/workflows/*.yml"
+  push:
+    branches: [main]
+    paths: *watched-paths
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Build and start services
+        run: docker compose up -d --build --wait --wait-timeout 120
+
+      - name: Check application is reachable
+        run: curl --fail -L http://localhost:8080/
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
