@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
 | 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
 | 57 | UX — barra de seleção e ações na barra de título (14 views) | ✅ Concluído |
 | 58 | Polish de listagens — nome do recurso na confirmação de remoção e espaçamento das colunas de ações | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
 | 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
 | 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
+| 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 
 ---
 
@@ -34,10 +34,6 @@
 ### ⚡ UX — Carregamento assíncrono nas views restantes
 
 - **Aplicar padrão async + banner "cluster inacessível" nas views de workload** — `DeploymentsView` e `PodsView` já implementados como referência (sprint 50). Aplicar o mesmo padrão nas views restantes que fazem chamadas Kubernetes síncronas no `beforeEnter`: `ServicesView`, `ConfigMapsView`, `SecretsView`, `NodesView`, `EventsView`, `HorizontalScalerView`, `IngressView`, `JobsView`, `CronJobsView`, `ReplicaSetView`, `PersistentVolumeClaimsView`, `PersistentVolumesView`, `StorageClassesView`, `MetricsView`, `TopologiaView`. Padrão: criar `loadXxxAsync(UI ui)` com `CompletableFuture` + `UiConstants.VIRTUAL_THREADS`; adicionar `clusterErrorMessage` via `UiConstants.buildClusterUnreachableMessage()`; exibir banner e ocultar grid em caso de `KubernetesOperationException`.
-
-### 🔧 Infraestrutura de Demo
-
-- **Validar drivers minikube com suporte estável a multi-node** — driver `virtualbox` falha ao provisionar multi-node no Linux após reboot (DHCP do host-only network não atribui IP às VMs extras). Avaliar `--driver=docker` e `--driver=kvm2` com 3 nós: provisionar, reiniciar host e verificar que o cluster volta healthy automaticamente. Documentar driver recomendado e atualizar `cluster-provision.sh` + README de `samples/greencap-demo/`. Issue: `.scratch/sprint-50/issues/03-minikube-multinode-driver-validation.md`
 
 ### 🎓 Diferencial — Onboarding e Aprendizado
 
@@ -65,6 +61,15 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 65 ✅ — Infraestrutura de Demo: migrar greencap-demo para driver docker multi-node
+
+- `cluster-provision.sh`: `DRIVER` `virtualbox` → `docker` (auto-detectado pelo minikube no Linux com Docker instalado; elimina o bug do DHCP da rede host-only que impedia clusters multi-node de voltarem saudáveis após reboot); `NODES` `1` → `3` (control-plane + 2 workers); `CPUS=2`/`MEMORY=2048` por node (~6GB total); mensagem final corrigida de `create.sh` para `create-demo.sh`
+- `add-hosts.sh`: `minikube ip` → `minikube ip -p greencap-demo`; endurecido com `set -euo pipefail` e validação de que a saída é um IPv4 antes de gravar em `/etc/hosts` — fix encontrado no aceite manual: uma corrida com `create-demo.sh` ainda em andamento gravava uma mensagem de erro literal em `/etc/hosts`
+- `samples/greencap-demo/README.md` (novo): quick start, tabela de trade-offs de drivers (docker/virtualbox/kvm2), troubleshooting do bug do virtualbox e do reboot com driver docker, requisitos
+- Validado ponta a ponta: provisionamento com 3 nodes via driver `docker` OK, `create-demo.sh` (rollout + addon ingress) OK, acesso a `http://greencap-demo.local` OK
+- Aceite manual (reboot do host): cluster com 3 nodes volta `Running`/`OK` sem reprovisionar; com driver `docker` os containers dos nodes não religam automaticamente no boot — é necessário rodar `minikube start -p greencap-demo` manualmente, documentado no README; `http://greencap-demo.local` volta a responder em seguida sem passos adicionais
+- Issue: `.scratch/sprint-65/issues/01-migrar-driver-docker-multinode.md`
 
 ### Sprint 64 ✅ — DevOps: pipeline GitHub Actions para validar docker-compose
 
@@ -160,17 +165,6 @@
 - `NodesView`: nova coluna "Scheduling" com badge `Schedulable`/`Cordoned`; botão toggle Cordon/Uncordon (`PAUSE`/`PLAY`) na coluna de ações, desabilitado para Viewer, mesmo padrão de Suspend/Resume do `CronJobsView`; `HELP_TEXT` atualizado
 - `UserManagementView` não foi alterado — segue o mesmo gap pré-existente dos 9 `_DELETE` da sprint 51 (permission concedida via migration, sem editor por usuário)
 - Issue: `.scratch/sprint-56/issues/01-node-cordon-uncordon.md`
-
-### Sprint 55 ✅ — Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod)
-
-- `docker/Dockerfile` (novo): build multi-stage — stage `builder` (`eclipse-temurin:21-jdk`) roda `./gradlew bootJar -x jar` (gera o frontend Vaadin de produção via plugin, sem Node instalado no host); stage `runtime` (`eclipse-temurin:21-jre` + `curl`) só com o JAR final
-- `.dockerignore` (novo): exclui `build/`, `bin/`, `node_modules/`, `.git/`, `.gradle/`, `.scratch/`, `docs/` do contexto de build
-- `docker-compose.yml`: corrigido bug pré-existente em `build.context: ..` (apontava um nível acima do diretório do projeto, fazendo `docker compose up` falhar sempre); adicionado `SPRING_PROFILES_ACTIVE: prod` e `healthcheck` via `/actuator/health` no serviço `greencap`
-- `src/main/resources/application-prod.yaml` (novo): `greencap.encryption.key: ${GREENCAP_ENCRYPTION_KEY}` sem fallback — falha rápido no startup se a variável não estiver definida (testado isoladamente: erro claro de placeholder não resolvido)
-- `.env.example`: `ENCRYPTION_KEY`, `DB_USER`, `DB_PASSWORD` agora com valores padrão funcionais para Quick Start, com aviso para troca em produção real; `GREENCAP_ENCRYPTION_KEY` documentado separadamente para o fluxo Gradle/dev
-- `README.md`: nova seção "Quick Start (Docker)" como caminho principal (clone → `cp .env.example .env` → `docker compose up -d --build` → `http://localhost:8080`, login `admin`/`admin`); fluxo Gradle movido para "Para desenvolvedores"
-- Validado ponta a ponta: `docker compose up -d --build` sobe `db` + `greencap`, container `greencap` fica `healthy`, login acessível
-- `docs/agents/sprint-archiving.md`: regra ajustada — "Status Geral" agora acompanha a mesma janela de 10 sprints de "Sprints Concluídas" (em vez de manter histórico completo)
 
 ---
 

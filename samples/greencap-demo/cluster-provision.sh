@@ -2,10 +2,10 @@
 set -euo pipefail
 
 PROFILE="greencap-demo"
-NODES=1
+NODES=3
 CPUS=2
-MEMORY=4096
-DRIVER="virtualbox"
+MEMORY=2048
+DRIVER="docker"
 
 echo "==> Provisioning minikube cluster: profile=$PROFILE, nodes=$NODES, cpus=$CPUS, memory=${MEMORY}MB, driver=$DRIVER"
 echo ""
@@ -24,4 +24,4 @@ echo "    Nodes:"
 minikube node list -p "$PROFILE"
 echo ""
 echo "    Next step — deploy the demo workloads:"
-echo "    bash $(dirname "$0")/create.sh"
+echo "    bash $(dirname "$0")/create-demo.sh"
