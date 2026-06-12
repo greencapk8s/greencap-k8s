@@ -8,6 +8,7 @@ import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import io.greencap.k8s.kubernetes.dto.JobInfo;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
 import io.greencap.k8s.kubernetes.dto.ReplicaSetInfo;
+import io.greencap.k8s.kubernetes.dto.StatefulSetInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -160,6 +161,74 @@ public class WorkloadService {
         } catch (Exception e) {
             log.error("Failed to roll back deployment {}/{}: {}", namespace, name, e.getMessage());
             throw new KubernetesOperationException("Failed to roll back deployment: " + e.getMessage(), e);
+        }
+    }
+
+    public List<StatefulSetInfo> listStatefulSets(Cluster cluster, String namespace) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            var items = isAllNamespaces(namespace)
+                    ? client.apps().statefulSets().inAnyNamespace().list().getItems()
+                    : client.apps().statefulSets().inNamespace(namespace).list().getItems();
+
+            return items.stream()
+                    .map(sts -> new StatefulSetInfo(
+                            sts.getMetadata().getName(),
+                            sts.getMetadata().getNamespace(),
+                            Optional.ofNullable(sts.getSpec()).map(s -> s.getReplicas()).orElse(0),
+                            Optional.ofNullable(sts.getStatus()).map(s -> s.getReadyReplicas()).orElse(0),
+                            Optional.ofNullable(sts.getStatus()).map(s -> s.getAvailableReplicas()).orElse(0),
+                            Optional.ofNullable(sts.getSpec()).map(s -> s.getServiceName()).orElse("—"),
+                            NamespaceService.age(sts.getMetadata().getCreationTimestamp())
+                    ))
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list statefulsets for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list statefulsets: " + e.getMessage(), e);
+        }
+    }
+
+    public void scaleStatefulSet(Cluster cluster, String namespace, String name, int replicas) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicas);
+            log.info("Scaled statefulset {}/{} to {} replicas", namespace, name, replicas);
+        } catch (Exception e) {
+            log.error("Failed to scale statefulset {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to scale statefulset: " + e.getMessage(), e);
+        }
+    }
+
+    public void restartStatefulSet(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().statefulSets().inNamespace(namespace).withName(name).rolling().restart();
+            log.info("Restarted statefulset {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to restart statefulset {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to restart statefulset: " + e.getMessage(), e);
+        }
+    }
+
+    public void rolloutUndoStatefulSet(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().statefulSets().inNamespace(namespace).withName(name).rolling().undo();
+            log.info("Rolled back statefulset {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to roll back statefulset {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to roll back statefulset: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteStatefulSet(Cluster cluster, String namespace, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.apps().statefulSets().inNamespace(namespace).withName(name).delete();
+            log.info("Deleted statefulset {}/{}", namespace, name);
+        } catch (Exception e) {
+            log.error("Failed to delete statefulset {}/{}: {}", namespace, name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete StatefulSet: " + e.getMessage(), e);
         }
     }
 

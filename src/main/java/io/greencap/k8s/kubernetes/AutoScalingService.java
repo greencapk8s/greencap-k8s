@@ -125,20 +125,20 @@ public class AutoScalingService {
         };
     }
 
-    public Optional<HorizontalScalerInfo> findHorizontalScalerForDeployment(Cluster cluster, String namespace, String deploymentName) {
+    public Optional<HorizontalScalerInfo> findHorizontalScalerForTarget(Cluster cluster, String namespace, String targetName) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {
             return client.autoscaling().v2().horizontalPodAutoscalers()
                     .inNamespace(namespace)
                     .list().getItems().stream()
-                    .filter(hpa -> deploymentName.equals(
+                    .filter(hpa -> targetName.equals(
                             Optional.ofNullable(hpa.getSpec())
                                     .map(s -> s.getScaleTargetRef().getName())
                                     .orElse(null)))
                     .findFirst()
-                    .map(hpa -> toInfo(hpa, java.util.Set.of(deploymentName)));
+                    .map(hpa -> toInfo(hpa, java.util.Set.of(targetName)));
         } catch (Exception e) {
-            log.error("Failed to find HPA for deployment {}/{}: {}", namespace, deploymentName, e.getMessage());
+            log.error("Failed to find HPA for target {}/{}: {}", namespace, targetName, e.getMessage());
             throw new KubernetesOperationException("Failed to find HPA: " + e.getMessage(), e);
         }
     }

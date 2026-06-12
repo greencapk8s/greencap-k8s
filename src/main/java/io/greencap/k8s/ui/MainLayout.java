@@ -461,15 +461,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildWorkloadsNavItem() {
-        boolean canDeploy   = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_VIEW);
-        boolean canReplica  = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_VIEW);
-        boolean canPods     = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_VIEW);
-        boolean canJobs     = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_VIEW);
-        boolean canCronJobs = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_VIEW);
-        boolean anyChild    = canDeploy || canReplica || canPods || canJobs || canCronJobs;
+        boolean canDeploy     = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_VIEW);
+        boolean canStatefulSet = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_VIEW);
+        boolean canReplica    = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_VIEW);
+        boolean canPods       = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_VIEW);
+        boolean canJobs       = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_VIEW);
+        boolean canCronJobs   = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_VIEW);
+        boolean anyChild      = canDeploy || canStatefulSet || canReplica || canPods || canJobs || canCronJobs;
 
         SideNavItem workloads = navItem("Workloads", DeploymentsView.class, VaadinIcon.CUBES, anyChild);
         workloads.addItem(navItem("Deployments", DeploymentsView.class, VaadinIcon.ROCKET, canDeploy));
+        workloads.addItem(navItem("StatefulSets", StatefulSetsView.class, VaadinIcon.DATABASE, canStatefulSet));
         workloads.addItem(navItem("ReplicaSets", ReplicaSetView.class, VaadinIcon.COPY, canReplica));
         workloads.addItem(navItem("Pods", PodsView.class, VaadinIcon.CUBE, canPods));
         workloads.addItem(navItem("Jobs", JobsView.class, VaadinIcon.TASKS, canJobs));

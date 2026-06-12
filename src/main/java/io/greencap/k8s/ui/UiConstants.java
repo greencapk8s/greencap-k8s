@@ -187,6 +187,19 @@ final class UiConstants {
         return selectionMemory.recall(viewKey).orElse(null);
     }
 
+    static Span replicasBadge(int ready, int desired) {
+        Span badge = new Span(ready + "/" + desired);
+        badge.getElement().getThemeList().add("badge");
+        if (desired > 0 && ready >= desired) {
+            badge.getElement().getThemeList().add("success");
+        } else if (ready == 0) {
+            badge.getElement().getThemeList().add("error");
+        } else {
+            badge.getElement().getThemeList().add("contrast");
+        }
+        return badge;
+    }
+
     static String actionsColumnWidth(int buttonCount) {
         return (buttonCount * ACTION_BUTTON_WIDTH_PX + ACTIONS_COLUMN_RIGHT_PADDING_PX) + "px";
     }

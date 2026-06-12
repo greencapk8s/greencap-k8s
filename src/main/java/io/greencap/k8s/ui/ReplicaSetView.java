@@ -89,7 +89,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         var nameCol  = grid.addColumn(ReplicaSetInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var ownerCol = grid.addComponentColumn(rs -> navigationLink(rs.owner(), DeploymentsView.class))
                 .setHeader("Owner").setFlexGrow(1).setResizable(true);
-        grid.addComponentColumn(rs -> replicasBadge(rs.ready(), rs.desired()))
+        grid.addComponentColumn(rs -> UiConstants.replicasBadge(rs.ready(), rs.desired()))
                 .setHeader("Ready / Desired").setWidth("130px").setResizable(true);
         grid.addColumn(ReplicaSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
 
@@ -167,19 +167,6 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         link.getStyle().set("cursor", "pointer");
         link.addClickListener(e -> UI.getCurrent().navigate(target));
         return link;
-    }
-
-    private Span replicasBadge(int ready, int desired) {
-        Span badge = new Span(ready + "/" + desired);
-        badge.getElement().getThemeList().add("badge");
-        if (desired > 0 && ready >= desired) {
-            badge.getElement().getThemeList().add("success");
-        } else if (ready == 0) {
-            badge.getElement().getThemeList().add("error");
-        } else {
-            badge.getElement().getThemeList().add("contrast");
-        }
-        return badge;
     }
 
     @Override

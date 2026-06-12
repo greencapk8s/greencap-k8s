@@ -384,6 +384,16 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     initial
             );
 
+            SubGroupNode statefulSetsSubGroup = new SubGroupNode(
+                    "StatefulSets", Permission.WORKLOADS_STATEFULSETS_VIEW,
+                    new LinkedHashMap<>() {{
+                        put("Scale", Permission.WORKLOADS_STATEFULSETS_SCALE);
+                        put("Restart", Permission.WORKLOADS_STATEFULSETS_RESTART);
+                        put("Rollback", Permission.WORKLOADS_STATEFULSETS_ROLLBACK);
+                    }},
+                    initial
+            );
+
             SubGroupNode jobsSubGroup = new SubGroupNode(
                     "Jobs", Permission.WORKLOADS_JOBS_VIEW,
                     new LinkedHashMap<>() {{
@@ -408,6 +418,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             );
 
             List<PermissionNode> allLeaves = new ArrayList<>(deploymentsSubGroup.allLeaves());
+            allLeaves.addAll(statefulSetsSubGroup.allLeaves());
             allLeaves.addAll(jobsSubGroup.allLeaves());
             allLeaves.addAll(cronJobsSubGroup.allLeaves());
             allLeaves.addAll(otherNodes);
@@ -415,6 +426,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
             List<Component> displayItems = new ArrayList<>();
             displayItems.add(deploymentsSubGroup);
+            displayItems.add(statefulSetsSubGroup);
             displayItems.add(jobsSubGroup);
             displayItems.add(cronJobsSubGroup);
             displayItems.addAll(otherNodes);

@@ -24,6 +24,7 @@ public class ManifestService {
     private static final Map<String, String> EDITABLE_RESOURCE_KINDS = Map.ofEntries(
             Map.entry("pod", "Pod"),
             Map.entry("deployment", "Deployment"),
+            Map.entry("statefulset", "StatefulSet"),
             Map.entry("replicaset", "ReplicaSet"),
             Map.entry("job", "Job"),
             Map.entry("cronjob", "CronJob"),
@@ -56,6 +57,7 @@ public class ManifestService {
             Object resource = switch (resourceType.toLowerCase()) {
                 case "pod"        -> client.pods().inNamespace(namespace).withName(name).get();
                 case "deployment" -> client.apps().deployments().inNamespace(namespace).withName(name).get();
+                case "statefulset" -> client.apps().statefulSets().inNamespace(namespace).withName(name).get();
                 case "service"    -> client.services().inNamespace(namespace).withName(name).get();
                 case "configmap"  -> client.configMaps().inNamespace(namespace).withName(name).get();
                 case "secret"     -> client.secrets().inNamespace(namespace).withName(name).get();

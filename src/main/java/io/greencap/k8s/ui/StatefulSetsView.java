@@ -24,11 +24,10 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
-import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
 import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.user.Permission;
-import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
+import io.greencap.k8s.kubernetes.dto.StatefulSetInfo;
 import jakarta.annotation.security.PermitAll;
 
 import lombok.extern.slf4j.Slf4j;
@@ -39,33 +38,30 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
-@Route(value = "workloads/deployments", layout = MainLayout.class)
-@PageTitle("Deployments — GreenCap K8s")
+@Route(value = "workloads/statefulsets", layout = MainLayout.class)
+@PageTitle("StatefulSets — GreenCap K8s")
 @PermitAll
-public class DeploymentsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
+public class StatefulSetsView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
-    private static final String HELP_TITLE = "Deployments";
-    private static final String HELP_TEXT = "A Deployment is a Workload that manages a set of replica Pods through one or more ReplicaSets. It ensures that the desired number of replicas is always running.\n\nOn this screen you can: Scale — change the desired replica count — and Restart — perform a rolling restart, replacing pods one by one without service interruption.";
+    private static final String HELP_TITLE = "StatefulSets";
+    private static final String HELP_TEXT = "A StatefulSet is a Workload that manages a set of replica Pods with stable, unique network identities and stable storage. Pods follow an ordinal naming scheme (<name>-0, <name>-1, ...) and are created, scaled, and deleted in order. It is associated with a headless Service via spec.serviceName, which provides per-pod DNS resolution.\n\nOn this screen you can: Scale — change the desired replica count — Restart — perform a rolling restart, replacing pods one by one in reverse ordinal order — and Rollback — revert to the previous revision.";
 
     private final WorkloadService workloadService;
     private final AutoScalingService autoScalingService;
-    private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
     private final GridSelectionMemory selectionMemory;
 
-    private final Grid<DeploymentInfo> deployGrid = new Grid<>(DeploymentInfo.class, false);
+    private final Grid<StatefulSetInfo> grid = new Grid<>(StatefulSetInfo.class, false);
     private final VerticalLayout noClusterMessage;
     private final VerticalLayout clusterErrorMessage;
 
-    private final List<DeploymentInfo> allItems = new ArrayList<>();
-    private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
+    private final List<StatefulSetInfo> allItems = new ArrayList<>();
+    private final ListDataProvider<StatefulSetInfo> dataProvider = new ListDataProvider<>(allItems);
 
-    public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService,
-                           ObservabilityService observabilityService, ClusterContext clusterContext,
-                           GridSelectionMemory selectionMemory) {
+    public StatefulSetsView(WorkloadService workloadService, AutoScalingService autoScalingService,
+                             ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.autoScalingService = autoScalingService;
-        this.observabilityService = observabilityService;
         this.clusterContext = clusterContext;
         this.selectionMemory = selectionMemory;
 
@@ -74,58 +70,58 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         noClusterMessage = UiConstants.buildNoClusterMessage();
         clusterErrorMessage = UiConstants.buildClusterUnreachableMessage();
-        buildDeployGrid();
-        UiConstants.configureSingleSelection(deployGrid, selectionMemory, getClass().getSimpleName(), DeploymentInfo::name);
+        buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), StatefulSetInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_DELETE);
-        List<UiConstants.SelectionAction<DeploymentInfo>> selectionActions = List.of(
+        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_DELETE);
+        List<UiConstants.SelectionAction<StatefulSetInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
-                        d -> UI.getCurrent().navigate("yaml/deployment/" + d.namespace() + "/" + d.name())),
-                UiConstants.SelectionAction.of(VaadinIcon.RECORDS, "Events",
-                        d -> EventsDialog.open(observabilityService, clusterContext, "Deployment", d.name(), d.namespace()))
+                        sts -> UI.getCurrent().navigate("yaml/statefulset/" + sts.namespace() + "/" + sts.name()))
         );
 
-        add(UiConstants.buildSectionHeader("Deployments", this::loadDeployments, HELP_TITLE, HELP_TEXT, deployGrid, selectionActions),
-                noClusterMessage, clusterErrorMessage, deployGrid);
+        add(UiConstants.buildSectionHeader("StatefulSets", this::loadStatefulSets, HELP_TITLE, HELP_TEXT, grid, selectionActions),
+                noClusterMessage, clusterErrorMessage, grid);
     }
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_VIEW)) {
+        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_VIEW)) {
             event.forwardTo("");
             return;
         }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);
-        deployGrid.setVisible(hasCluster);
+        grid.setVisible(hasCluster);
         if (hasCluster) {
-            loadDeploymentsAsync(UI.getCurrent());
+            loadStatefulSetsAsync(UI.getCurrent());
         }
     }
 
-    private void buildDeployGrid() {
-        var nameCol = deployGrid.addColumn(DeploymentInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
-        deployGrid.addComponentColumn(d -> UiConstants.replicasBadge(d.ready(), d.desired()))
+    private void buildGrid() {
+        var nameCol = grid.addColumn(StatefulSetInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
+        grid.addComponentColumn(sts -> UiConstants.replicasBadge(sts.ready(), sts.desired()))
                 .setHeader("Replicas").setWidth("100px").setResizable(true);
-        deployGrid.addColumn(DeploymentInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
-        deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
-        boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
-        boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
-        UiConstants.addActionsColumn(deployGrid, 3, d -> {
-            Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
+        grid.addColumn(StatefulSetInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
+        grid.addColumn(StatefulSetInfo::serviceName).setHeader("Service").setFlexGrow(1).setResizable(true);
+        grid.addColumn(StatefulSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
+
+        boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_SCALE);
+        boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_RESTART);
+        boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_ROLLBACK);
+        UiConstants.addActionsColumn(grid, 3, sts -> {
+            Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(sts));
             scaleBtn.setEnabled(canScale);
-            Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(d));
+            Button restartBtn = buildActionButton(VaadinIcon.ROTATE_RIGHT, "Restart", e -> openRestartDialog(sts));
             restartBtn.setEnabled(canRestart);
-            Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(d));
+            Button rollbackBtn = buildActionButton(VaadinIcon.REPLY, "Rollout Undo", e -> openRollbackDialog(sts));
             rollbackBtn.setEnabled(canRollback);
 
             return List.of(scaleBtn, restartBtn, rollbackBtn);
         });
 
-        deployGrid.setDataProvider(dataProvider);
+        grid.setDataProvider(dataProvider);
 
         TextField nameFilter = buildFilterField();
 
@@ -133,62 +129,62 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         nameFilter.addValueChangeListener(e -> {
             dataProvider.refreshAll();
-            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
         });
 
-        HeaderRow filterRow = deployGrid.appendHeaderRow();
+        HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
 
-        deployGrid.setSizeFull();
-        deployGrid.setVisible(false);
+        grid.setSizeFull();
+        grid.setVisible(false);
     }
 
-    private boolean loadDeployments() {
+    private boolean loadStatefulSets() {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return false;
         String namespace = clusterContext.getNamespace();
         try {
-            List<DeploymentInfo> items = workloadService.listDeployments(cluster, namespace);
+            List<StatefulSetInfo> items = workloadService.listStatefulSets(cluster, namespace);
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
-            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
             clusterErrorMessage.setVisible(false);
-            deployGrid.setVisible(true);
+            grid.setVisible(true);
             return true;
         } catch (KubernetesOperationException e) {
             allItems.clear();
             dataProvider.refreshAll();
-            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
             clusterErrorMessage.setVisible(true);
-            deployGrid.setVisible(false);
+            grid.setVisible(false);
             return false;
         }
     }
 
-    private void loadDeploymentsAsync(UI ui) {
+    private void loadStatefulSetsAsync(UI ui) {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         String namespace = clusterContext.getNamespace();
         CompletableFuture.runAsync(() -> {
             try {
-                List<DeploymentInfo> items = workloadService.listDeployments(cluster, namespace);
+                List<StatefulSetInfo> items = workloadService.listStatefulSets(cluster, namespace);
                 ui.access(() -> {
                     allItems.clear();
                     allItems.addAll(items);
                     dataProvider.refreshAll();
-                    UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+                    UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
                     clusterErrorMessage.setVisible(false);
-                    deployGrid.setVisible(true);
+                    grid.setVisible(true);
                 });
             } catch (KubernetesOperationException e) {
-                log.debug("Failed to load deployments for cluster {}: {}", cluster.getName(), e.getMessage());
+                log.debug("Failed to load statefulsets for cluster {}: {}", cluster.getName(), e.getMessage());
                 ui.access(() -> {
                     allItems.clear();
                     dataProvider.refreshAll();
-                    UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+                    UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
                     clusterErrorMessage.setVisible(true);
-                    deployGrid.setVisible(false);
+                    grid.setVisible(false);
                 });
             }
         }, UiConstants.VIRTUAL_THREADS);
@@ -199,11 +195,11 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         try {
-            List<DeploymentInfo> items = workloadService.listDeployments(cluster, clusterContext.getNamespace());
+            List<StatefulSetInfo> items = workloadService.listStatefulSets(cluster, clusterContext.getNamespace());
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
-            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
         } catch (KubernetesOperationException ignored) {}
     }
 
@@ -221,37 +217,37 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
                (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
     }
 
-    private void openScaleDialog(DeploymentInfo deployment) {
+    private void openScaleDialog(StatefulSetInfo statefulSet) {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
 
         try {
-            autoScalingService.findHorizontalScalerForTarget(cluster, deployment.namespace(), deployment.name())
+            autoScalingService.findHorizontalScalerForTarget(cluster, statefulSet.namespace(), statefulSet.name())
                     .ifPresentOrElse(
                             hpa -> UI.getCurrent().navigate("autoscaling/horizontalscalers",
                                     new QueryParameters(Map.of("edit", List.of(hpa.name())))),
-                            () -> openDirectScaleDialog(deployment, cluster)
+                            () -> openDirectScaleDialog(statefulSet, cluster)
                     );
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
         }
     }
 
-    private void openDirectScaleDialog(DeploymentInfo deployment, Cluster cluster) {
+    private void openDirectScaleDialog(StatefulSetInfo statefulSet, Cluster cluster) {
         IntegerField replicasField = new IntegerField("Replicas");
         replicasField.setMin(0);
         replicasField.setMax(50);
-        replicasField.setValue(deployment.desired());
+        replicasField.setValue(statefulSet.desired());
         replicasField.setStepButtonsVisible(true);
 
         Button scaleBtn = new Button("Scale");
         scaleBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         scaleBtn.setEnabled(false);
         replicasField.addValueChangeListener(e ->
-                scaleBtn.setEnabled(e.getValue() != null && e.getValue() != deployment.desired()));
+                scaleBtn.setEnabled(e.getValue() != null && e.getValue() != statefulSet.desired()));
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Scale — " + deployment.name());
+        dialog.setHeaderTitle("Scale — " + statefulSet.name());
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
         cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -259,9 +255,9 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         scaleBtn.addClickListener(e -> {
             dialog.close();
             try {
-                workloadService.scaleDeployment(cluster, deployment.namespace(), deployment.name(), replicasField.getValue());
-                loadDeployments();
-                notify("Deployment " + deployment.name() + " scaled to " + replicasField.getValue() + " replicas", NotificationVariant.LUMO_SUCCESS);
+                workloadService.scaleStatefulSet(cluster, statefulSet.namespace(), statefulSet.name(), replicasField.getValue());
+                loadStatefulSets();
+                notify("StatefulSet " + statefulSet.name() + " scaled to " + replicasField.getValue() + " replicas", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
@@ -272,11 +268,11 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         dialog.open();
     }
 
-    private void openRestartDialog(DeploymentInfo deployment) {
+    private void openRestartDialog(StatefulSetInfo statefulSet) {
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Restart Deployment");
+        dialog.setHeaderTitle("Restart StatefulSet");
 
-        Paragraph message = new Paragraph("Restart " + deployment.name() + "? Pods will be replaced one by one.");
+        Paragraph message = new Paragraph("Restart " + statefulSet.name() + "? Pods will be replaced one by one, in reverse ordinal order.");
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
         cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
@@ -288,9 +284,9 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             Cluster cluster = clusterContext.getCluster();
             if (cluster == null) return;
             try {
-                workloadService.restartDeployment(cluster, deployment.namespace(), deployment.name());
-                loadDeployments();
-                notify("Deployment " + deployment.name() + " restarted", NotificationVariant.LUMO_SUCCESS);
+                workloadService.restartStatefulSet(cluster, statefulSet.namespace(), statefulSet.name());
+                loadStatefulSets();
+                notify("StatefulSet " + statefulSet.name() + " restarted", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
@@ -301,10 +297,10 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         dialog.open();
     }
 
-    private void openDeleteDialog(DeploymentInfo deployment) {
+    private void openDeleteDialog(StatefulSetInfo statefulSet) {
         ConfirmDialog dialog = new ConfirmDialog();
-        dialog.setHeader("Delete Deployment");
-        dialog.setText("Deleting Deployment \"" + deployment.name() + "\" will also remove all its ReplicaSets and Pods. This action cannot be undone.");
+        dialog.setHeader("Delete StatefulSet");
+        dialog.setText("Deleting StatefulSet \"" + statefulSet.name() + "\" will also remove all its Pods, in reverse ordinal order. PersistentVolumeClaims created from volumeClaimTemplates are retained and not deleted automatically. This action cannot be undone.");
         dialog.setCancelable(true);
         dialog.setConfirmText("Delete");
         dialog.setConfirmButtonTheme("error primary");
@@ -312,9 +308,9 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
             Cluster cluster = clusterContext.getCluster();
             if (cluster == null) return;
             try {
-                workloadService.deleteDeployment(cluster, deployment.namespace(), deployment.name());
-                loadDeployments();
-                notify("Deployment " + deployment.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+                workloadService.deleteStatefulSet(cluster, statefulSet.namespace(), statefulSet.name());
+                loadStatefulSets();
+                notify("StatefulSet " + statefulSet.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
@@ -322,25 +318,25 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         dialog.open();
     }
 
-    private void openRollbackDialog(DeploymentInfo deployment) {
+    private void openRollbackDialog(StatefulSetInfo statefulSet) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Rollout Undo");
 
-        Paragraph message = new Paragraph("Roll back " + deployment.name() + " to the previous revision?");
+        Paragraph message = new Paragraph("Roll back " + statefulSet.name() + " to the previous revision?");
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
         cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
 
-        Button undoBtn = new Button("Rollout Undo");
+        Button undoBtn = new Button("Rollback");
         undoBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
         undoBtn.addClickListener(e -> {
             dialog.close();
             Cluster cluster = clusterContext.getCluster();
             if (cluster == null) return;
             try {
-                workloadService.rolloutUndoDeployment(cluster, deployment.namespace(), deployment.name());
-                loadDeployments();
-                notify("Deployment " + deployment.name() + " rolled back to previous revision", NotificationVariant.LUMO_SUCCESS);
+                workloadService.rolloutUndoStatefulSet(cluster, statefulSet.namespace(), statefulSet.name());
+                loadStatefulSets();
+                notify("StatefulSet " + statefulSet.name() + " rolled back to previous revision", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }

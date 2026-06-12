@@ -25,7 +25,7 @@ A logical isolation unit within a Cluster that groups Workloads. Not a Workload 
 _Avoid_: Environment, project, partition
 
 **Workload**:
-A deployable unit running inside a Namespace. In GreenCap, the concrete types are Pod, Deployment, ReplicaSet, Job, and CronJob.
+A deployable unit running inside a Namespace. In GreenCap, the concrete types are Pod, Deployment, ReplicaSet, StatefulSet, Job, and CronJob.
 _Avoid_: Resource, object, service
 
 **Pod**:
@@ -47,6 +47,10 @@ _Avoid_: redeploy, bounce, kill
 **ReplicaSet**:
 A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans). Supports one write operation: Delete.
 _Avoid_: RS, replica controller
+
+**StatefulSet**:
+A Workload that manages a set of replica Pods with stable, unique network identities and stable storage. Pods follow an ordinal naming scheme (`<name>-0`, `<name>-1`, ...) and are created, scaled, and deleted in order. Associated with a headless Service (via `spec.serviceName`) that provides per-pod DNS resolution, and may define `volumeClaimTemplates` that provision a dedicated PersistentVolumeClaim per Pod. Supports four write operations in GreenCap: Scale, Restart, Rollback, and Delete — same mechanisms as Deployment.
+_Avoid_: STS, stateful app, sharded service, replica set
 
 **Job**:
 A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`. Supports one write operation: Delete.
@@ -109,7 +113,7 @@ A Kubernetes-native occurrence record emitted by the control plane or controller
 _Avoid_: Log, alert, notification
 
 **Manifest**:
-The full YAML representation of a Kubernetes resource as returned by the API server. Displayed in a dedicated page per resource, reachable via an action icon in each listing view. The page URL encodes resource type, namespace, and name (e.g., `/yaml/pod/payments/my-pod`) to support deep-linking. For the 11 namespaced resource types covered by GreenCap's listing views (Pod, Deployment, ReplicaSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, HorizontalScaler, PersistentVolumeClaim), the Manifest supports the Apply write operation. Node, PersistentVolume and StorageClass (cluster-scoped) remain read-only.
+The full YAML representation of a Kubernetes resource as returned by the API server. Displayed in a dedicated page per resource, reachable via an action icon in each listing view. The page URL encodes resource type, namespace, and name (e.g., `/yaml/pod/payments/my-pod`) to support deep-linking. For the 12 namespaced resource types covered by GreenCap's listing views (Pod, Deployment, StatefulSet, ReplicaSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, HorizontalScaler, PersistentVolumeClaim), the Manifest supports the Apply write operation. Node, PersistentVolume and StorageClass (cluster-scoped) remain read-only.
 _Avoid_: Config, definition, spec
 
 **Apply**:
