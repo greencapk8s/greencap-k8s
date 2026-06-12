@@ -2,6 +2,11 @@
 
 A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Permissions granted to each User.
 
+## Purpose & Audience
+
+GreenCap targets individuals and small/medium teams who study, develop, and test against Kubernetes — an approachable alternative to heavyweight platforms like OpenShift or Rancher for contexts that don't need their operational complexity. This shapes the product's priorities (simplicity, low setup cost, clear UI over exhaustive feature coverage) but does not change GreenCap's core responsibility: it remains a management layer over Clusters the user already has (minikube, kind, managed, on-prem, ...), not a cluster lifecycle/provisioning tool (see Cluster).
+_Avoid_: Enterprise platform, cloud provider, cluster provisioner
+
 ## Language
 
 **Cluster**:
