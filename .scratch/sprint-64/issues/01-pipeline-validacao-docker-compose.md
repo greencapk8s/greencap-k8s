@@ -1,7 +1,7 @@
 ---
 id: "01"
 title: "DevOps: pipeline GitHub Actions para validar `docker compose up` (Quick Start)"
-status: in-progress
+status: done
 labels: [feat, devops]
 sprint: 64
 depends_on: []

@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 54 | Manutenção — archiving de sprints.md e .scratch | ✅ Concluído |
 | 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
 | 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
 | 57 | UX — barra de seleção e ações na barra de título (14 views) | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 61 | Workloads — StatefulSets | ✅ Concluído |
 | 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
 | 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
+| 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
 
 ---
 
@@ -65,6 +65,14 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 64 ✅ — DevOps: pipeline GitHub Actions para validar docker-compose
+
+- `.github/workflows/docker-compose-validate.yml` (novo): workflow dedicado, sem job de build/test Gradle (fora de escopo); triggers `pull_request` e `push` para `main` com `paths` filtrados (`docker-compose.yml`, `docker/**`, `.env.example`, `build.gradle.kts`, `settings.gradle.kts`, `gradle/**`, `gradlew`, `src/**`, `.github/workflows/*.yml`)
+- Steps: `actions/checkout@v4` → `cp .env.example .env` (replica o Quick Start, sem GitHub Secrets) → `docker compose up -d --build --wait --wait-timeout 120` (sem cache de build) → `curl --fail -L http://localhost:8080/` (valida porta publicada e frontend Vaadin de produção servido) → dump de `docker compose logs` em caso de falha → `docker compose down -v` sempre (`if: always()`)
+- Fix encontrado na primeira execução no GitHub Actions: `.gitignore` ignorava `gradle/wrapper/gradle-wrapper.jar` — a regra `!gradle/wrapper/gradle-wrapper.jar` (seção Gradle) era sobrescrita pela regra `*.jar` declarada mais abaixo (seção Spring Boot), então o jar nunca foi commitado; checkout limpo (CI) ficava sem o jar e `./gradlew` falhava com `ClassNotFoundException: GradleWrapperMain`. Corrigido movendo a negação para depois de `*.jar` e commitando `gradle/wrapper/gradle-wrapper.jar`
+- Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
+- Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
 
 ### Sprint 63 ✅ — UX: seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT
 
@@ -163,20 +171,6 @@
 - `README.md`: nova seção "Quick Start (Docker)" como caminho principal (clone → `cp .env.example .env` → `docker compose up -d --build` → `http://localhost:8080`, login `admin`/`admin`); fluxo Gradle movido para "Para desenvolvedores"
 - Validado ponta a ponta: `docker compose up -d --build` sobe `db` + `greencap`, container `greencap` fica `healthy`, login acessível
 - `docs/agents/sprint-archiving.md`: regra ajustada — "Status Geral" agora acompanha a mesma janela de 10 sprints de "Sprints Concluídas" (em vez de manter histórico completo)
-
-### Sprint 54 ✅ — Manutenção: archiving de sprints.md e .scratch
-
-- `docs/agents/sprint-archiving.md` (novo): documenta a regra de archiving — "Sprints Concluídas" mantém só as últimas 10 sprints, restante vai para `docs/sprints-archive.md`; `.scratch/sprint-N/` antigos vão para `.scratch/archive/sprint-N/`; executado na etapa 6 (Fechamento) do fluxo de sprint
-- `CLAUDE.md`: referência ao novo doc em "Agent skills"; etapa 6 do fluxo de sprint passa a citar a verificação de archiving
-- `docs/agents/issue-tracker.md`: nota sobre `.scratch/archive/`
-- `docs/sprints-archive.md` (novo): detalhamento das sprints 1-43 em ordem cronológica crescente, migrado de `docs/sprints.md` (que estava fora de ordem); sprint 38 marcada com nota de detalhamento não registrado na época
-- `docs/sprints.md`: "Sprints Concluídas" reduzida de 47 para as últimas 10 entradas; tabela "Status Geral" mantida completa; seção "Backlog" removida (sprints 28-32 já cobertas no archive); itens pendentes de Dockerfile/`GREENCAP_ENCRYPTION_KEY` realocados para "Candidatos para Próximas Sprints" sob novo grupo "🐳 Infraestrutura de Produção"
-- `.scratch/`: diretórios `sprint-4` a `sprint-43` movidos para `.scratch/archive/sprint-N/` via `git mv`, preservando histórico
-
-### Sprint 52 ✅ — Fix: Navbar não acompanha o hide do drawer
-
-- `MainLayout.initResizableDrawer()`: `applyWidth()` agora verifica `appLayout.hasAttribute('drawer-opened')` antes de aplicar o offset — usa `w + 'px'` se aberto, `'0px'` se fechado
-- `MutationObserver` adicionado sobre o atributo `drawer-opened` do AppLayout: sempre que o drawer abre ou fecha, recalcula `navbarPart.style.left` e `contentPart.style.marginInlineStart` conforme o novo estado
 
 ---
 
