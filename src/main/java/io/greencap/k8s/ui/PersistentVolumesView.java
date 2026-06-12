@@ -72,7 +72,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_VIEW)) {
+        if (!SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_VIEW)) {
             event.forwardTo("");
             return;
         }

@@ -71,7 +71,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_VIEW)) {
+        if (!SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_VIEW)) {
             event.forwardTo("");
             return;
         }
@@ -84,7 +84,7 @@ public class NodesView extends VerticalLayout implements BeforeEnterObserver, Re
     }
 
     private void buildGrid() {
-        canCordon = SecurityUtils.hasPermission(Permission.SETTINGS_INFRASTRUCTURE_CORDON);
+        canCordon = SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_CORDON);
 
         var nameCol   = grid.addColumn(NodeInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var statusCol = grid.addComponentColumn(node -> statusBadge(node.status())).setHeader("Status").setWidth("110px").setSortable(false).setResizable(true);

@@ -142,24 +142,36 @@ UI section grouping persistent storage resources visible in GreenCap. Currently 
 _Avoid_: Volumes, persistent storage, disks
 
 **PersistentVolume**:
-A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed read-only under Infrastructure in the Settings section. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error).
+A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed read-only under Infrastructure in the Global section. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error).
 _Avoid_: PV, disk, volume
 
 **StorageClass**:
-A cluster-scoped Kubernetes resource that defines how PersistentVolumes are dynamically provisioned (provisioner, reclaim policy, binding mode, expansion support). Not namespaced. In GreenCap, displayed read-only under Infrastructure in the Settings section.
+A cluster-scoped Kubernetes resource that defines how PersistentVolumes are dynamically provisioned (provisioner, reclaim policy, binding mode, expansion support). Not namespaced. In GreenCap, displayed read-only under Infrastructure in the Global section.
 _Avoid_: SC, storage profile, storage tier
 
 **Node**:
-A cluster-scoped Kubernetes resource representing a physical or virtual machine that runs Workloads. Not namespaced. Each Node exposes allocatable CPU and memory (the capacity available for scheduling, after system overhead). Role is derived from labels: a Node with label `node-role.kubernetes.io/control-plane` or `node-role.kubernetes.io/master` is a Control Plane node; all others are Workers. Status is determined by the `Ready` condition: `Ready` (node is healthy and accepting Pods), `NotReady` (node is not accepting Pods), `Unknown` (node controller lost contact). In GreenCap, displayed under the Infrastructure section, protected by `SETTINGS_INFRASTRUCTURE_VIEW`. Supports one write operation: Cordon/Uncordon.
+A cluster-scoped Kubernetes resource representing a physical or virtual machine that runs Workloads. Not namespaced. Each Node exposes allocatable CPU and memory (the capacity available for scheduling, after system overhead). Role is derived from labels: a Node with label `node-role.kubernetes.io/control-plane` or `node-role.kubernetes.io/master` is a Control Plane node; all others are Workers. Status is determined by the `Ready` condition: `Ready` (node is healthy and accepting Pods), `NotReady` (node is not accepting Pods), `Unknown` (node controller lost contact). In GreenCap, displayed under the Infrastructure section, protected by `GLOBAL_INFRASTRUCTURE_VIEW`. Supports one write operation: Cordon/Uncordon.
 _Avoid_: Machine, host, server, instance
 
 **Cordon**:
-A write operation on a Node that marks it as unschedulable by patching `spec.unschedulable: true`, preventing new Pods from being placed on it without affecting Pods already running. The inverse operation, Uncordon, patches `spec.unschedulable: false` and makes the Node eligible for scheduling again. In GreenCap both are represented by a single toggling button that reflects the current state (Cordon when schedulable, Uncordon when cordoned), protected by `SETTINGS_INFRASTRUCTURE_CORDON`.
+A write operation on a Node that marks it as unschedulable by patching `spec.unschedulable: true`, preventing new Pods from being placed on it without affecting Pods already running. The inverse operation, Uncordon, patches `spec.unschedulable: false` and makes the Node eligible for scheduling again. In GreenCap both are represented by a single toggling button that reflects the current state (Cordon when schedulable, Uncordon when cordoned), protected by `GLOBAL_INFRASTRUCTURE_CORDON`.
 _Avoid_: Pause, disable, drain
 
 **Infrastructure**:
-UI section within Settings grouping cluster-scoped infrastructure resources. Currently contains PersistentVolumes, StorageClasses, and Nodes. Distinct from Storage (which is namespace-scoped) and Settings (which is GreenCap platform configuration).
+UI section within Global grouping cluster-scoped infrastructure resources. Currently contains PersistentVolumes, StorageClasses, and Nodes. Distinct from Storage (which is namespace-scoped) and Settings (which is GreenCap platform configuration).
 _Avoid_: Admin, cluster resources, system
+
+**Project**:
+UI section in the sidebar grouping all views and operations scoped to the active Namespace within a Cluster. Contains Topology, Observability (Dashboard, Events, Metrics), Workloads, Networking, Parameters, Auto Scaling, and Storage. Distinct from Global (cluster-scoped, independent of Namespace) and Settings (GreenCap platform/user configuration).
+_Avoid_: Namespace view, Workspace
+
+**Observability**:
+UI subsection within Project grouping namespace-scoped monitoring views. Currently contains Dashboard (health overview), Events, and Metrics (PodMetric listing).
+_Avoid_: Monitoring, Telemetry
+
+**Global**:
+UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the registry of registered Clusters) and Infrastructure. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
+_Avoid_: Cluster-wide, Admin
 
 **Topologia**:
 UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node navigates to its Manifest. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.

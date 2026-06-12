@@ -63,7 +63,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_VIEW)) {
+        if (!SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW)) {
             event.forwardTo("");
             return;
         }
@@ -74,7 +74,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         Button addBtn = new Button("Add Cluster", VaadinIcon.PLUS.create(),
                 e -> openAddDialog());
         addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_WRITE));
+        addBtn.setEnabled(SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE));
 
         HorizontalLayout toolbar = new HorizontalLayout(new H2("Clusters"), addBtn);
         toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
@@ -153,7 +153,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         Button deleteBtn = new Button(deleteIcon, e -> confirmDelete(cluster));
         deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
         deleteBtn.getElement().setAttribute("title", "Remove cluster");
-        deleteBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_CLUSTERS_WRITE));
+        deleteBtn.setEnabled(SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE));
 
         return List.of(testBtn, deleteBtn);
     }

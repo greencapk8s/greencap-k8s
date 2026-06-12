@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 53 | Versão da plataforma visível no rodapé do drawer | ✅ Concluído |
 | 54 | Manutenção — archiving de sprints.md e .scratch | ✅ Concluído |
 | 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
 | 56 | Infrastructure — Cordon/Uncordon de Nodes | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 60 | Fix — scroll horizontal em views de YAML/logs | ✅ Concluído |
 | 61 | Workloads — StatefulSets | ✅ Concluído |
 | 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
+| 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
 
 ---
 
@@ -65,6 +65,17 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 63 ✅ — UX: seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT
+
+- `CONTEXT.md`: novos termos `Project` (UI section que agrupa Topology, Observability, Workloads, Networking, Parameters, Auto Scaling e Storage, escopada ao Namespace ativo) e `Global` (UI section que agrupa Clusters e Infrastructure, escopada ao Cluster); novo termo `Observability` (UI subsection dentro de Project — Dashboard, Events, Metrics); `Infrastructure`, `PersistentVolume`, `StorageClass`, `Node` e `Cordon` atualizados para "within Global" (era "within Settings")
+- `MainLayout.buildDrawer()`: drawer reorganizado de 3 seções (PROJECT, OBSERVABILITY, SETTINGS) para 3 seções (**PROJECT, GLOBAL, SETTINGS**) — nova seção `buildGlobalNav()` agrupa `Clusters` e `Infrastructure` (movidos de SETTINGS); `buildConfiguracaoNav()` (SETTINGS) passa a conter apenas `Users` e `Settings`
+- `buildNavSection(label, nav, contextTooltip)`: novo ícone `VaadinIcon.INFO_CIRCLE_O` com tooltip nativo (`title`) ao lado do cabeçalho — `NAMESPACE_CONTEXT_TOOLTIP` em PROJECT, `CLUSTER_CONTEXT_TOOLTIP` em GLOBAL, nenhum em SETTINGS
+- `Permission.java`: `SETTINGS_CLUSTERS_VIEW`/`SETTINGS_CLUSTERS_WRITE`/`SETTINGS_INFRASTRUCTURE_VIEW`/`SETTINGS_INFRASTRUCTURE_CORDON` renomeados para `GLOBAL_CLUSTERS_VIEW`/`GLOBAL_CLUSTERS_WRITE`/`GLOBAL_INFRASTRUCTURE_VIEW`/`GLOBAL_INFRASTRUCTURE_CORDON`; `operatorPermissions()`/`viewerPermissions()` atualizados; `V21__rename_global_permissions.sql` migra os valores persistidos em `user_permissions`
+- `ClustersView`, `NodesView`, `PersistentVolumesView`, `StorageClassesView`: referências às permissões renomeadas atualizadas
+- `Observability` (Dashboard, Events, Metrics) deixou de ser seção própria do drawer e passou a ser item expansível dentro de **PROJECT**, logo após `Topology`, com ícone `VaadinIcon.EYE` e navegação padrão para `DashboardView` (mesmo padrão de `Workloads`/`Networking`); permissões `OBSERVABILITY_*` mantidas sem renomear
+- `UserManagementView.PermissionTreePanel`: árvore de permissões espelha a nova estrutura — seção `GLOBAL` (grupos Clusters/Infrastructure) entre PROJECT e SETTINGS; grupo `Observability` movido para dentro da seção PROJECT, logo após `Topology`
+- Issues: `.scratch/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
 
 ### Sprint 62 ✅ — User Management: treeview de permissões expansível/colapsável
 
@@ -161,13 +172,6 @@
 - `docs/sprints-archive.md` (novo): detalhamento das sprints 1-43 em ordem cronológica crescente, migrado de `docs/sprints.md` (que estava fora de ordem); sprint 38 marcada com nota de detalhamento não registrado na época
 - `docs/sprints.md`: "Sprints Concluídas" reduzida de 47 para as últimas 10 entradas; tabela "Status Geral" mantida completa; seção "Backlog" removida (sprints 28-32 já cobertas no archive); itens pendentes de Dockerfile/`GREENCAP_ENCRYPTION_KEY` realocados para "Candidatos para Próximas Sprints" sob novo grupo "🐳 Infraestrutura de Produção"
 - `.scratch/`: diretórios `sprint-4` a `sprint-43` movidos para `.scratch/archive/sprint-N/` via `git mv`, preservando histórico
-
-### Sprint 53 ✅ — Versão da plataforma visível no rodapé do drawer
-
-- `build.gradle.kts`: `springBoot { buildInfo() }` registra o task `bootBuildInfo` — gera `META-INF/build-info.properties` com a versão do projeto; disponível como bean `BuildProperties` em runtime
-- Formato de versão adotado: `v{major}.{minor}.{patch}-rc` para release candidates, `v{major}.{minor}.{patch}` para releases finais; controlado manualmente no `build.gradle.kts`; versão inicial: `0.1.53-rc`
-- `MainLayout`: `BuildProperties` injetado via construtor; `buildDrawer()` refatorado para separar nav content em `Scroller` + `VerticalLayout` externo com `expand(scroller)` para empurrar o rodapé ao fundo
-- `buildVersionFooter()`: `Div` centralizado com `Span` `v{version}` em `FontSize.XXSMALL` + `TextColor.TERTIARY`, fixado no fundo do drawer em todas as páginas
 
 ### Sprint 52 ✅ — Fix: Navbar não acompanha o hide do drawer
 

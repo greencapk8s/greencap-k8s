@@ -281,7 +281,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             add(bulkActions);
 
             add(buildSection("PROJECT", buildProjectGroups(initial)));
-            add(buildSection("OBSERVABILITY", buildObservabilityGroups(initial)));
+            add(buildSection("GLOBAL", buildGlobalGroups(initial)));
             add(buildSection("SETTINGS", buildSettingsGroups(initial)));
         }
 
@@ -311,6 +311,12 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     "Topology", Permission.TOPOLOGY_VIEW
             ), initial));
 
+            groups.add(buildGroup("Observability", new LinkedHashMap<>() {{
+                put("Dashboard", Permission.OBSERVABILITY_DASHBOARD_VIEW);
+                put("Events", Permission.OBSERVABILITY_EVENTS_VIEW);
+                put("Metrics", Permission.OBSERVABILITY_METRICS_VIEW);
+            }}, initial));
+
             groups.add(buildWorkloadsGroup(initial));
 
             groups.add(buildGroup("Networking", new LinkedHashMap<>() {{
@@ -335,25 +341,23 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             return groups;
         }
 
-        private List<GroupNode> buildObservabilityGroups(Set<Permission> initial) {
-            return List.of(buildGroup("Observability", new LinkedHashMap<>() {{
-                put("Dashboard", Permission.OBSERVABILITY_DASHBOARD_VIEW);
-                put("Events", Permission.OBSERVABILITY_EVENTS_VIEW);
-                put("Metrics", Permission.OBSERVABILITY_METRICS_VIEW);
+        private List<GroupNode> buildGlobalGroups(Set<Permission> initial) {
+            List<GroupNode> groups = new ArrayList<>();
+
+            groups.add(buildGroup("Clusters", new LinkedHashMap<>() {{
+                put("Clusters (View)", Permission.GLOBAL_CLUSTERS_VIEW);
+                put("Clusters (Write)", Permission.GLOBAL_CLUSTERS_WRITE);
             }}, initial));
+
+            groups.add(buildGroup("Infrastructure", Map.of(
+                    "Infrastructure", Permission.GLOBAL_INFRASTRUCTURE_VIEW
+            ), initial));
+
+            return groups;
         }
 
         private List<GroupNode> buildSettingsGroups(Set<Permission> initial) {
             List<GroupNode> groups = new ArrayList<>();
-
-            groups.add(buildGroup("Clusters", new LinkedHashMap<>() {{
-                put("Clusters (View)", Permission.SETTINGS_CLUSTERS_VIEW);
-                put("Clusters (Write)", Permission.SETTINGS_CLUSTERS_WRITE);
-            }}, initial));
-
-            groups.add(buildGroup("Infrastructure", Map.of(
-                    "Infrastructure", Permission.SETTINGS_INFRASTRUCTURE_VIEW
-            ), initial));
 
             groups.add(buildGroup("Users", new LinkedHashMap<>() {{
                 put("Users (View)", Permission.SETTINGS_USERS_VIEW);
