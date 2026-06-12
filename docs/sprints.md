@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 52 | Fix — Navbar não acompanha o hide do drawer | ✅ Concluído |
 | 53 | Versão da plataforma visível no rodapé do drawer | ✅ Concluído |
 | 54 | Manutenção — archiving de sprints.md e .scratch | ✅ Concluído |
 | 55 | Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod) | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 59 | YAML do Manifest editável (Edit + Apply) | ✅ Concluído |
 | 60 | Fix — scroll horizontal em views de YAML/logs | ✅ Concluído |
 | 61 | Workloads — StatefulSets | ✅ Concluído |
+| 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
 
 ---
 
@@ -65,6 +65,14 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 62 ✅ — User Management: treeview de permissões expansível/colapsável
+
+- `UserManagementView.GroupNode` (painel `PermissionTreePanel` do diálogo de Permissões): cada grupo de topo (Workloads, Networking, Parameters, Auto Scaling, Storage, Topology, Observability, Clusters, Infrastructure, Users, Platform Settings) ganhou um chevron (`VaadinIcon.CHEVRON_DOWN`/`CHEVRON_RIGHT`, `LUMO_SMALL/TERTIARY/ICON`) ao lado do `Checkbox` do header, em uma `HorizontalLayout`; novo método `setExpanded(boolean)` alterna a visibilidade de um `itemsContainer` (`VerticalLayout`) com os itens do grupo e atualiza o ícone/tooltip — `SubGroupNode` (Deployments/StatefulSets/Jobs/CronJobs dentro de Workloads) permanece sempre expandido
+- `itemsContainer` recebe `margin-left: var(--lumo-size-s)` para compensar a largura do chevron e manter o alinhamento das checkboxes filhas com o checkbox do header (mesmo `margin-left: var(--lumo-space-l)` de `PermissionNode`)
+- Estado inicial de cada grupo: expandido se ≥1 das suas permissões já estiver marcada em `initial` (calculado no construtor de `GroupNode`), senão colapsado — uniforme para todos os grupos, inclusive os de 1 item (Topology, Storage, Infrastructure, Platform Settings); no diálogo "New User" (nada marcado) todos os grupos iniciam colapsados
+- `Select All` / `Deselect All` (já existentes) continuam alterando apenas os checkboxes, sem afetar o collapse; novos botões `Expand All` / `Collapse All` na `bulkActions` expandem/colapsam todos os grupos de uma vez
+- Issue: `.scratch/sprint-62/issues/01-permission-treeview-collapsible.md`
 
 ### Sprint 61 ✅ — Workloads: StatefulSets
 

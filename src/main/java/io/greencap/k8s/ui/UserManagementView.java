@@ -270,8 +270,12 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             selectAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
             Button deselectAllBtn = new Button("Deselect All", e -> selectAll(false));
             deselectAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            Button expandAllBtn = new Button("Expand All", e -> groupNodes.forEach(g -> g.setExpanded(true)));
+            expandAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
+            Button collapseAllBtn = new Button("Collapse All", e -> groupNodes.forEach(g -> g.setExpanded(false)));
+            collapseAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
 
-            HorizontalLayout bulkActions = new HorizontalLayout(selectAllBtn, deselectAllBtn);
+            HorizontalLayout bulkActions = new HorizontalLayout(selectAllBtn, deselectAllBtn, expandAllBtn, collapseAllBtn);
             bulkActions.setSpacing(true);
             bulkActions.setPadding(false);
             add(bulkActions);
@@ -504,6 +508,8 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     private static class GroupNode extends VerticalLayout {
 
         private final Checkbox header;
+        private final Button toggleButton;
+        private final VerticalLayout itemsContainer;
         private final List<PermissionNode> children;
         private boolean syncing = false;
 
@@ -516,11 +522,35 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                 children.forEach(c -> c.getCheckbox().setValue(e.getValue()));
             });
 
+            itemsContainer = new VerticalLayout();
+            itemsContainer.setPadding(false);
+            itemsContainer.setSpacing(false);
+            itemsContainer.getStyle().set("margin-left", "var(--lumo-size-s)");
+            displayItems.forEach(itemsContainer::add);
+
+            var initialIcon = VaadinIcon.CHEVRON_RIGHT.create();
+            initialIcon.setSize(UiConstants.ICON_SIZE);
+            toggleButton = new Button(initialIcon, e -> setExpanded(!itemsContainer.isVisible()));
+            toggleButton.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+
+            HorizontalLayout headerRow = new HorizontalLayout(toggleButton, header);
+            headerRow.setSpacing(false);
+            headerRow.setPadding(false);
+            headerRow.setAlignItems(Alignment.CENTER);
+
             setPadding(false);
             setSpacing(false);
-            add(header);
-            displayItems.forEach(this::add);
+            add(headerRow, itemsContainer);
             syncState();
+            setExpanded(children.stream().anyMatch(c -> c.getCheckbox().getValue()));
+        }
+
+        void setExpanded(boolean expanded) {
+            itemsContainer.setVisible(expanded);
+            var icon = (expanded ? VaadinIcon.CHEVRON_DOWN : VaadinIcon.CHEVRON_RIGHT).create();
+            icon.setSize(UiConstants.ICON_SIZE);
+            toggleButton.setIcon(icon);
+            toggleButton.getElement().setAttribute("title", expanded ? "Collapse" : "Expand");
         }
 
         void syncState() {
