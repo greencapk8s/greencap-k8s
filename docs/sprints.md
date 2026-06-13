@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 57 | UX — barra de seleção e ações na barra de título (14 views) | ✅ Concluído |
 | 58 | Polish de listagens — nome do recurso na confirmação de remoção e espaçamento das colunas de ações | ✅ Concluído |
 | 59 | YAML do Manifest editável (Edit + Apply) | ✅ Concluído |
 | 60 | Fix — scroll horizontal em views de YAML/logs | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
 | 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
+| 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
 
 ---
 
@@ -56,15 +56,18 @@
 - **Coluna Owner em PersistentVolumeClaimsView** — PVCs criados via `volumeClaimTemplates` de um StatefulSet seguem o padrão de nome `<template>-<statefulset>-<ordinal>`; adicionar coluna indicando o StatefulSet de origem (ou "—" para PVCs avulsos), análogo ao Owner de `ReplicaSetView`.
 - **Events em StatefulSetsView** — adicionar `SelectionAction.of(VaadinIcon.RECORDS, "Events", sts -> EventsDialog.open(observabilityService, clusterContext, "StatefulSet", sts.name(), sts.namespace()))` na barra de seleção, mesmo padrão de `DeploymentsView` (injetar `ObservabilityService` no construtor).
 
-### 🧹 PodsView — follow-up da Sprint 66
-
-- **Esconder por padrão Pods de Jobs concluídos** — com CronJobs rodando periodicamente (ex.: `node-spread-test` do `greencap-demo`, sprint 66), `PodsView` acumula muitos Pods em status `Succeeded`/finalizados e a listagem fica gigante. Adicionar um filtro/toggle ativo por padrão que esconde Pods pertencentes a Jobs (campo `jobName` já existe em `PodInfo`), mantendo a opção de exibi-los quando necessário.
-
 ---
 
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 67 ✅ — PodsView: esconder Pods Succeeded de Jobs por padrão (toggle)
+
+- `CONTEXT.md`: termo `Pod` atualizado — a listagem de Pods esconde por padrão Pods de Job já concluídos (`Succeeded`), via toggle ativo por padrão; Pods filtrados por um Job específico (`?job=`) sempre aparecem, independente da fase
+- `PodsView`: novo `Checkbox` "Hide completed Job pods" (marcado por padrão); novo predicado `isCompletedJobPod` (`jobName` não vazio + `phase == "Succeeded"`) combinado ao filtro existente do `ListDataProvider`, junto com Name/Status/Node e o filtro de Job — Pods `Failed` de Jobs permanecem sempre visíveis, independente do toggle
+- Ao abrir via `?job=<nome>` (botão "View Pods" de `JobsView`/`CronJobsView`), o checkbox inicia desmarcado — evita grid vazia ao ver os pods de um Job já `Complete`; volta a marcado ao limpar o filtro de Job pelo `jobFilterBanner`
+- Issue: `.scratch/sprint-67/issues/01-hide-completed-job-pods.md`
 
 ### Sprint 66 ✅ — Workloads: coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods
 
@@ -154,22 +157,6 @@
 - Novo helper `UiConstants.addActionsColumn(grid, buttonCount, buttonsProvider)`: monta a coluna de ações com `HorizontalLayout` sem padding/spacing padrão e `padding-right` consistente — substitui o padrão duplicado em 8 views: `NodesView`, `DeploymentsView`, `PodsView`, `JobsView`, `CronJobsView`, `HorizontalScalerView`, `ClustersView`, `UserManagementView`
 - `CronJobsView`: `buildActionsLayout` refatorado para `buildActionButtons` (retorna `List<Button>`); `ClustersView`/`UserManagementView`: `buildActions` passam a retornar `List<Button>` em vez de `HorizontalLayout`
 - Issues: `.scratch/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`
-
-### Sprint 57 ✅ — UX: barra de seleção e ações na barra de título (14 views)
-
-- `UiConstants.buildSectionHeader`: nova ordem `[heading][...selectionActions][Refresh][Help]` (antes `[heading][Help][Refresh]`); EventsView/MetricsView seguem usando a sobrecarga sem botões extras
-- `UiConstants.SelectionAction<T>` (record): `icon`, `title`, `enabled`, `destructive`, `handler`; factories `of(icon, title, handler)`, `of(icon, title, enabled, handler)`, `destructive(icon, title, enabled, handler)`
-- Nova sobrecarga `buildSectionHeader(title, onRefresh, helpTitle, helpText, grid, List<SelectionAction<T>>)`: monta os botões de ação operando sobre `grid.asSingleSelect()`, habilitados/desabilitados via `ValueChangeListener` conforme há seleção e permissão
-- `UiConstants.configureSingleSelection(Grid<T>)`: `SelectionMode.SINGLE` + `setDeselectAllowed(false)` — impede deselecionar clicando na linha já selecionada
-- `UiConstants.selectFirstOrPreserve(grid, dataProvider, nameExtractor)`: preserva a seleção por nome após load/refresh manual/automático/filtro; cai para o primeiro item se o selecionado sumir da lista; `deselectAll()` se a lista ficar vazia
-- 14 views migradas — Delete/Manifest/Events saem da coluna de ações da grid e vão para a barra de título, operando sobre o item selecionado; coluna de ações reduzida ou removida (`actionsColumnWidth` ajustado); cada listagem abre com o primeiro item selecionado:
-  - **Workloads**: `DeploymentsView` (mantém Scale/Restart/Rollout Undo; barra: Delete, Manifest, Events), `ReplicaSetView` (coluna removida; barra: Delete, Manifest), `PodsView` (mantém Logs; barra: Delete, Manifest, Events), `JobsView` (mantém View Pods; barra: Delete, Manifest), `CronJobsView` (mantém Trigger/Suspend-Resume/View Jobs; barra: Delete, Manifest)
-  - **Networking**: `ServicesView`, `IngressView` (colunas removidas; barra: Delete, Manifest)
-  - **Parameters**: `ConfigMapsView`, `SecretsView` (colunas removidas; barra: Delete, Manifest)
-  - **Auto Scaling / Storage**: `HorizontalScalerView` (mantém Edit Limits; barra: Delete, Manifest), `PersistentVolumeClaimsView` (coluna removida; barra: Delete, Manifest)
-  - **Infrastructure** (recursos cluster-scoped, sem Delete/Events): `NodesView` (mantém Cordon/Uncordon; barra: Manifest), `PersistentVolumesView`, `StorageClassesView` (colunas removidas; barra: Manifest)
-- Fix encontrado no aceite manual: ao abrir "View Manifest" e voltar (Back), o Vaadin recria a View (nova `Grid`, novo `ListDataProvider`) e a seleção voltava sempre para o primeiro item. Novo bean `GridSelectionMemory` (`@VaadinSessionScope`, `Map<viewKey, itemName>`) + nova sobrecarga `configureSingleSelection(grid, selectionMemory, viewKey, nameExtractor)` que registra o nome do item selecionado a cada mudança; `selectFirstOrPreserve` consulta essa memória (via `ComponentUtil`) antes de cair no fallback "primeiro item". `viewKey = getClass().getSimpleName()` em todas as 14 views
-- Issues: `.scratch/sprint-57/issues/01-shared-selection-toolbar.md` a `07-selection-memory-across-navigation.md`
 
 ---
 

@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
@@ -52,6 +53,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private final VerticalLayout noClusterMessage;
     private final VerticalLayout clusterErrorMessage;
     private final HorizontalLayout jobFilterBanner = new HorizontalLayout();
+    private final Checkbox hideCompletedJobPodsCheckbox = new Checkbox("Hide completed Job pods", true);
 
     private final List<PodInfo> allItems = new ArrayList<>();
     private final ListDataProvider<PodInfo> dataProvider = new ListDataProvider<>(allItems);
@@ -86,7 +88,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         );
 
         add(UiConstants.buildSectionHeader("Pods", this::loadPods, HELP_TITLE, HELP_TEXT, podGrid, selectionActions),
-                jobFilterBanner, noClusterMessage, clusterErrorMessage, podGrid);
+                hideCompletedJobPodsCheckbox, jobFilterBanner, noClusterMessage, clusterErrorMessage, podGrid);
     }
 
     @Override
@@ -117,6 +119,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     private void applyJobFilter(String jobName) {
         jobFilter = jobName == null ? "" : jobName.trim();
+        hideCompletedJobPodsCheckbox.setValue(jobFilter.isBlank());
         jobFilterBanner.removeAll();
         jobFilterBanner.setVisible(!jobFilter.isBlank());
         if (!jobFilter.isBlank()) {
@@ -166,7 +169,8 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.phase(), statusFilter.getValue()) &&
             matches(item.node(), nodeFilter.getValue()) &&
-            (jobFilter.isBlank() || jobFilter.equals(item.jobName())));
+            (jobFilter.isBlank() || jobFilter.equals(item.jobName())) &&
+            (!hideCompletedJobPodsCheckbox.getValue() || !isCompletedJobPod(item)));
 
         nameFilter.addValueChangeListener(e -> {
             dataProvider.refreshAll();
@@ -177,6 +181,10 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
         });
         nodeFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
+        });
+        hideCompletedJobPodsCheckbox.addValueChangeListener(e -> {
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
         });
@@ -301,6 +309,10 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private boolean matches(String value, String filter) {
         return filter == null || filter.isBlank() ||
                (value != null && value.toLowerCase().contains(filter.toLowerCase().trim()));
+    }
+
+    private boolean isCompletedJobPod(PodInfo pod) {
+        return !pod.jobName().isBlank() && "Succeeded".equals(pod.phase());
     }
 
     private void notify(String message, NotificationVariant variant) {

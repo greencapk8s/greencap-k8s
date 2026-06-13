@@ -528,3 +528,19 @@
 - `NodesView`: nova coluna "Scheduling" com badge `Schedulable`/`Cordoned`; botão toggle Cordon/Uncordon (`PAUSE`/`PLAY`) na coluna de ações, desabilitado para Viewer, mesmo padrão de Suspend/Resume do `CronJobsView`; `HELP_TEXT` atualizado
 - `UserManagementView` não foi alterado — segue o mesmo gap pré-existente dos 9 `_DELETE` da sprint 51 (permission concedida via migration, sem editor por usuário)
 - Issue: `.scratch/sprint-56/issues/01-node-cordon-uncordon.md`
+
+### Sprint 57 ✅ — UX: barra de seleção e ações na barra de título (14 views)
+
+- `UiConstants.buildSectionHeader`: nova ordem `[heading][...selectionActions][Refresh][Help]` (antes `[heading][Help][Refresh]`); EventsView/MetricsView seguem usando a sobrecarga sem botões extras
+- `UiConstants.SelectionAction<T>` (record): `icon`, `title`, `enabled`, `destructive`, `handler`; factories `of(icon, title, handler)`, `of(icon, title, enabled, handler)`, `destructive(icon, title, enabled, handler)`
+- Nova sobrecarga `buildSectionHeader(title, onRefresh, helpTitle, helpText, grid, List<SelectionAction<T>>)`: monta os botões de ação operando sobre `grid.asSingleSelect()`, habilitados/desabilitados via `ValueChangeListener` conforme há seleção e permissão
+- `UiConstants.configureSingleSelection(Grid<T>)`: `SelectionMode.SINGLE` + `setDeselectAllowed(false)` — impede deselecionar clicando na linha já selecionada
+- `UiConstants.selectFirstOrPreserve(grid, dataProvider, nameExtractor)`: preserva a seleção por nome após load/refresh manual/automático/filtro; cai para o primeiro item se o selecionado sumir da lista; `deselectAll()` se a lista ficar vazia
+- 14 views migradas — Delete/Manifest/Events saem da coluna de ações da grid e vão para a barra de título, operando sobre o item selecionado; coluna de ações reduzida ou removida (`actionsColumnWidth` ajustado); cada listagem abre com o primeiro item selecionado:
+  - **Workloads**: `DeploymentsView` (mantém Scale/Restart/Rollout Undo; barra: Delete, Manifest, Events), `ReplicaSetView` (coluna removida; barra: Delete, Manifest), `PodsView` (mantém Logs; barra: Delete, Manifest, Events), `JobsView` (mantém View Pods; barra: Delete, Manifest), `CronJobsView` (mantém Trigger/Suspend-Resume/View Jobs; barra: Delete, Manifest)
+  - **Networking**: `ServicesView`, `IngressView` (colunas removidas; barra: Delete, Manifest)
+  - **Parameters**: `ConfigMapsView`, `SecretsView` (colunas removidas; barra: Delete, Manifest)
+  - **Auto Scaling / Storage**: `HorizontalScalerView` (mantém Edit Limits; barra: Delete, Manifest), `PersistentVolumeClaimsView` (coluna removida; barra: Delete, Manifest)
+  - **Infrastructure** (recursos cluster-scoped, sem Delete/Events): `NodesView` (mantém Cordon/Uncordon; barra: Manifest), `PersistentVolumesView`, `StorageClassesView` (colunas removidas; barra: Manifest)
+- Fix encontrado no aceite manual: ao abrir "View Manifest" e voltar (Back), o Vaadin recria a View (nova `Grid`, novo `ListDataProvider`) e a seleção voltava sempre para o primeiro item. Novo bean `GridSelectionMemory` (`@VaadinSessionScope`, `Map<viewKey, itemName>`) + nova sobrecarga `configureSingleSelection(grid, selectionMemory, viewKey, nameExtractor)` que registra o nome do item selecionado a cada mudança; `selectFirstOrPreserve` consulta essa memória (via `ComponentUtil`) antes de cair no fallback "primeiro item". `viewKey = getClass().getSimpleName()` em todas as 14 views
+- Issues: `.scratch/sprint-57/issues/01-shared-selection-toolbar.md` a `07-selection-memory-across-navigation.md`

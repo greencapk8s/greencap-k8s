@@ -34,7 +34,7 @@ A deployable unit running inside a Namespace. In GreenCap, the concrete types ar
 _Avoid_: Resource, object, service
 
 **Pod**:
-The smallest Workload unit — one or more containers running together. In GreenCap, supports one write operation: Delete (removes the Pod from the cluster; the owning ReplicaSet or controller will recreate it if applicable).
+The smallest Workload unit — one or more containers running together. In GreenCap, supports one write operation: Delete (removes the Pod from the cluster; the owning ReplicaSet or controller will recreate it if applicable). The Pods listing hides Pods belonging to a Job that have completed successfully (`Succeeded`) by default, via a toggle that is on by default — reduces clutter from recurring CronJobs. Pods filtered to a specific Job (via `?job=`) are shown regardless of phase.
 _Avoid_: Container, instance, process
 
 **Deployment**:
