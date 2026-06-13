@@ -49,6 +49,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     private TextField nameFilterField;
     private TextField ownerFilterField;
+    private TextField nodesFilterField;
 
     public JobsView(WorkloadService workloadService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
@@ -96,12 +97,14 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private void buildGrid() {
         nameFilterField  = buildFilterField();
         ownerFilterField = buildFilterField();
+        nodesFilterField = buildFilterField();
 
         var nameCol  = grid.addColumn(JobInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var statusCol = grid.addComponentColumn(job -> statusBadge(job.status()))
                 .setHeader("Status").setWidth("120px").setResizable(true);
         grid.addColumn(JobInfo::completions).setHeader("Completions").setWidth("110px").setResizable(true);
         grid.addColumn(JobInfo::duration).setHeader("Duration").setWidth("110px").setResizable(true);
+        var nodesCol = grid.addColumn(JobInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         grid.addColumn(JobInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         var ownerCol = grid.addColumn(JobInfo::owner).setHeader("Owner").setFlexGrow(1).setResizable(true);
 
@@ -118,7 +121,8 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilterField.getValue()) &&
-            matches(item.owner(), ownerFilterField.getValue()));
+            matches(item.owner(), ownerFilterField.getValue()) &&
+            matches(item.nodes(), nodesFilterField.getValue()));
 
         nameFilterField.addValueChangeListener(e -> {
             dataProvider.refreshAll();
@@ -128,12 +132,17 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
         });
+        nodesFilterField.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, JobInfo::name);
+        });
 
         grid.setDataProvider(dataProvider);
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilterField);
         filterRow.getCell(ownerCol).setComponent(ownerFilterField);
+        filterRow.getCell(nodesCol).setComponent(nodesFilterField);
 
         grid.setSizeFull();
         grid.setVisible(false);

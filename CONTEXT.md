@@ -38,7 +38,7 @@ The smallest Workload unit — one or more containers running together. In Green
 _Avoid_: Container, instance, process
 
 **Deployment**:
-A Workload that manages a set of replica Pods via one or more ReplicaSets. Exposes desired, ready, and available replica counts. Supports two write operations in GreenCap: Scale (change desired replica count) and Restart (rolling restart — replaces pods one by one without downtime).
+A Workload that manages a set of replica Pods via one or more ReplicaSets. Exposes desired, ready, and available replica counts. Supports two write operations in GreenCap: Scale (change desired replica count) and Restart (rolling restart — replaces pods one by one without downtime). In GreenCap, the listing also shows a Nodes column — the distinct Nodes currently running its Pods (or "—" if none).
 _Avoid_: app, service
 
 **Scale**:
@@ -50,15 +50,15 @@ A write operation on a Deployment that triggers a rolling restart — Kubernetes
 _Avoid_: redeploy, bounce, kill
 
 **ReplicaSet**:
-A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans). Supports one write operation: Delete.
+A Kubernetes resource that maintains a stable set of replica Pods. Almost always created and owned by a Deployment — each rollout produces a new ReplicaSet while the previous ones are retained for rollback. In GreenCap, displayed under the Workloads section with an Owner column indicating the parent Deployment (or "—" for orphans), and a Nodes column listing the distinct Nodes currently running its Pods (or "—" if none). Supports one write operation: Delete.
 _Avoid_: RS, replica controller
 
 **StatefulSet**:
-A Workload that manages a set of replica Pods with stable, unique network identities and stable storage. Pods follow an ordinal naming scheme (`<name>-0`, `<name>-1`, ...) and are created, scaled, and deleted in order. Associated with a headless Service (via `spec.serviceName`) that provides per-pod DNS resolution, and may define `volumeClaimTemplates` that provision a dedicated PersistentVolumeClaim per Pod. Supports four write operations in GreenCap: Scale, Restart, Rollback, and Delete — same mechanisms as Deployment.
+A Workload that manages a set of replica Pods with stable, unique network identities and stable storage. Pods follow an ordinal naming scheme (`<name>-0`, `<name>-1`, ...) and are created, scaled, and deleted in order. Associated with a headless Service (via `spec.serviceName`) that provides per-pod DNS resolution, and may define `volumeClaimTemplates` that provision a dedicated PersistentVolumeClaim per Pod. Supports four write operations in GreenCap: Scale, Restart, Rollback, and Delete — same mechanisms as Deployment. In GreenCap, the listing also shows a Nodes column — the distinct Nodes currently running its Pods (or "—" if none).
 _Avoid_: STS, stateful app, sharded service, replica set
 
 **Job**:
-A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`. Supports one write operation: Delete.
+A Workload that runs a finite task to completion. Tracks how many Pods succeeded (`completions`) out of how many were desired. In GreenCap, displayed under the Workloads section, scoped to the active Namespace. Status derived from `.status.conditions`: `Complete`, `Failed`, `Running`, or `Suspended`. Also shows a Nodes column listing the distinct Nodes that ran/are running its Pods (or "—" if none). Supports one write operation: Delete.
 _Avoid_: Task, batch job, process
 
 **CronJob**:

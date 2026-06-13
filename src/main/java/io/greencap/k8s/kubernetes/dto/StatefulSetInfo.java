@@ -7,5 +7,6 @@ public record StatefulSetInfo(
         int ready,
         int available,
         String serviceName,
+        String nodes,
         String age
 ) {}

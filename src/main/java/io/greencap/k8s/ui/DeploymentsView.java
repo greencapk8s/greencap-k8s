@@ -110,6 +110,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         deployGrid.addComponentColumn(d -> UiConstants.replicasBadge(d.ready(), d.desired()))
                 .setHeader("Replicas").setWidth("100px").setResizable(true);
         deployGrid.addColumn(DeploymentInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
+        var nodesCol = deployGrid.addColumn(DeploymentInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
         boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
@@ -128,16 +129,24 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         deployGrid.setDataProvider(dataProvider);
 
         TextField nameFilter = buildFilterField();
+        TextField nodesFilter = buildFilterField();
 
-        dataProvider.setFilter(item -> matches(item.name(), nameFilter.getValue()));
+        dataProvider.setFilter(item ->
+            matches(item.name(), nameFilter.getValue()) &&
+            matches(item.nodes(), nodesFilter.getValue()));
 
         nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
+        });
+        nodesFilter.addValueChangeListener(e -> {
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(deployGrid, dataProvider, DeploymentInfo::name);
         });
 
         HeaderRow filterRow = deployGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
+        filterRow.getCell(nodesCol).setComponent(nodesFilter);
 
         deployGrid.setSizeFull();
         deployGrid.setVisible(false);

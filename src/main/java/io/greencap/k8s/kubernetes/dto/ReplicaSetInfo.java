@@ -6,5 +6,6 @@ public record ReplicaSetInfo(
         String owner,
         int desired,
         int ready,
+        String nodes,
         String age
 ) {}

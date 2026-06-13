@@ -91,16 +91,19 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
                 .setHeader("Owner").setFlexGrow(1).setResizable(true);
         grid.addComponentColumn(rs -> UiConstants.replicasBadge(rs.ready(), rs.desired()))
                 .setHeader("Ready / Desired").setWidth("130px").setResizable(true);
+        var nodesCol = grid.addColumn(ReplicaSetInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         grid.addColumn(ReplicaSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
 
         grid.setDataProvider(dataProvider);
 
         TextField nameFilter  = buildFilterField();
         TextField ownerFilter = buildFilterField();
+        TextField nodesFilter = buildFilterField();
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
-            matches(item.owner(), ownerFilter.getValue()));
+            matches(item.owner(), ownerFilter.getValue()) &&
+            matches(item.nodes(), nodesFilter.getValue()));
 
         nameFilter.addValueChangeListener(e -> {
             dataProvider.refreshAll();
@@ -110,10 +113,15 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
         });
+        nodesFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, ReplicaSetInfo::name);
+        });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
         filterRow.getCell(ownerCol).setComponent(ownerFilter);
+        filterRow.getCell(nodesCol).setComponent(nodesFilter);
 
         grid.setSizeFull();
         grid.setVisible(false);

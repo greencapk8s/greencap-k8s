@@ -59,6 +59,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private String jobFilter = "";
     private TextField nameFilter;
     private TextField statusFilter;
+    private TextField nodeFilter;
 
     public PodsView(WorkloadService workloadService, ObservabilityService observabilityService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
@@ -144,10 +145,11 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
     private void buildPodGrid() {
         nameFilter   = buildFilterField();
         statusFilter = buildFilterField();
+        nodeFilter   = buildFilterField();
 
         var nameCol   = podGrid.addColumn(PodInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         var statusCol = podGrid.addComponentColumn(p -> phaseBadge(p.phase())).setHeader("Status").setWidth("120px").setResizable(true);
-        podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
+        var nodeCol   = podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
         UiConstants.addActionsColumn(podGrid, 1, p -> {
@@ -163,6 +165,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
             matches(item.phase(), statusFilter.getValue()) &&
+            matches(item.node(), nodeFilter.getValue()) &&
             (jobFilter.isBlank() || jobFilter.equals(item.jobName())));
 
         nameFilter.addValueChangeListener(e -> {
@@ -173,12 +176,17 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
         });
+        nodeFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(podGrid, dataProvider, PodInfo::name);
+        });
 
         podGrid.setDataProvider(dataProvider);
 
         HeaderRow filterRow = podGrid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
         filterRow.getCell(statusCol).setComponent(statusFilter);
+        filterRow.getCell(nodeCol).setComponent(nodeFilter);
 
         podGrid.setSizeFull();
         podGrid.setVisible(false);

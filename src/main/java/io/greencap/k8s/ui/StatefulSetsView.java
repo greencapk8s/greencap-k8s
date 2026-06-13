@@ -105,6 +105,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
                 .setHeader("Replicas").setWidth("100px").setResizable(true);
         grid.addColumn(StatefulSetInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
         grid.addColumn(StatefulSetInfo::serviceName).setHeader("Service").setFlexGrow(1).setResizable(true);
+        var nodesCol = grid.addColumn(StatefulSetInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         grid.addColumn(StatefulSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
 
         boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_SCALE);
@@ -124,16 +125,24 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         grid.setDataProvider(dataProvider);
 
         TextField nameFilter = buildFilterField();
+        TextField nodesFilter = buildFilterField();
 
-        dataProvider.setFilter(item -> matches(item.name(), nameFilter.getValue()));
+        dataProvider.setFilter(item ->
+            matches(item.name(), nameFilter.getValue()) &&
+            matches(item.nodes(), nodesFilter.getValue()));
 
         nameFilter.addValueChangeListener(e -> {
+            dataProvider.refreshAll();
+            UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
+        });
+        nodesFilter.addValueChangeListener(e -> {
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(grid, dataProvider, StatefulSetInfo::name);
         });
 
         HeaderRow filterRow = grid.appendHeaderRow();
         filterRow.getCell(nameCol).setComponent(nameFilter);
+        filterRow.getCell(nodesCol).setComponent(nodesFilter);
 
         grid.setSizeFull();
         grid.setVisible(false);

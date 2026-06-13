@@ -1,5 +1,6 @@
 package io.greencap.k8s.kubernetes;
 
+import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
@@ -18,6 +19,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -66,6 +68,10 @@ public class WorkloadService {
                     ? client.apps().deployments().inAnyNamespace().list().getItems()
                     : client.apps().deployments().inNamespace(namespace).list().getItems();
 
+            var pods = isAllNamespaces(namespace)
+                    ? client.pods().inAnyNamespace().list().getItems()
+                    : client.pods().inNamespace(namespace).list().getItems();
+
             return items.stream()
                     .map(d -> new DeploymentInfo(
                             d.getMetadata().getName(),
@@ -73,6 +79,8 @@ public class WorkloadService {
                             Optional.ofNullable(d.getSpec()).map(s -> s.getReplicas()).orElse(0),
                             Optional.ofNullable(d.getStatus()).map(s -> s.getReadyReplicas()).orElse(0),
                             Optional.ofNullable(d.getStatus()).map(s -> s.getAvailableReplicas()).orElse(0),
+                            PodNodeResolver.resolveNodes(pods, d.getMetadata().getNamespace(),
+                                    selectorMatchLabels(Optional.ofNullable(d.getSpec()).map(s -> s.getSelector()).orElse(null))),
                             NamespaceService.age(d.getMetadata().getCreationTimestamp())
                     ))
                     .toList();
@@ -88,6 +96,10 @@ public class WorkloadService {
             var items = isAllNamespaces(namespace)
                     ? client.apps().replicaSets().inAnyNamespace().list().getItems()
                     : client.apps().replicaSets().inNamespace(namespace).list().getItems();
+
+            var pods = isAllNamespaces(namespace)
+                    ? client.pods().inAnyNamespace().list().getItems()
+                    : client.pods().inNamespace(namespace).list().getItems();
 
             Instant oneDayAgo = Instant.now().minus(1, ChronoUnit.DAYS);
 
@@ -114,12 +126,16 @@ public class WorkloadService {
                                 .map(s -> s.getReadyReplicas())
                                 .orElse(0);
 
+                        String nodes = PodNodeResolver.resolveNodes(pods, rs.getMetadata().getNamespace(),
+                                selectorMatchLabels(Optional.ofNullable(rs.getSpec()).map(s -> s.getSelector()).orElse(null)));
+
                         return new ReplicaSetInfo(
                                 rs.getMetadata().getName(),
                                 rs.getMetadata().getNamespace(),
                                 owner,
                                 desired,
                                 ready,
+                                nodes,
                                 NamespaceService.age(rs.getMetadata().getCreationTimestamp())
                         );
                     })
@@ -171,6 +187,10 @@ public class WorkloadService {
                     ? client.apps().statefulSets().inAnyNamespace().list().getItems()
                     : client.apps().statefulSets().inNamespace(namespace).list().getItems();
 
+            var pods = isAllNamespaces(namespace)
+                    ? client.pods().inAnyNamespace().list().getItems()
+                    : client.pods().inNamespace(namespace).list().getItems();
+
             return items.stream()
                     .map(sts -> new StatefulSetInfo(
                             sts.getMetadata().getName(),
@@ -179,6 +199,8 @@ public class WorkloadService {
                             Optional.ofNullable(sts.getStatus()).map(s -> s.getReadyReplicas()).orElse(0),
                             Optional.ofNullable(sts.getStatus()).map(s -> s.getAvailableReplicas()).orElse(0),
                             Optional.ofNullable(sts.getSpec()).map(s -> s.getServiceName()).orElse("—"),
+                            PodNodeResolver.resolveNodes(pods, sts.getMetadata().getNamespace(),
+                                    selectorMatchLabels(Optional.ofNullable(sts.getSpec()).map(s -> s.getSelector()).orElse(null))),
                             NamespaceService.age(sts.getMetadata().getCreationTimestamp())
                     ))
                     .toList();
@@ -239,6 +261,10 @@ public class WorkloadService {
                     ? client.batch().v1().jobs().inAnyNamespace().list().getItems()
                     : client.batch().v1().jobs().inNamespace(namespace).list().getItems();
 
+            var pods = isAllNamespaces(namespace)
+                    ? client.pods().inAnyNamespace().list().getItems()
+                    : client.pods().inNamespace(namespace).list().getItems();
+
             return items.stream()
                     .map(job -> {
                         int desired = Optional.ofNullable(job.getSpec())
@@ -257,12 +283,16 @@ public class WorkloadService {
                                 .map(ref -> ref.getName())
                                 .orElse("—");
 
+                        String nodes = PodNodeResolver.resolveNodes(pods, job.getMetadata().getNamespace(),
+                                selectorMatchLabels(Optional.ofNullable(job.getSpec()).map(s -> s.getSelector()).orElse(null)));
+
                         return new JobInfo(
                                 job.getMetadata().getName(),
                                 job.getMetadata().getNamespace(),
                                 status,
                                 completions,
                                 duration,
+                                nodes,
                                 NamespaceService.age(job.getMetadata().getCreationTimestamp()),
                                 owner
                         );
@@ -451,5 +481,10 @@ public class WorkloadService {
 
     private boolean isAllNamespaces(String namespace) {
         return namespace == null || namespace.isBlank() || "all".equalsIgnoreCase(namespace);
+    }
+
+    private static Map<String, String> selectorMatchLabels(LabelSelector selector) {
+        if (selector == null || selector.getMatchLabels() == null) return Map.of();
+        return selector.getMatchLabels();
     }
 }

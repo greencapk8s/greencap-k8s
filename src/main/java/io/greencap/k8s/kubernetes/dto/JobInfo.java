@@ -6,6 +6,7 @@ public record JobInfo(
         String status,
         String completions,
         String duration,
+        String nodes,
         String age,
         String owner
 ) {}

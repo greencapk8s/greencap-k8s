@@ -6,5 +6,6 @@ public record DeploymentInfo(
         int desired,
         int ready,
         int available,
+        String nodes,
         String age
 ) {}
