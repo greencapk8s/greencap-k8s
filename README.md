@@ -1,6 +1,6 @@
 # GreenCap K8s
 
-Plataforma web para gerenciamento e monitoramento de clusters Kubernetes externos.
+Plataforma web para gerenciamento e monitoramento de clusters Kubernetes.
 
 ## Stack
 
