@@ -194,7 +194,7 @@ A visual container drawn around `TopologyNode`s that share the same `app.kuberne
 _Avoid_: Cluster, container, namespace grouping, folder
 
 **PlatformSettings**:
-User-scoped preferences that control GreenCap's behavior across sessions. Not related to Kubernetes resources — these are settings about the platform itself. Persisted per User in the database so they follow the user across devices. Currently contains: auto-refresh interval. Accessed via the Settings menu item in the sidebar Settings section.
+User-scoped preferences that control GreenCap's behavior across sessions. Not related to Kubernetes resources — these are settings about the platform itself. Persisted per User in the database so they follow the user across devices. Currently contains: auto-refresh interval, ranging from "no auto-refresh" up to 1 minute. For a User with no saved preference (new accounts, or accounts that never opened Platform Settings), the default is 3 seconds — chosen for responsiveness given GreenCap's target of small dev/test clusters; the User can change or disable it at any time. Accessed via the Settings menu item in the sidebar Settings section.
 _Avoid_: Preferences, config, global settings
 
 **TopologyLayout**:

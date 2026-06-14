@@ -65,7 +65,7 @@ public class PlatformSettingsView extends VerticalLayout implements BeforeEnterO
                 intervalSelect.setValue(RefreshInterval.fromSeconds(seconds))
         );
         if (intervalSelect.getValue() == null) {
-            intervalSelect.setValue(RefreshInterval.NONE);
+            intervalSelect.setValue(RefreshInterval.THREE_SECONDS);
         }
 
         intervalSelect.addValueChangeListener(e -> {

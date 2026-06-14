@@ -2,6 +2,7 @@ package io.greencap.k8s.ui;
 
 enum RefreshInterval {
     NONE("No auto refresh", 0),
+    THREE_SECONDS("3 seconds", 3),
     FIVE_SECONDS("5 seconds", 5),
     TEN_SECONDS("10 seconds", 10),
     THIRTY_SECONDS("30 seconds", 30),

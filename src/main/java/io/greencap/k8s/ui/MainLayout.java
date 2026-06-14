@@ -61,7 +61,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
     private final com.vaadin.flow.component.combobox.ComboBox<String> namespaceCombo = new com.vaadin.flow.component.combobox.ComboBox<>();
-    private RefreshInterval currentRefreshInterval = RefreshInterval.NONE;
+    private RefreshInterval currentRefreshInterval = RefreshInterval.THREE_SECONDS;
     private final Div clusterWarningBanner = new Div();
     private final List<SideNavItem> clusterDependentNavItems = new ArrayList<>();
 
@@ -109,10 +109,10 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         super.onAttach(attachEvent);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
 
-        userService.findRefreshInterval(username).ifPresent(seconds -> {
-            currentRefreshInterval = RefreshInterval.fromSeconds(seconds);
-            applyRefreshInterval(currentRefreshInterval);
-        });
+        int refreshSeconds = userService.findRefreshInterval(username)
+                .orElse(RefreshInterval.THREE_SECONDS.getSeconds());
+        currentRefreshInterval = RefreshInterval.fromSeconds(refreshSeconds);
+        applyRefreshInterval(currentRefreshInterval);
 
         String theme = userService.findTheme(username).orElse("DARK");
         applyTheme(theme);
