@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 59 | YAML do Manifest editável (Edit + Apply) | ✅ Concluído |
 | 60 | Fix — scroll horizontal em views de YAML/logs | ✅ Concluído |
 | 61 | Workloads — StatefulSets | ✅ Concluído |
 | 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
 | 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
 | 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
+| 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
 
 ---
 
@@ -73,6 +73,12 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 69 ✅ — Fix: Container Registry — item ausente na treeview de permissões + ação View Tags na grid
+
+- `UserManagementView.buildGlobalGroups()`: novo grupo "Container Registry" (`GLOBAL_REGISTRY_VIEW`) — permission introduzida na sprint 68 que não havia sido exposta na treeview de permissões (GLOBAL), mesmo padrão de grupo único do "Infrastructure"
+- `RegistryView`: ação "View Tags" sai da barra de título (selection action) e passa para uma coluna de ações na própria grid (`UiConstants.addActionsColumn`, botão por linha), mesmo padrão de `JobsView` ("View Pods")
+- Issue: `.scratch/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
 
 ### Sprint 68 ✅ — Container Registry: menu Global, listagem de Repositories e Tags
 
@@ -162,16 +168,6 @@
 - `ManifestView.java`: estilo de `yamlContent` (`Pre`, leitura) — `white-space: pre` → `pre-wrap`, adicionado `overflow-wrap: anywhere`, mantido `overflow: auto` existente e adicionado `overflow-x: hidden`; linhas longas de YAML quebram visualmente em vez de gerar scroll horizontal. `yamlEditor` (TextArea, edição) inalterado — Vaadin já aplica `pre-wrap`/`min-width: 0` internamente
 - `PodLogsView.java`: mesmo padrão aplicado a `logContent` (`Pre`, logs do Pod) em `styleLogContent()`
 - Issues: `.scratch/sprint-60/issues/01-fix-scroll-manifestview.md`, `.scratch/sprint-60/issues/02-fix-scroll-podlogsview.md`
-
-### Sprint 59 ✅ — YAML do Manifest editável (Edit + Apply)
-
-- `CONTEXT.md`: termo `Manifest` atualizado — deixa de ser somente leitura; documenta os 11 tipos namespaced editáveis (Pod, Deployment, ReplicaSet, Job, CronJob, Service, Ingress, ConfigMap, Secret, HorizontalScaler, PersistentVolumeClaim) vs. os 3 cluster-scoped que permanecem read-only (Node, PersistentVolume, StorageClass); novo termo `Apply` definido como replace completo (PUT)
-- `docs/adr/0005-manifest-apply-as-full-replace.md`: nova ADR registrando por que Apply remove `resourceVersion`/`uid`/`creationTimestamp`/`generation`/`managedFields`/`status` antes do `update()` — evita 409 espúrio por churn de `status` em recursos reconciliados continuamente; semântica de replace completo (não merge estilo `kubectl apply`)
-- `Permission.java`: novo grupo "Project — Manifest" com `MANIFEST_EDIT`; incluído em `operatorPermissions()`, ausente de `viewerPermissions()`
-- `V19__add_manifest_edit_permission.sql`: concede `MANIFEST_EDIT` a usuários com `SETTINGS_CLUSTERS_WRITE` (Admin/Operator)
-- `ManifestService`: novo método `applyYaml()` — parseia o YAML editado via `YAMLMapper`, valida `kind`/`metadata.name`/`metadata.namespace` contra os parâmetros da URL (bloqueia divergências sem chamar a API), remove campos gerenciados pelo servidor e o nó `status`, e aplica via `client.resource(yaml).inNamespace(namespace).update()`; novo `isEditable(resourceType)` com o mapa dos 11 tipos editáveis → `kind` esperado
-- `ManifestView`: botões **Edit** e **Apply** no header — Edit alterna para Cancelar (descarta alterações e volta ao YAML original), Apply só visível em modo edição e abre `ConfirmDialog` antes de enviar; editor é um `TextArea` monoespaçado que substitui o `Pre` em modo edição e recebe foco automático; sucesso re-busca o YAML e volta ao modo leitura com notificação, falha mantém o texto editado com notificação de erro; Edit visível apenas para os 11 tipos editáveis e desabilitado (com tooltip) sem `MANIFEST_EDIT`
-- Issue: `.scratch/sprint-59/issues/01-yaml-manifest-editavel.md`
 
 ---
 

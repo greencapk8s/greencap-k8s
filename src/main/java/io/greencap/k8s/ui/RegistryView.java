@@ -1,6 +1,8 @@
 package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
@@ -59,12 +61,7 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         buildGrid();
         UiConstants.configureSingleSelection(grid);
 
-        List<UiConstants.SelectionAction<RepositoryInfo>> selectionActions = List.of(
-                UiConstants.SelectionAction.of(VaadinIcon.LIST, "View Tags",
-                        repository -> UI.getCurrent().navigate("registry/" + repository.name()))
-        );
-
-        add(UiConstants.buildSectionHeader("Container Registry", this::loadRepositories, HELP_TITLE, HELP_TEXT, grid, selectionActions),
+        add(UiConstants.buildSectionHeader("Container Registry", this::loadRepositories, HELP_TITLE, HELP_TEXT),
                 noClusterMessage, emptyRegistryMessage, grid);
     }
 
@@ -86,6 +83,16 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
     private void buildGrid() {
         var nameCol = grid.addColumn(RepositoryInfo::name).setHeader("Repository").setSortable(true).setFlexGrow(3).setResizable(true);
         grid.addColumn(RepositoryInfo::tagCount).setHeader("Tags").setWidth("100px").setSortable(true).setResizable(true);
+
+        UiConstants.addActionsColumn(grid, 1, repository -> {
+            var tagsIcon = VaadinIcon.LIST.create();
+            tagsIcon.setSize(UiConstants.ICON_SIZE);
+            Button tagsBtn = new Button(tagsIcon);
+            tagsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
+            tagsBtn.getElement().setAttribute("title", "View Tags");
+            tagsBtn.addClickListener(e -> UI.getCurrent().navigate("registry/" + repository.name()));
+            return List.of(tagsBtn);
+        });
 
         grid.setDataProvider(dataProvider);
 

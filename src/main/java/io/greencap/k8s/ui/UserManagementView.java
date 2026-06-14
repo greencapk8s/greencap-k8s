@@ -353,6 +353,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                     "Infrastructure", Permission.GLOBAL_INFRASTRUCTURE_VIEW
             ), initial));
 
+            groups.add(buildGroup("Container Registry", Map.of(
+                    "Container Registry", Permission.GLOBAL_REGISTRY_VIEW
+            ), initial));
+
             return groups;
         }
 
