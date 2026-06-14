@@ -170,7 +170,7 @@ UI subsection within Project grouping namespace-scoped monitoring views. Current
 _Avoid_: Monitoring, Telemetry
 
 **Global**:
-UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the registry of registered Clusters) and Infrastructure. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
+UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
 _Avoid_: Cluster-wide, Admin
 
 **Topologia**:
@@ -204,4 +204,16 @@ _Avoid_: Saved graph, layout cache, position state
 **PodLog**:
 A snapshot of the stdout/stderr output of a container within a Pod, fetched via the Kubernetes API with a configurable line limit (tail). In GreenCap, displayed in a dedicated read-only page (`logs/pod/{namespace}/{name}`) with auto-poll every 3 seconds. Supports two modes: current (active container) and previous (last terminated instance of the container — useful for CrashLoopBackOff diagnosis). When no previous log exists, the page shows an informative message instead of an error.
 _Avoid_: Output, stdout, console, terminal
+
+**Registry**:
+The container registry running inside a Cluster, exposed as the `Service` named `registry` in the `kube-system` Namespace — the convention used by the minikube `registry` addon. Not a persisted entity: GreenCap reaches it on demand via a Kubernetes API port-forward to that Service, reusing the Cluster's Kubeconfig (no separate credentials). In GreenCap, displayed read-only under the Global section as its own top-level item, scoped to the active Cluster, listing the Registry's Repositories. Shows an empty state when the Service is absent or unreachable, without distinguishing between the two.
+_Avoid_: Docker registry, Image registry
+
+**Repository**:
+A named collection of image versions stored in a Registry (e.g. `greencap-demo/backend`), returned by the Registry's catalog. In GreenCap, displayed in the Registry view with its Tag count; selecting one navigates to its Tags.
+_Avoid_: Image (ambiguous — may mean a Repository, a Tag, or a `repository:tag` pair)
+
+**Tag**:
+A named reference to a specific image version within a Repository (e.g. `latest`, `v1.2.3`). In GreenCap, displayed in a dedicated view per Repository with its `digest` (content hash of the image manifest), `size`, and `created` timestamp.
+_Avoid_: Version, Image (see Repository)
 

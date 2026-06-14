@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 58 | Polish de listagens — nome do recurso na confirmação de remoção e espaçamento das colunas de ações | ✅ Concluído |
 | 59 | YAML do Manifest editável (Edit + Apply) | ✅ Concluído |
 | 60 | Fix — scroll horizontal em views de YAML/logs | ✅ Concluído |
 | 61 | Workloads — StatefulSets | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
 | 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
+| 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
 
 ---
 
@@ -47,6 +47,10 @@
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
 
+#### 📦 Registry — follow-up da Sprint 68
+
+- **Build & push de imagens para o Registry interno** — requer decisão de mecanismo de build (Docker socket no container do GreenCap vs Job/Kaniko in-cluster via Fabric8 Client vs BuildKit remoto), origem do código-fonte/Dockerfile (upload via UI, repositório git) e acompanhamento de progresso (logs em tempo real, análogo a `PodLog`). Decisão arquitetural grande — exige sessão `/grill-with-docs` dedicada antes de iniciar.
+
 ### ⚪ Baixa Prioridade
 
 #### 🎓 Diferencial — Onboarding e Aprendizado
@@ -69,6 +73,18 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 68 ✅ — Container Registry: menu Global, listagem de Repositories e Tags
+
+- `CONTEXT.md`: novos termos `Registry` (capacidade derivada do `Cluster`, alcançada via port-forward da API do Kubernetes para o `Service` `registry` no Namespace `kube-system` — sem entidade persistida, sem credenciais novas), `Repository` (coleção nomeada de versões de imagem) e `Tag` (referência nomeada a uma versão específica, com digest/size/created); `docs/adr/0006-registry-via-port-forward.md` documenta a decisão de alcançar o Registry via port-forward em vez de uma entidade/configuração própria
+- `RepositoryInfo`/`TagInfo` (novos DTOs): `RepositoryInfo(name, tagCount)`, `TagInfo(name, digest, size, createdAt)`
+- `RegistryService` (novo, `io.greencap.k8s.kubernetes`): `listRepositories(Cluster)` — port-forward para o `Service` `registry`/`kube-system` (porta `5000`, porta do container — Fabric8 `ServiceResource#portForward` encaminha direto para a porta do Pod, não resolve `targetPort`), `GET /v2/_catalog` + `/v2/<repo>/tags/list` via `java.net.http.HttpClient`; `listTags(Cluster, repository)` — para cada tag, `GET /v2/<repo>/manifests/<tag>` (digest via header `Docker-Content-Digest`, size = `config.size` + soma de `layers[].size`) e `GET /v2/<repo>/blobs/<configDigest>` (campo `created`, formatado via `NamespaceService.age(...)`); qualquer exceção (Service ausente, port-forward falha, catálogo vazio) → `log.warn` + `List.of()`, sem `KubernetesOperationException` — ausência do Registry é estado esperado, não falha de cluster
+- `Permission.GLOBAL_REGISTRY_VIEW` (novo, grupo Global): incluído em `operatorPermissions()`/`viewerPermissions()`; `V22__add_registry_permission.sql` concede a todos os usuários com `GLOBAL_INFRASTRUCTURE_VIEW`
+- `RegistryView` (nova): rota `registry`, item "Container Registry" no drawer GLOBAL (`MainLayout.buildRegistryNavItem()`, ícone `VaadinIcon.ARCHIVE`); grid de Repositories (Repository/Tags, filtro por nome), ação "View Tags" navega para `registry/<repository>`; estado vazio único ("No repositories found. Make sure the Service \"registry\" in the \"kube-system\" namespace is available on this Cluster.") sem distinguir Service ausente/port-forward falho/catálogo vazio
+- `RegistryTagsView` (nova): rota `registry/:repository*` (wildcard para repositories com `/` no nome, ex. `greencap-demo/backend`); cabeçalho com nome do repository + botão Back para `RegistryView`; grid de Tags (Tag/Digest/Size/Created) — coluna Digest com `overflow:hidden`/`text-overflow:ellipsis`/`title` (tooltip) em vez de truncamento fixo
+- `samples/greencap-demo/cluster-provision.sh`: addon `registry` habilitado junto de `metrics-server`/`ingress`; `create-demo.sh` refatorado — addons (antes espalhados entre os dois scripts) agora centralizados em `cluster-provision.sh`, `create-demo.sh` passa a só aplicar os manifests do demo; `README.md` atualizado
+- Validado ponta a ponta no `greencap-demo`: addon `registry` habilitado, imagens de teste (`greencap-demo/hello` com tags `v1`/`v2`/`latest`, `greencap-demo/backend` com tag `v1`) buildadas e enviadas via port-forward + `docker push`; menu "Container Registry" lista os repositories com contagem de tags e "View Tags" exibe nome/digest/size/created corretamente
+- Issues: `.scratch/sprint-68/issues/01-registry-menu-and-repository-listing.md`, `02-repository-tags-view.md`
 
 ### Sprint 67 ✅ — PodsView: esconder Pods Succeeded de Jobs por padrão (toggle)
 
@@ -156,15 +172,6 @@
 - `ManifestService`: novo método `applyYaml()` — parseia o YAML editado via `YAMLMapper`, valida `kind`/`metadata.name`/`metadata.namespace` contra os parâmetros da URL (bloqueia divergências sem chamar a API), remove campos gerenciados pelo servidor e o nó `status`, e aplica via `client.resource(yaml).inNamespace(namespace).update()`; novo `isEditable(resourceType)` com o mapa dos 11 tipos editáveis → `kind` esperado
 - `ManifestView`: botões **Edit** e **Apply** no header — Edit alterna para Cancelar (descarta alterações e volta ao YAML original), Apply só visível em modo edição e abre `ConfirmDialog` antes de enviar; editor é um `TextArea` monoespaçado que substitui o `Pre` em modo edição e recebe foco automático; sucesso re-busca o YAML e volta ao modo leitura com notificação, falha mantém o texto editado com notificação de erro; Edit visível apenas para os 11 tipos editáveis e desabilitado (com tooltip) sem `MANIFEST_EDIT`
 - Issue: `.scratch/sprint-59/issues/01-yaml-manifest-editavel.md`
-
-### Sprint 58 ✅ — Polish de listagens: nome do recurso na confirmação de remoção e espaçamento das colunas de ações
-
-- `ConfirmDialog` de remoção atualizado em 11 views para incluir o nome do recurso na mensagem: `PodsView`, `DeploymentsView`, `ReplicaSetView`, `JobsView`, `CronJobsView` (ambas as variantes, com e sem Jobs ativos), `ServicesView`, `IngressView`, `ConfigMapsView`, `SecretsView`, `HorizontalScalerView`, `PersistentVolumeClaimsView`
-- Fix: último botão (lado direito) das colunas de ações ficava colado/cortado na borda da grid — causa raiz era o `HorizontalLayout` padrão (padding/spacing) das colunas de componente, não considerado em `actionsColumnWidth`
-- `UiConstants.actionsColumnWidth`: agora soma `ACTION_BUTTON_WIDTH_PX` (48px) por botão + `ACTIONS_COLUMN_RIGHT_PADDING_PX` (8px) de respiro
-- Novo helper `UiConstants.addActionsColumn(grid, buttonCount, buttonsProvider)`: monta a coluna de ações com `HorizontalLayout` sem padding/spacing padrão e `padding-right` consistente — substitui o padrão duplicado em 8 views: `NodesView`, `DeploymentsView`, `PodsView`, `JobsView`, `CronJobsView`, `HorizontalScalerView`, `ClustersView`, `UserManagementView`
-- `CronJobsView`: `buildActionsLayout` refatorado para `buildActionButtons` (retorna `List<Button>`); `ClustersView`/`UserManagementView`: `buildActions` passam a retornar `List<Button>` em vez de `HorizontalLayout`
-- Issues: `.scratch/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`
 
 ---
 

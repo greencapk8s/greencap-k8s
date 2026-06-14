@@ -562,7 +562,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem clustersItem = navItem("Clusters", ClustersView.class, VaadinIcon.SERVER,
                 SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW));
 
-        nav.addItem(clustersItem, buildInfrastructureNavItem());
+        nav.addItem(clustersItem, buildInfrastructureNavItem(), buildRegistryNavItem());
         return nav;
     }
 
@@ -591,6 +591,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             clusterDependentNavItems.add(infrastructure);
         }
         return infrastructure;
+    }
+
+    private SideNavItem buildRegistryNavItem() {
+        boolean canRegistry = SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_VIEW);
+
+        SideNavItem registry = navItem("Container Registry", RegistryView.class, VaadinIcon.ARCHIVE, canRegistry);
+
+        if (canRegistry) {
+            clusterDependentNavItems.add(registry);
+        }
+        return registry;
     }
 
     private void addIfEnabled(SideNavItem... items) {

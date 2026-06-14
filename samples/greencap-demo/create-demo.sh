@@ -10,15 +10,6 @@ echo "==> Switching kubectl context to $PROFILE..."
 kubectl config use-context "$PROFILE"
 
 echo ""
-echo "==> Enabling addons..."
-minikube addons enable metrics-server -p "$PROFILE"
-minikube addons enable ingress -p "$PROFILE"
-
-echo ""
-echo "==> Waiting for ingress-nginx controller to be ready..."
-kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=120s
-
-echo ""
 echo "==> Applying greencap-demo manifests..."
 
 for manifest in "$MANIFESTS_DIR"/*.yaml; do

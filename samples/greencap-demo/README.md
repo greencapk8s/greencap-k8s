@@ -11,8 +11,8 @@ Cluster minikube local com uma aplicação de exemplo (frontend + backend + redi
 ## Quick start
 
 ```bash
-./cluster-provision.sh   # cria o cluster minikube (3 nodes, driver docker)
-./create-demo.sh         # aplica os manifests do demo e habilita os addons
+./cluster-provision.sh   # cria o cluster minikube (3 nodes, driver docker) e habilita os addons
+./create-demo.sh         # aplica os manifests do demo
 ./add-hosts.sh           # adiciona "greencap-demo.local" ao /etc/hosts (pede sudo)
 ```
 

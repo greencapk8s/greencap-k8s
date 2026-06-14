@@ -544,3 +544,12 @@
   - **Infrastructure** (recursos cluster-scoped, sem Delete/Events): `NodesView` (mantém Cordon/Uncordon; barra: Manifest), `PersistentVolumesView`, `StorageClassesView` (colunas removidas; barra: Manifest)
 - Fix encontrado no aceite manual: ao abrir "View Manifest" e voltar (Back), o Vaadin recria a View (nova `Grid`, novo `ListDataProvider`) e a seleção voltava sempre para o primeiro item. Novo bean `GridSelectionMemory` (`@VaadinSessionScope`, `Map<viewKey, itemName>`) + nova sobrecarga `configureSingleSelection(grid, selectionMemory, viewKey, nameExtractor)` que registra o nome do item selecionado a cada mudança; `selectFirstOrPreserve` consulta essa memória (via `ComponentUtil`) antes de cair no fallback "primeiro item". `viewKey = getClass().getSimpleName()` em todas as 14 views
 - Issues: `.scratch/sprint-57/issues/01-shared-selection-toolbar.md` a `07-selection-memory-across-navigation.md`
+
+### Sprint 58 — Polish de listagens: nome do recurso na confirmação de remoção e espaçamento das colunas de ações
+
+- `ConfirmDialog` de remoção atualizado em 11 views para incluir o nome do recurso na mensagem: `PodsView`, `DeploymentsView`, `ReplicaSetView`, `JobsView`, `CronJobsView` (ambas as variantes, com e sem Jobs ativos), `ServicesView`, `IngressView`, `ConfigMapsView`, `SecretsView`, `HorizontalScalerView`, `PersistentVolumeClaimsView`
+- Fix: último botão (lado direito) das colunas de ações ficava colado/cortado na borda da grid — causa raiz era o `HorizontalLayout` padrão (padding/spacing) das colunas de componente, não considerado em `actionsColumnWidth`
+- `UiConstants.actionsColumnWidth`: agora soma `ACTION_BUTTON_WIDTH_PX` (48px) por botão + `ACTIONS_COLUMN_RIGHT_PADDING_PX` (8px) de respiro
+- Novo helper `UiConstants.addActionsColumn(grid, buttonCount, buttonsProvider)`: monta a coluna de ações com `HorizontalLayout` sem padding/spacing padrão e `padding-right` consistente — substitui o padrão duplicado em 8 views: `NodesView`, `DeploymentsView`, `PodsView`, `JobsView`, `CronJobsView`, `HorizontalScalerView`, `ClustersView`, `UserManagementView`
+- `CronJobsView`: `buildActionsLayout` refatorado para `buildActionButtons` (retorna `List<Button>`); `ClustersView`/`UserManagementView`: `buildActions` passam a retornar `List<Button>` em vez de `HorizontalLayout`
+- Issues: `.scratch/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`

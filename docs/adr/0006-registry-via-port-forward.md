@@ -1,0 +1,3 @@
+# Registry reached via Kubernetes API port-forward, no persisted entity
+
+GreenCap's Registry feature reads a Cluster's internal container registry — the `Service` named `registry` in `kube-system`, following the minikube `registry` addon convention — on demand via a Kubernetes API port-forward, reusing the Cluster's Kubeconfig. No new entity, table, or credentials are introduced: persisting per-Cluster registry settings (custom Service name/namespace/port, separate credentials for external registries) was considered but deferred until a real need for non-default registries arises, keeping Kubeconfig as GreenCap's single source of truth for cluster access (ADR 0001).
