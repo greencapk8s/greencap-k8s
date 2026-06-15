@@ -83,8 +83,8 @@ final class UiConstants {
         return buildSectionHeader(title, onRefresh, helpTitle, helpText, buildSelectionButtons(grid, selectionActions));
     }
 
-    private static HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
-                                                         String helpTitle, String helpText, List<Button> leadingButtons) {
+    static HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
+                                                String helpTitle, String helpText, List<Button> leadingButtons) {
         H3 heading = new H3(title);
 
         var refreshIcon = VaadinIcon.REFRESH.create();

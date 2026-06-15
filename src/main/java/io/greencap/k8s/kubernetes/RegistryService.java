@@ -1,10 +1,17 @@
 package io.greencap.k8s.kubernetes;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.ResourceRequirementsBuilder;
+import io.fabric8.kubernetes.api.model.batch.v1.Job;
+import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.BuildProgress;
+import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.RepositoryInfo;
 import io.greencap.k8s.kubernetes.dto.TagInfo;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +23,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -29,6 +38,17 @@ public class RegistryService {
     // (it does not resolve the Service's targetPort) — 5000 is the registry container's listening port.
     private static final int REGISTRY_CONTAINER_PORT = 5000;
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(5);
+
+    // Build (Kaniko) — runs as a Job inside the cluster, so it reaches the Registry via cluster-internal
+    // DNS directly, unlike the read path above which needs a port-forward from outside the cluster.
+    // Port 80 is the Service port (mapped to the registry container's 5000), not 5000 itself —
+    // the Service does not expose port 5000 directly.
+    private static final String BUILD_NAMESPACE = "greencap-system";
+    private static final String REGISTRY_INTERNAL_HOST = "registry.kube-system.svc.cluster.local:80";
+    private static final String KANIKO_IMAGE = "gcr.io/kaniko-project/executor:v1.23.2";
+    private static final long BUILD_JOB_TTL_SECONDS = 600;
+    private static final String DEFAULT_BRANCH = "main";
+    private static final String DEFAULT_DOCKERFILE_PATH = "Dockerfile";
 
     private final KubernetesClientFactory clientFactory;
     private final EncryptionService encryptionService;
@@ -76,11 +96,152 @@ public class RegistryService {
         }
     }
 
+    public String startBuild(Cluster cluster, BuildRequest request) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+
+            ensureBuildNamespaceExists(client);
+
+            String jobName = "kaniko-build-" + (System.currentTimeMillis() / 1000);
+            String dockerfilePath = resolveDockerfilePath(request.dockerfilePath());
+            String gitContext = buildGitContext(request.gitRepositoryUrl(), request.branch());
+            String destination = buildDestination(request.repository(), request.tag());
+
+            List<String> args = new ArrayList<>(List.of(
+                    "--dockerfile=" + dockerfilePath,
+                    "--context=" + gitContext,
+                    "--destination=" + destination,
+                    "--insecure"));
+            resolveContextSubPath(request.contextPath())
+                    .ifPresent(contextSubPath -> args.add("--context-sub-path=" + contextSubPath));
+
+            Job job = new JobBuilder()
+                    .withNewMetadata()
+                        .withName(jobName)
+                        .withNamespace(BUILD_NAMESPACE)
+                    .endMetadata()
+                    .withNewSpec()
+                        .withBackoffLimit(0)
+                        .withTtlSecondsAfterFinished((int) BUILD_JOB_TTL_SECONDS)
+                        .withNewTemplate()
+                            .withNewSpec()
+                                .withRestartPolicy("Never")
+                                .addNewContainer()
+                                    .withName("kaniko")
+                                    .withImage(KANIKO_IMAGE)
+                                    .withArgs(args)
+                                    .withResources(new ResourceRequirementsBuilder()
+                                            .addToRequests("cpu", new Quantity("250m"))
+                                            .addToRequests("memory", new Quantity("256Mi"))
+                                            .addToLimits("cpu", new Quantity("1"))
+                                            .addToLimits("memory", new Quantity("1Gi"))
+                                            .build())
+                                .endContainer()
+                            .endSpec()
+                        .endTemplate()
+                    .endSpec()
+                    .build();
+
+            client.batch().v1().jobs().inNamespace(BUILD_NAMESPACE).resource(job).create();
+            log.info("Started build job {} for cluster {}: {} -> {}", jobName, cluster.getName(), gitContext, destination);
+            return jobName;
+        } catch (Exception e) {
+            log.error("Failed to start build for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to start Build: " + e.getMessage(), e);
+        }
+    }
+
+    public BuildProgress getBuildProgress(Cluster cluster, String jobName) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+
+            Job job = client.batch().v1().jobs().inNamespace(BUILD_NAMESPACE).withName(jobName).get();
+            if (job == null) {
+                throw new KubernetesOperationException("Build job not found: " + jobName, null);
+            }
+
+            String podName = client.pods().inNamespace(BUILD_NAMESPACE)
+                    .withLabel("job-name", jobName)
+                    .list().getItems().stream()
+                    .findFirst()
+                    .map(pod -> pod.getMetadata().getName())
+                    .orElse(null);
+
+            return new BuildProgress(podName, deriveBuildStatus(job));
+        } catch (KubernetesOperationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to get build progress for job {}: {}", jobName, e.getMessage());
+            throw new KubernetesOperationException("Failed to get Build progress: " + e.getMessage(), e);
+        }
+    }
+
+    private void ensureBuildNamespaceExists(KubernetesClient client) {
+        if (client.namespaces().withName(BUILD_NAMESPACE).get() == null) {
+            client.namespaces().resource(new NamespaceBuilder()
+                            .withNewMetadata()
+                                .withName(BUILD_NAMESPACE)
+                            .endMetadata()
+                            .build())
+                    .create();
+            log.info("Created namespace {}", BUILD_NAMESPACE);
+        }
+    }
+
+    private String deriveBuildStatus(Job job) {
+        var conditions = Optional.ofNullable(job.getStatus())
+                .map(status -> status.getConditions()).orElse(List.of());
+        for (var condition : conditions) {
+            if ("Complete".equals(condition.getType()) && "True".equals(condition.getStatus())) return "Complete";
+            if ("Failed".equals(condition.getType()) && "True".equals(condition.getStatus())) return "Failed";
+        }
+        return "Running";
+    }
+
+    String buildGitContext(String repositoryUrl, String branch) {
+        String url = repositoryUrl.trim();
+        if (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        if (!url.endsWith(".git")) {
+            url = url + ".git";
+        }
+        // Kaniko's "git://" prefix is followed by the URL without its own scheme;
+        // Kaniko re-adds "https://" (or "http://" via GIT_PULL_METHOD) when cloning.
+        url = url.replaceFirst("^https?://", "");
+        String ref = (branch == null || branch.isBlank()) ? DEFAULT_BRANCH : branch.trim();
+        return "git://" + url + "#refs/heads/" + ref;
+    }
+
+    String buildDestination(String repository, String tag) {
+        return REGISTRY_INTERNAL_HOST + "/" + repository.trim() + ":" + tag.trim();
+    }
+
+    String resolveDockerfilePath(String dockerfilePath) {
+        return (dockerfilePath == null || dockerfilePath.isBlank()) ? DEFAULT_DOCKERFILE_PATH : dockerfilePath.trim();
+    }
+
+    Optional<String> resolveContextSubPath(String contextPath) {
+        if (contextPath == null || contextPath.isBlank()) {
+            return Optional.empty();
+        }
+        String trimmed = contextPath.trim();
+        while (trimmed.startsWith("/")) {
+            trimmed = trimmed.substring(1);
+        }
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed.isEmpty() ? Optional.empty() : Optional.of(trimmed);
+    }
+
     private TagInfo fetchTagInfo(HttpClient httpClient, String baseUrl, String repository, String tag) {
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(baseUrl + "/v2/" + repository + "/manifests/" + tag))
                     .timeout(HTTP_TIMEOUT)
-                    .header("Accept", "application/vnd.docker.distribution.manifest.v2+json")
+                    // Kaniko pushes OCI manifests; older images pushed via Docker use the Docker v2 schema —
+                    // both have the same "config"/"layers" shape, so ManifestResponse handles either.
+                    .header("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.oci.image.manifest.v1+json")
                     .GET()
                     .build();
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());

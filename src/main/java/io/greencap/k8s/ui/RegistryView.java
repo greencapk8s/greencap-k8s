@@ -3,10 +3,14 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.dialog.Dialog;
+import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
+import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -21,12 +25,15 @@ import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
+import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.RegistryService;
+import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.RepositoryInfo;
 import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @Route(value = "registry", layout = MainLayout.class)
 @PageTitle("Container Registry — GreenCap K8s")
@@ -38,6 +45,11 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
 
     private static final String EMPTY_REGISTRY_MESSAGE =
             "No repositories found. Make sure the Service \"registry\" in the \"kube-system\" namespace is available on this Cluster.";
+
+    private static final Pattern GIT_URL_PATTERN = Pattern.compile("^https?://\\S+$");
+    private static final Pattern REPOSITORY_PATTERN =
+            Pattern.compile("^[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*)*$");
+    private static final Pattern TAG_PATTERN = Pattern.compile("^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$");
 
     private final RegistryService registryService;
     private final ClusterContext clusterContext;
@@ -61,7 +73,8 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         buildGrid();
         UiConstants.configureSingleSelection(grid);
 
-        add(UiConstants.buildSectionHeader("Container Registry", this::loadRepositories, HELP_TITLE, HELP_TEXT),
+        add(UiConstants.buildSectionHeader("Container Registry", this::loadRepositories, HELP_TITLE, HELP_TEXT,
+                        buildHeaderButtons()),
                 noClusterMessage, emptyRegistryMessage, grid);
     }
 
@@ -78,6 +91,118 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         if (hasCluster) {
             loadRepositories();
         }
+    }
+
+    private List<Button> buildHeaderButtons() {
+        if (!SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_BUILD)) {
+            return List.of();
+        }
+        Button buildBtn = new Button("Build Image", VaadinIcon.HAMMER.create(), e -> openBuildDialog());
+        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        return List.of(buildBtn);
+    }
+
+    private void openBuildDialog() {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Build Image");
+        dialog.setWidth("560px");
+
+        TextField repositoryUrlField = new TextField("Git Repository URL");
+        repositoryUrlField.setPlaceholder("https://github.com/usuario/repo");
+        repositoryUrlField.setRequired(true);
+        repositoryUrlField.setWidthFull();
+
+        TextField branchField = new TextField("Branch");
+        branchField.setPlaceholder("main");
+        branchField.setWidthFull();
+
+        TextField contextPathField = new TextField("Context path");
+        contextPathField.setPlaceholder("Repository root");
+        contextPathField.setHelperText("Subdirectory used as the build context (e.g. for monorepos). Leave empty to use the repository root.");
+        contextPathField.setWidthFull();
+
+        TextField dockerfilePathField = new TextField("Dockerfile path");
+        dockerfilePathField.setPlaceholder("Dockerfile");
+        dockerfilePathField.setHelperText("Path to the Dockerfile, relative to the Context path.");
+        dockerfilePathField.setWidthFull();
+
+        TextField repositoryField = new TextField("Repository");
+        repositoryField.setPlaceholder("meu-grupo/minha-app");
+        repositoryField.setRequired(true);
+        repositoryField.setWidthFull();
+
+        TextField tagField = new TextField("Tag");
+        tagField.setPlaceholder("latest");
+        tagField.setRequired(true);
+        tagField.setWidthFull();
+
+        FormLayout form = new FormLayout(repositoryUrlField, branchField, contextPathField, dockerfilePathField, repositoryField, tagField);
+        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+        dialog.add(form);
+
+        Button buildBtn = new Button("Build", e -> {
+            if (!validateBuildForm(repositoryUrlField, repositoryField, tagField)) {
+                return;
+            }
+
+            Cluster cluster = clusterContext.getCluster();
+            try {
+                String jobName = registryService.startBuild(cluster, new BuildRequest(
+                        repositoryUrlField.getValue().trim(),
+                        branchField.getValue(),
+                        contextPathField.getValue(),
+                        dockerfilePathField.getValue(),
+                        repositoryField.getValue().trim(),
+                        tagField.getValue().trim()
+                ));
+                dialog.close();
+                UI.getCurrent().navigate("registry/build/" + jobName);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+
+        dialog.getFooter().add(cancelBtn, buildBtn);
+        dialog.open();
+        repositoryUrlField.focus();
+    }
+
+    private boolean validateBuildForm(TextField repositoryUrlField, TextField repositoryField, TextField tagField) {
+        boolean valid = true;
+
+        if (!GIT_URL_PATTERN.matcher(repositoryUrlField.getValue().trim()).matches()) {
+            repositoryUrlField.setErrorMessage("Enter a valid Git repository URL (http:// or https://)");
+            repositoryUrlField.setInvalid(true);
+            valid = false;
+        } else {
+            repositoryUrlField.setInvalid(false);
+        }
+
+        if (!REPOSITORY_PATTERN.matcher(repositoryField.getValue().trim()).matches()) {
+            repositoryField.setErrorMessage("Use lowercase letters, digits, and . _ - / as separators");
+            repositoryField.setInvalid(true);
+            valid = false;
+        } else {
+            repositoryField.setInvalid(false);
+        }
+
+        if (!TAG_PATTERN.matcher(tagField.getValue().trim()).matches()) {
+            tagField.setErrorMessage("Use letters, digits, and . _ - (max 128 characters)");
+            tagField.setInvalid(true);
+            valid = false;
+        } else {
+            tagField.setInvalid(false);
+        }
+
+        return valid;
+    }
+
+    private void notify(String message, NotificationVariant variant) {
+        Notification notification = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
+        notification.addThemeVariants(variant);
     }
 
     private void buildGrid() {

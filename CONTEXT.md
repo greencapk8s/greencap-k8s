@@ -206,7 +206,7 @@ A snapshot of the stdout/stderr output of a container within a Pod, fetched via 
 _Avoid_: Output, stdout, console, terminal
 
 **Registry**:
-The container registry running inside a Cluster, exposed as the `Service` named `registry` in the `kube-system` Namespace — the convention used by the minikube `registry` addon. Not a persisted entity: GreenCap reaches it on demand via a Kubernetes API port-forward to that Service, reusing the Cluster's Kubeconfig (no separate credentials). In GreenCap, displayed read-only under the Global section as its own top-level item, scoped to the active Cluster, listing the Registry's Repositories. Shows an empty state when the Service is absent or unreachable, without distinguishing between the two.
+The container registry running inside a Cluster, exposed as the `Service` named `registry` in the `kube-system` Namespace — the convention used by the minikube `registry` addon. Not a persisted entity: GreenCap reaches it on demand via a Kubernetes API port-forward to that Service, reusing the Cluster's Kubeconfig (no separate credentials). In GreenCap, displayed under the Global section as its own top-level item, scoped to the active Cluster, listing the Registry's Repositories. Supports one write operation: Build. Shows an empty state when the Service is absent or unreachable, without distinguishing between the two.
 _Avoid_: Docker registry, Image registry
 
 **Repository**:
@@ -216,4 +216,12 @@ _Avoid_: Image (ambiguous — may mean a Repository, a Tag, or a `repository:tag
 **Tag**:
 A named reference to a specific image version within a Repository (e.g. `latest`, `v1.2.3`). In GreenCap, displayed in a dedicated view per Repository with its `digest` (content hash of the image manifest), `size`, and `created` timestamp.
 _Avoid_: Version, Image (see Repository)
+
+**Build**:
+A write operation on the Registry that builds an image from a Git Repository's source and pushes it to the Cluster's Registry, under a Repository and Tag chosen by the user. Triggered from the Registry view; progress is shown as a live log, similar to PodLog. GreenCap does not persist a history of past Builds — once finished, a Build leaves no trace in GreenCap.
+_Avoid_: Deploy, publish
+
+**Git Repository**:
+The source of a Build — a publicly accessible Git repository identified by URL and branch, plus a Context path (the subdirectory used as the build's root, defaults to the repository root) and the path to a Dockerfile within that Context. GreenCap does not store or transfer its contents, only the reference; the Build clones it directly. Only public repositories are supported — private repositories would require credentials, not yet supported.
+_Avoid_: Source code, project, "repository" alone (ambiguous with Repository, the Registry concept)
 

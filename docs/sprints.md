@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
 | 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
 | 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
 | 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
 | 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
+| 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 
 ---
 
@@ -47,9 +47,10 @@
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
 
-#### 📦 Registry — follow-up da Sprint 68
+#### 📦 Registry — follow-ups da Sprint 73
 
-- **Build & push de imagens para o Registry interno** — requer decisão de mecanismo de build (Docker socket no container do GreenCap vs Job/Kaniko in-cluster via Fabric8 Client vs BuildKit remoto), origem do código-fonte/Dockerfile (upload via UI, repositório git) e acompanhamento de progresso (logs em tempo real, análogo a `PodLog`). Decisão arquitetural grande — exige sessão `/grill-with-docs` dedicada antes de iniciar.
+- **Build a partir de Git Repository privado** — a Sprint 73 implementou Build via Kaniko apenas para repositórios públicos (sem credenciais). Suporte a repositórios privados exigiria capturar credenciais (token/usuário+senha) na UI e propagá-las ao Job Kaniko (`GIT_TOKEN`/`GIT_USERNAME`/`GIT_PASSWORD`), com cuidado para não persistir as credenciais em texto plano.
+- **Histórico de Builds** — a Sprint 73 não persiste histórico: um Build finalizado não deixa rastro em GreenCap (Job efêmero com `ttlSecondsAfterFinished`). Avaliar persistir um registro mínimo (Repositório/Tag, Git Repository/branch, status, timestamps) para permitir consultar Builds anteriores.
 
 #### 🛠️ Infraestrutura de Demo — follow-up da Sprint 71
 
@@ -81,6 +82,20 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 73 ✅ — Container Registry: Build & push de imagem via Kaniko a partir de Git Repository público
+
+- `docs/adr/0007-build-via-kaniko-job-git-context.md` (novo): Build executado como `Job` Kaniko (`gcr.io/kaniko-project/executor`) criado pelo GreenCap via Fabric8 no Namespace `greencap-system` (criado sob demanda), mesmo padrão de `WorkloadService.triggerCronJob`; contexto de build via suporte nativo do Kaniko a Git (`--context=git://<host>/<owner>/<repo>.git#refs/heads/<branch>`, sem upload/ConfigMap/PVC); push para o Registry interno via DNS do cluster (`registry.kube-system.svc.cluster.local:80`, porta do Service que mapeia para a porta 5000 do container — corrigido durante o aceite, estava `:5000`); Job efêmero (`ttlSecondsAfterFinished=600`), sem histórico persistido; apenas repositórios públicos
+- `CONTEXT.md`: termo `Registry` atualizado (suporta a operação de escrita Build); novos termos `Build` (operação de escrita que builda e faz push de uma imagem a partir de um Git Repository, progresso em log ao vivo, sem histórico persistido) e `Git Repository` (origem pública identificada por URL/branch, Context path opcional e path do Dockerfile dentro do Context)
+- `kubernetes/dto/BuildRequest`/`BuildProgress` (novos): `BuildRequest(gitRepositoryUrl, branch, contextPath, dockerfilePath, repository, tag)`, `BuildProgress(podName, status)`
+- `RegistryService`: `startBuild(Cluster, BuildRequest)` cria o Namespace `greencap-system` se ausente e o `Job` Kaniko (args `--dockerfile`, `--context`, `--destination`, `--insecure`, `--context-sub-path` quando `contextPath` informado); `getBuildProgress(Cluster, jobName)` retorna status do Job (`Running`/`Complete`/`Failed`) e o nome do Pod (label `job-name`); helpers `buildGitContext`/`buildDestination`/`resolveDockerfilePath`/`resolveContextSubPath` cobertos por `RegistryServiceTest`
+- `Permission.GLOBAL_REGISTRY_BUILD` (novo, ADMIN/OPERATOR): `V23__add_registry_build_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`; `UserManagementView` separa "Container Registry (View)" e "Container Registry (Build)" na treeview
+- `RegistryView`: botão "Build Image" (visível só com `GLOBAL_REGISTRY_BUILD`) abre diálogo com Git Repository URL, Branch, Context path, Dockerfile path, Repository e Tag (validação por regex); ao confirmar, navega para `registry/build/<jobName>`; `UiConstants.buildSectionHeader` ganhou overload com botões extras no cabeçalho
+- `BuildLogsView` (nova, rota `registry/build/:jobName`): badge de status, logs do Pod Kaniko (container `kaniko`) via `ObservabilityService.fetchPodLogs` com polling de 3s, pausar/retomar, botão voltar
+- Fix encontrado no aceite manual: Kaniko v1.23.2 só reconhece o prefixo `git://` no `--context` (não `git+https://`); `fetchTagInfo` (leitura de Tags) só aceitava `Accept: application/vnd.docker.distribution.manifest.v2+json`, mas o Kaniko publica manifesto OCI (`application/vnd.oci.image.manifest.v1+json`) — registry respondia 404 e `listTags` retornava vazio mesmo com a contagem de tags correta em `listRepositories`; corrigido aceitando ambos os media types (records `ManifestResponse`/`ConfigRef`/`ConfigBlob` já compatíveis com o schema OCI)
+- Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app` (`unifametro/flask-app:v1.1`) — push concluído e Tags (`latest`, `v1.1`) visíveis com digest/size/created
+- Registrados como follow-ups no backlog: Build a partir de Git Repository privado, histórico de Builds
+- Issue: `.scratch/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
 
 ### Sprint 71 ✅ — Infraestrutura de Demo: PVC para persistir o Container Registry interno
 
@@ -164,14 +179,6 @@
 - `Observability` (Dashboard, Events, Metrics) deixou de ser seção própria do drawer e passou a ser item expansível dentro de **PROJECT**, logo após `Topology`, com ícone `VaadinIcon.EYE` e navegação padrão para `DashboardView` (mesmo padrão de `Workloads`/`Networking`); permissões `OBSERVABILITY_*` mantidas sem renomear
 - `UserManagementView.PermissionTreePanel`: árvore de permissões espelha a nova estrutura — seção `GLOBAL` (grupos Clusters/Infrastructure) entre PROJECT e SETTINGS; grupo `Observability` movido para dentro da seção PROJECT, logo após `Topology`
 - Issues: `.scratch/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
-
-### Sprint 62 ✅ — User Management: treeview de permissões expansível/colapsável
-
-- `UserManagementView.GroupNode` (painel `PermissionTreePanel` do diálogo de Permissões): cada grupo de topo (Workloads, Networking, Parameters, Auto Scaling, Storage, Topology, Observability, Clusters, Infrastructure, Users, Platform Settings) ganhou um chevron (`VaadinIcon.CHEVRON_DOWN`/`CHEVRON_RIGHT`, `LUMO_SMALL/TERTIARY/ICON`) ao lado do `Checkbox` do header, em uma `HorizontalLayout`; novo método `setExpanded(boolean)` alterna a visibilidade de um `itemsContainer` (`VerticalLayout`) com os itens do grupo e atualiza o ícone/tooltip — `SubGroupNode` (Deployments/StatefulSets/Jobs/CronJobs dentro de Workloads) permanece sempre expandido
-- `itemsContainer` recebe `margin-left: var(--lumo-size-s)` para compensar a largura do chevron e manter o alinhamento das checkboxes filhas com o checkbox do header (mesmo `margin-left: var(--lumo-space-l)` de `PermissionNode`)
-- Estado inicial de cada grupo: expandido se ≥1 das suas permissões já estiver marcada em `initial` (calculado no construtor de `GroupNode`), senão colapsado — uniforme para todos os grupos, inclusive os de 1 item (Topology, Storage, Infrastructure, Platform Settings); no diálogo "New User" (nada marcado) todos os grupos iniciam colapsados
-- `Select All` / `Deselect All` (já existentes) continuam alterando apenas os checkboxes, sem afetar o collapse; novos botões `Expand All` / `Collapse All` na `bulkActions` expandem/colapsam todos os grupos de uma vez
-- Issue: `.scratch/sprint-62/issues/01-permission-treeview-collapsible.md`
 
 ---
 
