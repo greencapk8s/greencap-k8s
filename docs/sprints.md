@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
 | 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
 | 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
+| 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,18 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 74 ✅ — Container Registry: Remove Repository e Remove Tags com multi-seleção
+
+- `docs/adr/0008-registry-remove-via-manifest-delete-and-gc.md` (novo): remoção de manifests por digest via `DELETE /v2/<repo>/manifests/<digest>` (idempotente — 404 = sucesso) + `registry garbage-collect /etc/distribution/config.yml --delete-untagged` no Pod do registry via Fabric8 `pods/exec` (primeiro uso de `pods/exec` no GreenCap; `REGISTRY_STORAGE_DELETE_ENABLED=true` já habilitado na imagem `registry:3.0.0`); "Remove Tags" não roda GC
+- `CONTEXT.md`: termos `Registry`, `Repository` e `Tag` atualizados mencionando as novas operações destrutivas e sua irreversibilidade
+- `Permission.GLOBAL_REGISTRY_DELETE` (novo, ADMIN/OPERATOR): `V24__add_registry_delete_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`; `UserManagementView` adiciona "Container Registry (Delete)" à treeview
+- `RegistryMaintenanceService` (novo, `io.greencap.k8s.kubernetes`): `deleteRepository(Cluster, repository)` — lista tags, deleta todos os digests únicos via `DELETE /v2/<repo>/manifests/<digest>`, roda GC via Fabric8 `pods/exec` aguardando exit code (timeout 60s, label `actual-registry=true` em `kube-system`, binário `/bin/registry`, config `/etc/distribution/config.yml`); `deleteTags(Cluster, repository, List<TagInfo>)` — deleta digests únicos sem GC; helper privado `RegistryConnection` (record `AutoCloseable`) encapsula `KubernetesClient` + `LocalPortForward` + `HttpClient` compartilhado entre os dois métodos
+- `UiConstants.buildSectionHeader` (7 args): novo overload que combina `extraLeadingButtons` (ordem: primeiro) + `buildSelectionButtons` — permite que `RegistryView` exiba "Build Image" antes de "Remove Repository" sem duplicar o layout do cabeçalho; overload de 6 args delega para o de 7 com `List.of()`
+- `RegistryView`: injeta `RegistryMaintenanceService` e `GridSelectionMemory`; `SelectionAction.destructive(VaadinIcon.TRASH, "Remove Repository", canDelete, ...)` no header; `openDeleteRepositoryDialog` com `ConfirmDialog` (texto com nome + contagem de tags + aviso de GC irrevogável); após confirmação: remoção otimista de `allItems` + registro em `deletedRepositoryNames` (filtra nos refreshes automáticos seguintes para evitar que o repositório volte durante o lag do GC); `configureSingleSelection` com `GridSelectionMemory` para restaurar a seleção ao voltar da tela de Tags; HELP_TEXT atualizado
+- `RegistryTagsView`: injeta `RegistryMaintenanceService`; `Grid.SelectionMode.MULTI` + botão "Remove Tags" (TRASH, LUMO_ERROR) visíveis apenas com `GLOBAL_REGISTRY_DELETE`; listener de seleção habilita/desabilita o botão; `openDeleteTagsDialog` com `ConfirmDialog` listando os nomes das tags selecionadas; HELP_TEXT atualizado com nota sobre storage liberado apenas no próximo GC
+- Validado ponta a ponta no `greencap-demo`: Remove Repository elimina repositório da listagem após confirmação (remoção otimista imediata, sem reaparecer nos refreshes seguintes); Remove Tags remove as tags selecionadas da grid; usuário VIEWER não vê nem botão Remove Repository nem checkboxes de multi-seleção
+- Issues: `.scratch/sprint-74/issues/01-remove-repository.md`, `02-remove-tags-multi-selection.md`
 
 ### Sprint 73 ✅ — Container Registry: Build & push de imagem via Kaniko a partir de Git Repository público
 
@@ -169,16 +181,6 @@
 - Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
 - Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
 
-### Sprint 63 ✅ — UX: seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT
-
-- `CONTEXT.md`: novos termos `Project` (UI section que agrupa Topology, Observability, Workloads, Networking, Parameters, Auto Scaling e Storage, escopada ao Namespace ativo) e `Global` (UI section que agrupa Clusters e Infrastructure, escopada ao Cluster); novo termo `Observability` (UI subsection dentro de Project — Dashboard, Events, Metrics); `Infrastructure`, `PersistentVolume`, `StorageClass`, `Node` e `Cordon` atualizados para "within Global" (era "within Settings")
-- `MainLayout.buildDrawer()`: drawer reorganizado de 3 seções (PROJECT, OBSERVABILITY, SETTINGS) para 3 seções (**PROJECT, GLOBAL, SETTINGS**) — nova seção `buildGlobalNav()` agrupa `Clusters` e `Infrastructure` (movidos de SETTINGS); `buildConfiguracaoNav()` (SETTINGS) passa a conter apenas `Users` e `Settings`
-- `buildNavSection(label, nav, contextTooltip)`: novo ícone `VaadinIcon.INFO_CIRCLE_O` com tooltip nativo (`title`) ao lado do cabeçalho — `NAMESPACE_CONTEXT_TOOLTIP` em PROJECT, `CLUSTER_CONTEXT_TOOLTIP` em GLOBAL, nenhum em SETTINGS
-- `Permission.java`: `SETTINGS_CLUSTERS_VIEW`/`SETTINGS_CLUSTERS_WRITE`/`SETTINGS_INFRASTRUCTURE_VIEW`/`SETTINGS_INFRASTRUCTURE_CORDON` renomeados para `GLOBAL_CLUSTERS_VIEW`/`GLOBAL_CLUSTERS_WRITE`/`GLOBAL_INFRASTRUCTURE_VIEW`/`GLOBAL_INFRASTRUCTURE_CORDON`; `operatorPermissions()`/`viewerPermissions()` atualizados; `V21__rename_global_permissions.sql` migra os valores persistidos em `user_permissions`
-- `ClustersView`, `NodesView`, `PersistentVolumesView`, `StorageClassesView`: referências às permissões renomeadas atualizadas
-- `Observability` (Dashboard, Events, Metrics) deixou de ser seção própria do drawer e passou a ser item expansível dentro de **PROJECT**, logo após `Topology`, com ícone `VaadinIcon.EYE` e navegação padrão para `DashboardView` (mesmo padrão de `Workloads`/`Networking`); permissões `OBSERVABILITY_*` mantidas sem renomear
-- `UserManagementView.PermissionTreePanel`: árvore de permissões espelha a nova estrutura — seção `GLOBAL` (grupos Clusters/Infrastructure) entre PROJECT e SETTINGS; grupo `Observability` movido para dentro da seção PROJECT, logo após `Topology`
-- Issues: `.scratch/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
 
 ---
 

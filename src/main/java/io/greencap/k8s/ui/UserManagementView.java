@@ -356,6 +356,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             groups.add(buildGroup("Container Registry", new LinkedHashMap<>() {{
                 put("Container Registry (View)", Permission.GLOBAL_REGISTRY_VIEW);
                 put("Container Registry (Build)", Permission.GLOBAL_REGISTRY_BUILD);
+                put("Container Registry (Delete)", Permission.GLOBAL_REGISTRY_DELETE);
             }}, initial));
 
             return groups;

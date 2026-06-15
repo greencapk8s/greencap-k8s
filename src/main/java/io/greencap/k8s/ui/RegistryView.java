@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
@@ -26,13 +27,16 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.RegistryMaintenanceService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.RepositoryInfo;
 import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 @Route(value = "registry", layout = MainLayout.class)
@@ -41,7 +45,7 @@ import java.util.regex.Pattern;
 public class RegistryView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
 
     private static final String HELP_TITLE = "Container Registry";
-    private static final String HELP_TEXT = "The Registry is the container registry running inside the active Cluster (the Service \"registry\" in the \"kube-system\" Namespace), reached via a Kubernetes API port-forward — no separate credentials needed.\n\nA Repository is a named collection of image versions (e.g. \"greencap-demo/backend\"). Each Tag is a named reference to a specific image version (e.g. \"latest\", \"v1.2.3\"), with its digest, size and creation date.";
+    private static final String HELP_TEXT = "The Registry is the container registry running inside the active Cluster (the Service \"registry\" in the \"kube-system\" Namespace), reached via a Kubernetes API port-forward — no separate credentials needed.\n\nA Repository is a named collection of image versions (e.g. \"greencap-demo/backend\"). Each Tag is a named reference to a specific image version (e.g. \"latest\", \"v1.2.3\"), with its digest, size and creation date.\n\nSelecting a Repository and clicking \"Remove Repository\" permanently deletes all of its Tags and runs garbage collection on the Registry. This action cannot be undone.";
 
     private static final String EMPTY_REGISTRY_MESSAGE =
             "No repositories found. Make sure the Service \"registry\" in the \"kube-system\" namespace is available on this Cluster.";
@@ -52,7 +56,9 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
     private static final Pattern TAG_PATTERN = Pattern.compile("^[a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}$");
 
     private final RegistryService registryService;
+    private final RegistryMaintenanceService registryMaintenanceService;
     private final ClusterContext clusterContext;
+    private final GridSelectionMemory selectionMemory;
 
     private final Grid<RepositoryInfo> grid = new Grid<>(RepositoryInfo.class, false);
     private final VerticalLayout noClusterMessage;
@@ -60,10 +66,14 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
 
     private final List<RepositoryInfo> allItems = new ArrayList<>();
     private final ListDataProvider<RepositoryInfo> dataProvider = new ListDataProvider<>(allItems);
+    private final Set<String> deletedRepositoryNames = new HashSet<>();
 
-    public RegistryView(RegistryService registryService, ClusterContext clusterContext) {
+    public RegistryView(RegistryService registryService, RegistryMaintenanceService registryMaintenanceService,
+                         ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.registryService = registryService;
+        this.registryMaintenanceService = registryMaintenanceService;
         this.clusterContext = clusterContext;
+        this.selectionMemory = selectionMemory;
 
         setSizeFull();
         setPadding(true);
@@ -71,10 +81,15 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         noClusterMessage = UiConstants.buildNoClusterMessage();
         emptyRegistryMessage = buildEmptyRegistryMessage();
         buildGrid();
-        UiConstants.configureSingleSelection(grid);
+        UiConstants.configureSingleSelection(grid, selectionMemory, "registry", RepositoryInfo::name);
+
+        boolean canDelete = SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_DELETE);
+        List<UiConstants.SelectionAction<RepositoryInfo>> selectionActions = List.of(
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Remove Repository", canDelete, this::openDeleteRepositoryDialog)
+        );
 
         add(UiConstants.buildSectionHeader("Container Registry", this::loadRepositories, HELP_TITLE, HELP_TEXT,
-                        buildHeaderButtons()),
+                        grid, selectionActions, buildHeaderButtons()),
                 noClusterMessage, emptyRegistryMessage, grid);
     }
 
@@ -200,6 +215,32 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         return valid;
     }
 
+    private void openDeleteRepositoryDialog(RepositoryInfo repository) {
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Remove Repository");
+        dialog.setText("Removing Repository \"" + repository.name() + "\" will permanently delete all " + repository.tagCount()
+                + " tag(s) and run garbage collection on the Registry. This action cannot be undone.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Remove");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                registryMaintenanceService.deleteRepository(cluster, repository.name());
+                deletedRepositoryNames.add(repository.name());
+                allItems.removeIf(r -> r.name().equals(repository.name()));
+                dataProvider.refreshAll();
+                emptyRegistryMessage.setVisible(allItems.isEmpty());
+                grid.setVisible(!allItems.isEmpty());
+                notify("Repository " + repository.name() + " removed", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
+    }
+
     private void notify(String message, NotificationVariant variant) {
         Notification notification = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
         notification.addThemeVariants(variant);
@@ -238,7 +279,9 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
     private boolean loadRepositories() {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return false;
-        List<RepositoryInfo> items = registryService.listRepositories(cluster);
+        List<RepositoryInfo> items = registryService.listRepositories(cluster).stream()
+                .filter(r -> !deletedRepositoryNames.contains(r.name()))
+                .toList();
         allItems.clear();
         allItems.addAll(items);
         dataProvider.refreshAll();

@@ -206,15 +206,15 @@ A snapshot of the stdout/stderr output of a container within a Pod, fetched via 
 _Avoid_: Output, stdout, console, terminal
 
 **Registry**:
-The container registry running inside a Cluster, exposed as the `Service` named `registry` in the `kube-system` Namespace — the convention used by the minikube `registry` addon. Not a persisted entity: GreenCap reaches it on demand via a Kubernetes API port-forward to that Service, reusing the Cluster's Kubeconfig (no separate credentials). In GreenCap, displayed under the Global section as its own top-level item, scoped to the active Cluster, listing the Registry's Repositories. Supports one write operation: Build. Shows an empty state when the Service is absent or unreachable, without distinguishing between the two.
+The container registry running inside a Cluster, exposed as the `Service` named `registry` in the `kube-system` Namespace — the convention used by the minikube `registry` addon. Not a persisted entity: GreenCap reaches it on demand via a Kubernetes API port-forward to that Service, reusing the Cluster's Kubeconfig (no separate credentials). In GreenCap, displayed under the Global section as its own top-level item, scoped to the active Cluster, listing the Registry's Repositories. Supports write operations: Build, Remove Repository, and Remove Tag(s). Shows an empty state when the Service is absent or unreachable, without distinguishing between the two.
 _Avoid_: Docker registry, Image registry
 
 **Repository**:
-A named collection of image versions stored in a Registry (e.g. `greencap-demo/backend`), returned by the Registry's catalog. In GreenCap, displayed in the Registry view with its Tag count; selecting one navigates to its Tags.
+A named collection of image versions stored in a Registry (e.g. `greencap-demo/backend`), returned by the Registry's catalog. In GreenCap, displayed in the Registry view with its Tag count; selecting one navigates to its Tags. Can be permanently removed (Remove Repository), which deletes all of its Tags and triggers the Registry's garbage collection; irreversible.
 _Avoid_: Image (ambiguous — may mean a Repository, a Tag, or a `repository:tag` pair)
 
 **Tag**:
-A named reference to a specific image version within a Repository (e.g. `latest`, `v1.2.3`). In GreenCap, displayed in a dedicated view per Repository with its `digest` (content hash of the image manifest), `size`, and `created` timestamp.
+A named reference to a specific image version within a Repository (e.g. `latest`, `v1.2.3`). In GreenCap, displayed in a dedicated view per Repository with its `digest` (content hash of the image manifest), `size`, and `created` timestamp. One or more Tags can be permanently removed via multi-selection (Remove Tags); irreversible.
 _Avoid_: Version, Image (see Repository)
 
 **Build**:

@@ -80,7 +80,16 @@ final class UiConstants {
     static <T> HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
                                                     String helpTitle, String helpText,
                                                     Grid<T> grid, List<SelectionAction<T>> selectionActions) {
-        return buildSectionHeader(title, onRefresh, helpTitle, helpText, buildSelectionButtons(grid, selectionActions));
+        return buildSectionHeader(title, onRefresh, helpTitle, helpText, grid, selectionActions, List.of());
+    }
+
+    static <T> HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
+                                                    String helpTitle, String helpText,
+                                                    Grid<T> grid, List<SelectionAction<T>> selectionActions,
+                                                    List<Button> extraLeadingButtons) {
+        List<Button> buttons = new ArrayList<>(extraLeadingButtons);
+        buttons.addAll(buildSelectionButtons(grid, selectionActions));
+        return buildSectionHeader(title, onRefresh, helpTitle, helpText, buttons);
     }
 
     static HorizontalLayout buildSectionHeader(String title, BooleanSupplier onRefresh,
