@@ -569,3 +569,19 @@
 - `ManifestView.java`: estilo de `yamlContent` (`Pre`, leitura) — `white-space: pre` → `pre-wrap`, adicionado `overflow-wrap: anywhere`, mantido `overflow: auto` existente e adicionado `overflow-x: hidden`; linhas longas de YAML quebram visualmente em vez de gerar scroll horizontal. `yamlEditor` (TextArea, edição) inalterado — Vaadin já aplica `pre-wrap`/`min-width: 0` internamente
 - `PodLogsView.java`: mesmo padrão aplicado a `logContent` (`Pre`, logs do Pod) em `styleLogContent()`
 - Issues: `.scratch/sprint-60/issues/01-fix-scroll-manifestview.md`, `.scratch/sprint-60/issues/02-fix-scroll-podlogsview.md`
+
+### Sprint 61 ✅ — Workloads: StatefulSets
+
+- `CONTEXT.md`: `Workload` atualizado para incluir StatefulSet entre os tipos concretos; novo termo `StatefulSet` — Workload com identidade de rede e storage estáveis, Pods em ordem ordinal (`<name>-0`, `<name>-1`, ...), associado a Service headless via `spec.serviceName`, `volumeClaimTemplates` provisionam PVC dedicado por Pod; suporta Scale/Restart/Rollback/Delete igual ao Deployment; `Manifest` atualizado para 12 tipos namespaced editáveis (StatefulSet incluído)
+- `StatefulSetInfo` (novo DTO): `name`, `namespace`, `desired`, `ready`, `available`, `serviceName`, `age`
+- `WorkloadService`: `listStatefulSets`, `scaleStatefulSet`, `restartStatefulSet`, `rolloutUndoStatefulSet`, `deleteStatefulSet` — mesmo padrão (`try-with-resources`, `KubernetesOperationException`) dos equivalentes de Deployment; `StatefulSetStatus` expõe `readyReplicas`/`availableReplicas` igual a `DeploymentStatus`
+- `Permission.java`: novo grupo `WORKLOADS_STATEFULSETS_{VIEW,SCALE,RESTART,ROLLBACK,DELETE}`, inserido entre os grupos de Deployments e ReplicaSets; `VIEW` em `viewerPermissions()`, todas as 5 em `operatorPermissions()`
+- `V20__add_statefulset_permissions.sql`: concede `WORKLOADS_STATEFULSETS_VIEW` a todos os perfis (marker `WORKLOADS_DEPLOYMENTS_VIEW`) e as 4 permissões de escrita a Admin/Operator (marker `SETTINGS_CLUSTERS_WRITE`)
+- `AutoScalingService.findHorizontalScalerForDeployment` renomeado para `findHorizontalScalerForTarget(Cluster, String namespace, String targetName)` — já filtrava apenas por `scaleTargetRef.name`, reaproveitado para StatefulSet; `DeploymentsView` atualizado para o novo nome
+- `ManifestService`: StatefulSet adicionado a `EDITABLE_RESOURCE_KINDS` e ao `fetchYaml` — `/yaml/statefulset/{namespace}/{name}` com Edit/Apply herdados do `ManifestView`
+- `UiConstants.replicasBadge(ready, desired)`: extraído da duplicação em `DeploymentsView`/`ReplicaSetView` (3ª ocorrência), ambas atualizadas para usar o helper compartilhado
+- `StatefulSetsView` (nova): rota `workloads/statefulsets`, colunas Name/Replicas (badge)/Available/Service/Age; carregamento assíncrono (`loadStatefulSetsAsync` + `clusterErrorMessage`, padrão sprint 50); barra de seleção com Delete e View Manifest; ações por linha Scale/Restart/Rollback — Scale verifica HPA via `findHorizontalScalerForTarget` antes de abrir o diálogo direto (min 0, max 50)
+- `MainLayout.buildWorkloadsNavItem()`: item "StatefulSets" adicionado entre "Deployments" e "ReplicaSets", controlado por `WORKLOADS_STATEFULSETS_VIEW`
+- Fix encontrado no aceite manual: `UserManagementView.buildWorkloadsGroup` não incluía o novo grupo de permissões na treeview — adicionado `statefulSetsSubGroup` (Scale/Restart/Rollback), posicionado entre Deployments e Jobs, espelhando a ordem de navegação
+- Registrados como candidatos para próximas sprints: StatefulSet na Topologia, coluna Owner em `PersistentVolumeClaimsView` (PVCs de `volumeClaimTemplates`, incluindo PVCs órfãos quando o StatefulSet é removido), Events em `StatefulSetsView`
+- Issues: `.scratch/sprint-61/issues/01-statefulset-backend.md`, `02-statefulset-ui.md`

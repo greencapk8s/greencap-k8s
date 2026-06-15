@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 61 | Workloads — StatefulSets | ✅ Concluído |
 | 62 | User Management — treeview de permissões expansível/colapsável | ✅ Concluído |
 | 63 | UX — seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT | ✅ Concluído |
 | 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
 | 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
 | 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
+| 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 
 ---
 
@@ -51,6 +51,10 @@
 
 - **Build & push de imagens para o Registry interno** — requer decisão de mecanismo de build (Docker socket no container do GreenCap vs Job/Kaniko in-cluster via Fabric8 Client vs BuildKit remoto), origem do código-fonte/Dockerfile (upload via UI, repositório git) e acompanhamento de progresso (logs em tempo real, análogo a `PodLog`). Decisão arquitetural grande — exige sessão `/grill-with-docs` dedicada antes de iniciar.
 
+#### 🛠️ Infraestrutura de Demo — follow-up da Sprint 71
+
+- **StorageClass com `nodeAffinity` correta no `greencap-demo`** — o `storage-provisioner` (hostpath) do minikube cria PVs sem `nodeAffinity`; em cluster multi-node, se o Pod que monta a PVC for reagendado para outro node, o diretório hostPath local fica vazio (dados "somem" mesmo com a PVC `Bound`). Descoberto na Sprint 71 ao persistir o Registry (contornado com `nodeSelector` fixo no control-plane). Solução geral mais proporcional: substituir a StorageClass default por `local-path-provisioner` (Rancher) — leve (1 pod), mas define `nodeAffinity` corretamente, resolvendo para qualquer PVC sem `nodeSelector` manual por recurso. ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap (`CONTEXT.md`).
+
 ### ⚪ Baixa Prioridade
 
 #### 🎓 Diferencial — Onboarding e Aprendizado
@@ -73,6 +77,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 71 ✅ — Infraestrutura de Demo: PVC para persistir o Container Registry interno
+
+- `samples/greencap-demo/cluster-provision.sh`: após `minikube addons enable registry`, cria `PersistentVolumeClaim` `registry-storage` (4Gi, `kube-system`, StorageClass `standard`) e aplica `kubectl patch` (strategic merge) no `Deployment registry` adicionando `volumes`/`volumeMounts` (`/var/lib/registry`) e `nodeSelector: kubernetes.io/hostname: greencap-demo`; `kubectl rollout status deployment/registry` aguarda o rollout, mesmo padrão do wait do `ingress-nginx-controller`
+- Decisão (`/grill-with-docs`): patch in-place em vez de manifest próprio — preserva `Service`/`registry-proxy` do addon; validado que não há `kube-addon-manager` rodando neste cluster (reconcile contínuo não existe em versões recentes do minikube) e que `volumes`/`volumeMounts`/`nodeSelector` sobrevivem a reexecuções de `minikube addons enable registry` (merge de 3 vias do `kubectl apply` não remove campos fora do manifest do addon)
+- Achado crítico durante o teste: a StorageClass `standard` (hostpath-provisioner) cria PVs sem `nodeAffinity` — em multi-node, um Pod reagendado para outro node monta um diretório hostPath local vazio, "perdendo" os dados mesmo com a PVC `Bound`. Fix: `nodeSelector` fixa o Pod do registry no control-plane (`greencap-demo`), node estável (= nome do profile)
+- `samples/greencap-demo/README.md`: nova seção "Container Registry" documentando a persistência via PVC, o caveat do `nodeSelector` (control-plane sempre existe no demo de 3 nodes) e que os dados só são perdidos com `minikube delete -p greencap-demo`
+- Problema geral de `nodeAffinity` da StorageClass (afeta qualquer PVC) registrado no backlog como candidato de substituição por `local-path-provisioner`; ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap
+- Validado ponta a ponta no `greencap-demo`: `cluster-provision.sh` roda do zero e idempotente (PVC `unchanged`, patch `no change`); push de imagens de teste (`greencap-demo/persistence-test:v1`, `greencap-demo/hello:v1/v2/latest`, `greencap-demo/backend:v1`) via port-forward; após `minikube stop`/`start -p greencap-demo` (restart completo do cluster), pod do registry voltou no mesmo node e os 3 repositories continuaram visíveis no catálogo e na UI "Container Registry"
+- Issue: `.scratch/sprint-71/issues/01-pvc-persistencia-registry.md`
 
 ### Sprint 70 ✅ — Platform Settings: auto-refresh — nova opção "3 seconds" e novo default
 
@@ -154,22 +168,6 @@
 - Estado inicial de cada grupo: expandido se ≥1 das suas permissões já estiver marcada em `initial` (calculado no construtor de `GroupNode`), senão colapsado — uniforme para todos os grupos, inclusive os de 1 item (Topology, Storage, Infrastructure, Platform Settings); no diálogo "New User" (nada marcado) todos os grupos iniciam colapsados
 - `Select All` / `Deselect All` (já existentes) continuam alterando apenas os checkboxes, sem afetar o collapse; novos botões `Expand All` / `Collapse All` na `bulkActions` expandem/colapsam todos os grupos de uma vez
 - Issue: `.scratch/sprint-62/issues/01-permission-treeview-collapsible.md`
-
-### Sprint 61 ✅ — Workloads: StatefulSets
-
-- `CONTEXT.md`: `Workload` atualizado para incluir StatefulSet entre os tipos concretos; novo termo `StatefulSet` — Workload com identidade de rede e storage estáveis, Pods em ordem ordinal (`<name>-0`, `<name>-1`, ...), associado a Service headless via `spec.serviceName`, `volumeClaimTemplates` provisionam PVC dedicado por Pod; suporta Scale/Restart/Rollback/Delete igual ao Deployment; `Manifest` atualizado para 12 tipos namespaced editáveis (StatefulSet incluído)
-- `StatefulSetInfo` (novo DTO): `name`, `namespace`, `desired`, `ready`, `available`, `serviceName`, `age`
-- `WorkloadService`: `listStatefulSets`, `scaleStatefulSet`, `restartStatefulSet`, `rolloutUndoStatefulSet`, `deleteStatefulSet` — mesmo padrão (`try-with-resources`, `KubernetesOperationException`) dos equivalentes de Deployment; `StatefulSetStatus` expõe `readyReplicas`/`availableReplicas` igual a `DeploymentStatus`
-- `Permission.java`: novo grupo `WORKLOADS_STATEFULSETS_{VIEW,SCALE,RESTART,ROLLBACK,DELETE}`, inserido entre os grupos de Deployments e ReplicaSets; `VIEW` em `viewerPermissions()`, todas as 5 em `operatorPermissions()`
-- `V20__add_statefulset_permissions.sql`: concede `WORKLOADS_STATEFULSETS_VIEW` a todos os perfis (marker `WORKLOADS_DEPLOYMENTS_VIEW`) e as 4 permissões de escrita a Admin/Operator (marker `SETTINGS_CLUSTERS_WRITE`)
-- `AutoScalingService.findHorizontalScalerForDeployment` renomeado para `findHorizontalScalerForTarget(Cluster, String namespace, String targetName)` — já filtrava apenas por `scaleTargetRef.name`, reaproveitado para StatefulSet; `DeploymentsView` atualizado para o novo nome
-- `ManifestService`: StatefulSet adicionado a `EDITABLE_RESOURCE_KINDS` e ao `fetchYaml` — `/yaml/statefulset/{namespace}/{name}` com Edit/Apply herdados do `ManifestView`
-- `UiConstants.replicasBadge(ready, desired)`: extraído da duplicação em `DeploymentsView`/`ReplicaSetView` (3ª ocorrência), ambas atualizadas para usar o helper compartilhado
-- `StatefulSetsView` (nova): rota `workloads/statefulsets`, colunas Name/Replicas (badge)/Available/Service/Age; carregamento assíncrono (`loadStatefulSetsAsync` + `clusterErrorMessage`, padrão sprint 50); barra de seleção com Delete e View Manifest; ações por linha Scale/Restart/Rollback — Scale verifica HPA via `findHorizontalScalerForTarget` antes de abrir o diálogo direto (min 0, max 50)
-- `MainLayout.buildWorkloadsNavItem()`: item "StatefulSets" adicionado entre "Deployments" e "ReplicaSets", controlado por `WORKLOADS_STATEFULSETS_VIEW`
-- Fix encontrado no aceite manual: `UserManagementView.buildWorkloadsGroup` não incluía o novo grupo de permissões na treeview — adicionado `statefulSetsSubGroup` (Scale/Restart/Rollback), posicionado entre Deployments e Jobs, espelhando a ordem de navegação
-- Registrados como candidatos para próximas sprints: StatefulSet na Topologia, coluna Owner em `PersistentVolumeClaimsView` (PVCs de `volumeClaimTemplates`, incluindo PVCs órfãos quando o StatefulSet é removido), Events em `StatefulSetsView`
-- Issues: `.scratch/sprint-61/issues/01-statefulset-backend.md`, `02-statefulset-ui.md`
 
 ---
 

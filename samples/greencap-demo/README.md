@@ -43,6 +43,14 @@ minikube delete -p greencap-demo
 
 `kvm2` é uma alternativa válida (isolamento de VM real, sem o bug de DHCP do virtualbox), mas não foi validado nesta sprint — exige instalar `libvirt` e o driver `kvm2`, sem ganho claro sobre `docker` para este demo.
 
+## Container Registry
+
+O addon `registry` do minikube é habilitado pelo `cluster-provision.sh` e persiste as imagens enviadas via uma `PersistentVolumeClaim` (`registry-storage`, 4Gi, `kube-system`), montada em `/var/lib/registry`. Sem essa PVC, o conteúdo do registry é perdido a cada vez que o pod `registry` é recriado.
+
+O pod do `registry` é fixado (`nodeSelector`) no node control-plane (`greencap-demo`). A `StorageClass` `standard` (hostpath-provisioner do minikube) cria volumes sem `nodeAffinity` — em um cluster multi-node, se o pod fosse reagendado para outro node, ele montaria um diretório local vazio nesse node e "perderia" os dados, mesmo com a PVC permanecendo `Bound`. Fixar o pod em um node estável garante que os dados do hostPath sejam preservados entre recriações do pod.
+
+Como o control-plane sempre existe no demo de 3 nodes, essa fixação não traz problemas práticos. As imagens só são perdidas com `minikube delete -p greencap-demo` (destruição completa do cluster).
+
 ## Troubleshooting
 
 ### virtualbox: cluster multi-node não volta após reboot do host
