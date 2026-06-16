@@ -116,6 +116,22 @@ public class StorageService {
         }
     }
 
+    public Optional<String> findDefaultStorageClassName(Cluster cluster) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            return client.storage().v1().storageClasses().list().getItems().stream()
+                    .filter(sc -> "true".equals(
+                            Optional.ofNullable(sc.getMetadata().getAnnotations())
+                                    .map(a -> a.get("storageclass.kubernetes.io/is-default-class"))
+                                    .orElse(null)))
+                    .map(sc -> sc.getMetadata().getName())
+                    .findFirst();
+        } catch (Exception e) {
+            log.warn("Could not determine default StorageClass for cluster {}: {}", cluster.getName(), e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     public List<NodeInfo> listNodes(Cluster cluster) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {

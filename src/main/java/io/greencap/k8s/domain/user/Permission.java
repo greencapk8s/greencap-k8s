@@ -4,6 +4,9 @@ import java.util.Set;
 
 public enum Permission {
 
+    // Project — Deploy Application
+    PROJECT_DEPLOY_APPLICATION,
+
     // Project — Topology
     TOPOLOGY_VIEW,
 
@@ -78,6 +81,7 @@ public enum Permission {
 
     public static Set<Permission> operatorPermissions() {
         return Set.of(
+                PROJECT_DEPLOY_APPLICATION,
                 TOPOLOGY_VIEW,
                 MANIFEST_EDIT,
                 WORKLOADS_DEPLOYMENTS_VIEW, WORKLOADS_DEPLOYMENTS_SCALE, WORKLOADS_DEPLOYMENTS_RESTART,

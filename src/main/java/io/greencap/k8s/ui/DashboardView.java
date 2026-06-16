@@ -95,8 +95,52 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
         }
         String namespace = clusterContext.getNamespace();
         UI ui = UI.getCurrent();
+
+        Div ctaPlaceholder = new Div();
+        content.add(ctaPlaceholder);
         content.add(buildResourceCountSection(cluster, namespace, ui));
         content.add(buildMetricsSection(cluster, namespace, ui));
+
+        if (SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    boolean empty = workloadService.listDeployments(cluster, namespace).isEmpty();
+                    if (empty) {
+                        ui.access(() -> ctaPlaceholder.add(buildDeployApplicationCta()));
+                    }
+                } catch (Exception ignored) {}
+            }, VIRTUAL_THREADS);
+        }
+    }
+
+    private Div buildDeployApplicationCta() {
+        com.vaadin.flow.component.html.Span title = new com.vaadin.flow.component.html.Span("This namespace is empty");
+        title.getStyle().set("font-weight", "bold").set("font-size", "var(--lumo-font-size-l)");
+
+        com.vaadin.flow.component.html.Span subtitle = new com.vaadin.flow.component.html.Span(
+                "Deploy your first application from a container image.");
+        subtitle.getStyle().set("color", "var(--lumo-secondary-text-color)");
+
+        com.vaadin.flow.component.button.Button deployButton = new com.vaadin.flow.component.button.Button(
+                "Deploy Application", VaadinIcon.ROCKET.create(),
+                e -> UI.getCurrent().navigate(DeployApplicationView.class));
+        deployButton.addThemeVariants(com.vaadin.flow.component.button.ButtonVariant.LUMO_PRIMARY);
+
+        com.vaadin.flow.component.orderedlayout.VerticalLayout ctaContent =
+                new com.vaadin.flow.component.orderedlayout.VerticalLayout(title, subtitle, deployButton);
+        ctaContent.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        ctaContent.setPadding(false);
+        ctaContent.setSpacing(true);
+
+        Div cta = new Div(ctaContent);
+        cta.getStyle()
+                .set("border", "2px dashed var(--lumo-contrast-20pct)")
+                .set("border-radius", "var(--lumo-border-radius-l)")
+                .set("padding", "var(--lumo-space-xl)")
+                .set("text-align", "center")
+                .set("width", "100%")
+                .set("margin-bottom", "var(--lumo-space-m)");
+        return cta;
     }
 
     private Div buildEmptyState() {

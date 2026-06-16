@@ -153,6 +153,10 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
                 scrollToBottom();
             }
         } catch (KubernetesOperationException e) {
+            stopPolling();
+            polling = false;
+            updatePauseResumeButton();
+            logContent.setText("[Polling stopped] " + e.getMessage());
             showError(e.getMessage());
         }
     }

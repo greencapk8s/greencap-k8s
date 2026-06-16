@@ -307,6 +307,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         private List<GroupNode> buildProjectGroups(Set<Permission> initial) {
             List<GroupNode> groups = new ArrayList<>();
 
+            groups.add(buildGroup("Deploy Application", Map.of(
+                    "Deploy Application", Permission.PROJECT_DEPLOY_APPLICATION
+            ), initial));
+
             groups.add(buildGroup("Topology", Map.of(
                     "Topology", Permission.TOPOLOGY_VIEW
             ), initial));

@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 64 | DevOps — pipeline GitHub Actions para validar docker-compose | ✅ Concluído |
 | 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
 | 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
+| 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,20 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 75 ✅ — Deploy Application: wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress
+
+- `DeployApplicationService` (novo): cria Namespace → Deployment → Service → PVC → Ingress em sequência best-effort; falha parcial retorna `DeployApplicationResult` com recurso falho sem rollback (ver ADR 0009)
+- `DeployApplicationRequest` / `DeployApplicationResult` (novos DTOs em `kubernetes/dto/`)
+- `Permission.PROJECT_DEPLOY_APPLICATION` (novo, ADMIN/OPERATOR); `V25__add_deploy_application_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`
+- `NetworkingService.listIngressClassNames`: lista IngressClasses disponíveis no cluster via Fabric8
+- `DeployApplicationView`: wizard 6 passos (Name → Image & Port → Resources → Volume → External Access → Review); sugestões do Registry interno no `ComboBox` de imagem; StorageClass pré-selecionada com a default do cluster; host sugerido `<namespace>.greencap.local`; após sucesso navega para `TopologiaView` do novo Namespace
+- `DashboardView`: CTA "New Application" quando namespace não tem Deployments (visível apenas com permissão `PROJECT_DEPLOY_APPLICATION`)
+- `MainLayout`: item **"New Application"** com ícone `PLUS_CIRCLE` adicionado acima da seção PROJECT (renomeado de "Deploy Application", extraído para `SideNav` próprio, ícone diferenciado do Workloads/Deployments)
+- Fix: `PodLogsView` — polling para automaticamente ao receber `KubernetesOperationException` (ex: `ImagePullBackOff`, container em espera); exibe `[Polling stopped] <mensagem>` no corpo dos logs em vez de toast infinito a cada intervalo
+- Fix: `DeployApplicationView.REGISTRY_INTERNAL_HOST` corrigido de `registry.kube-system.svc.cluster.local:80` para `localhost:5000` — DNS de cluster não é resolvível no nível do kubelet/Docker daemon do nó; `registry-proxy` (DaemonSet) expõe o registry em `localhost:5000` via `hostPort` em cada nó
+- `docs/adr/0009-deploy-application-sem-rastreamento.md` (novo)
+- Issues: `.scratch/sprint-75/issues/01-deploy-application-backend.md`, `02-deploy-application-wizard-ui.md`
 
 ### Sprint 74 ✅ — Container Registry: Remove Repository e Remove Tags com multi-seleção
 
@@ -172,14 +186,6 @@
 - Validado ponta a ponta: provisionamento com 3 nodes via driver `docker` OK, `create-demo.sh` (rollout + addon ingress) OK, acesso a `http://greencap-demo.local` OK
 - Aceite manual (reboot do host): cluster com 3 nodes volta `Running`/`OK` sem reprovisionar; com driver `docker` os containers dos nodes não religam automaticamente no boot — é necessário rodar `minikube start -p greencap-demo` manualmente, documentado no README; `http://greencap-demo.local` volta a responder em seguida sem passos adicionais
 - Issue: `.scratch/sprint-65/issues/01-migrar-driver-docker-multinode.md`
-
-### Sprint 64 ✅ — DevOps: pipeline GitHub Actions para validar docker-compose
-
-- `.github/workflows/docker-compose-validate.yml` (novo): workflow dedicado, sem job de build/test Gradle (fora de escopo); triggers `pull_request` e `push` para `main` com `paths` filtrados (`docker-compose.yml`, `docker/**`, `.env.example`, `build.gradle.kts`, `settings.gradle.kts`, `gradle/**`, `gradlew`, `src/**`, `.github/workflows/*.yml`)
-- Steps: `actions/checkout@v4` → `cp .env.example .env` (replica o Quick Start, sem GitHub Secrets) → `docker compose up -d --build --wait --wait-timeout 120` (sem cache de build) → `curl --fail -L http://localhost:8080/` (valida porta publicada e frontend Vaadin de produção servido) → dump de `docker compose logs` em caso de falha → `docker compose down -v` sempre (`if: always()`)
-- Fix encontrado na primeira execução no GitHub Actions: `.gitignore` ignorava `gradle/wrapper/gradle-wrapper.jar` — a regra `!gradle/wrapper/gradle-wrapper.jar` (seção Gradle) era sobrescrita pela regra `*.jar` declarada mais abaixo (seção Spring Boot), então o jar nunca foi commitado; checkout limpo (CI) ficava sem o jar e `./gradlew` falhava com `ClassNotFoundException: GradleWrapperMain`. Corrigido movendo a negação para depois de `*.jar` e commitando `gradle/wrapper/gradle-wrapper.jar`
-- Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
-- Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
 
 
 ---

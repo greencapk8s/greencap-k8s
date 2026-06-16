@@ -128,6 +128,19 @@ public class NetworkingService {
         }
     }
 
+    public List<String> listIngressClassNames(Cluster cluster) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            return client.network().v1().ingressClasses().list().getItems().stream()
+                    .map(ic -> ic.getMetadata().getName())
+                    .sorted()
+                    .toList();
+        } catch (Exception e) {
+            log.error("Failed to list IngressClasses for cluster {}: {}", cluster.getName(), e.getMessage());
+            throw new KubernetesOperationException("Failed to list IngressClasses: " + e.getMessage(), e);
+        }
+    }
+
     public void deleteService(Cluster cluster, String namespace, String name) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {

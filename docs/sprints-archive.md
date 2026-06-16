@@ -603,3 +603,11 @@
 - `Observability` (Dashboard, Events, Metrics) deixou de ser seção própria do drawer e passou a ser item expansível dentro de **PROJECT**, logo após `Topology`, com ícone `VaadinIcon.EYE` e navegação padrão para `DashboardView` (mesmo padrão de `Workloads`/`Networking`); permissões `OBSERVABILITY_*` mantidas sem renomear
 - `UserManagementView.PermissionTreePanel`: árvore de permissões espelha a nova estrutura — seção `GLOBAL` (grupos Clusters/Infrastructure) entre PROJECT e SETTINGS; grupo `Observability` movido para dentro da seção PROJECT, logo após `Topology`
 - Issues: `.scratch/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
+
+### Sprint 64 ✅ — DevOps: pipeline GitHub Actions para validar docker-compose
+
+- `.github/workflows/docker-compose-validate.yml` (novo): workflow dedicado, sem job de build/test Gradle (fora de escopo); triggers `pull_request` e `push` para `main` com `paths` filtrados (`docker-compose.yml`, `docker/**`, `.env.example`, `build.gradle.kts`, `settings.gradle.kts`, `gradle/**`, `gradlew`, `src/**`, `.github/workflows/*.yml`)
+- Steps: `actions/checkout@v4` → `cp .env.example .env` (replica o Quick Start, sem GitHub Secrets) → `docker compose up -d --build --wait --wait-timeout 120` (sem cache de build) → `curl --fail -L http://localhost:8080/` (valida porta publicada e frontend Vaadin de produção servido) → dump de `docker compose logs` em caso de falha → `docker compose down -v` sempre (`if: always()`)
+- Fix encontrado na primeira execução no GitHub Actions: `.gitignore` ignorava `gradle/wrapper/gradle-wrapper.jar` — a regra `!gradle/wrapper/gradle-wrapper.jar` (seção Gradle) era sobrescrita pela regra `*.jar` declarada mais abaixo (seção Spring Boot), então o jar nunca foi commitado; checkout limpo (CI) ficava sem o jar e `./gradlew` falhava com `ClassNotFoundException: GradleWrapperMain`. Corrigido movendo a negação para depois de `*.jar` e commitando `gradle/wrapper/gradle-wrapper.jar`
+- Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
+- Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`

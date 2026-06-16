@@ -378,6 +378,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         navContent.setPadding(false);
         navContent.setSpacing(false);
         navContent.add(buildLogoSection());
+        navContent.add(buildNewApplicationNav());
         navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
@@ -463,6 +464,21 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         section.setSpacing(false);
         section.setWidthFull();
         return section;
+    }
+
+    private SideNav buildNewApplicationNav() {
+        SideNav nav = new SideNav();
+        nav.setWidthFull();
+
+        boolean canDeployApp = SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION);
+        SideNavItem newApp = navItem("New Application", DeployApplicationView.class, VaadinIcon.PLUS_CIRCLE, canDeployApp);
+
+        if (canDeployApp) {
+            clusterDependentNavItems.add(newApp);
+        }
+
+        nav.addItem(newApp);
+        return nav;
     }
 
     private SideNav buildVisaoGeralNav() {
