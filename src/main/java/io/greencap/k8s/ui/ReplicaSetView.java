@@ -48,6 +48,8 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
     private final List<ReplicaSetInfo> allItems = new ArrayList<>();
     private final ListDataProvider<ReplicaSetInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilter;
+
     public ReplicaSetView(WorkloadService workloadService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.workloadService = workloadService;
         this.clusterContext = clusterContext;
@@ -83,6 +85,11 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
         if (hasCluster) {
             loadReplicaSets();
         }
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildGrid() {
@@ -96,7 +103,7 @@ public class ReplicaSetView extends VerticalLayout implements BeforeEnterObserve
 
         grid.setDataProvider(dataProvider);
 
-        TextField nameFilter  = buildFilterField();
+        nameFilter = buildFilterField();
         TextField ownerFilter = buildFilterField();
         TextField nodesFilter = buildFilterField();
 

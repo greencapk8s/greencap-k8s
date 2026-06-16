@@ -37,6 +37,7 @@ const NODE_COLORS: Record<string, string> = {
   Pod: '#10B981',
   Service: '#F59E0B',
   PersistentVolumeClaim: '#F97316',
+  Ingress: '#06B6D4',
 };
 
 const STATUS_BORDER: Record<string, string> = {
@@ -194,31 +195,17 @@ export class TopologyGraph extends LitElement {
       })),
     ];
 
-    const fixedNodeConstraint = Object.entries(positionMap).map(([nodeId, pos]) => ({
-      nodeId,
-      position: { x: pos.x, y: pos.y },
-    }));
+    // fcose does not support fixedNodeConstraint when compound nodes (groups) are present;
+    // when grouping is active, saved positions are applied manually after the layout run.
+    const hasCompoundNodes = groupElements.size > 0;
+    const fixedNodeConstraint = (!hasCompoundNodes && Object.keys(positionMap).length > 0)
+      ? Object.entries(positionMap).map(([nodeId, pos]) => ({ nodeId, position: { x: pos.x, y: pos.y } }))
+      : undefined;
 
     this.cy = cytoscape({
       container,
       elements,
-      layout: {
-        name: 'fcose',
-        quality: 'default',
-        randomize: false,
-        animate: false,
-        padding: 48,
-        nodeSeparation: 80,
-        idealEdgeLength: 120,
-        nodeRepulsion: 12000,
-        gravity: 0.4,
-        gravityRange: 3.8,
-        numIter: 2500,
-        tile: true,
-        tilingPaddingVertical: 32,
-        tilingPaddingHorizontal: 32,
-        fixedNodeConstraint: fixedNodeConstraint.length > 0 ? fixedNodeConstraint : undefined,
-      } as unknown as cytoscape.LayoutOptions,
+      layout: { name: 'preset' },
       style: [
         {
           selector: 'node',
@@ -269,8 +256,8 @@ export class TopologyGraph extends LitElement {
           selector: 'edge',
           style: {
             width: 2,
-            'line-color': '#CBD5E1',
-            'target-arrow-color': '#CBD5E1',
+            'line-color': '#64748B',
+            'target-arrow-color': '#64748B',
             'target-arrow-shape': 'triangle',
             'curve-style': 'bezier',
           },
@@ -287,6 +274,35 @@ export class TopologyGraph extends LitElement {
       userPanningEnabled: true,
       boxSelectionEnabled: false,
     });
+
+    this.cy.layout({
+      name: 'fcose',
+      quality: 'default',
+      randomize: false,
+      animate: false,
+      padding: 48,
+      nodeSeparation: 80,
+      idealEdgeLength: 120,
+      nodeRepulsion: 12000,
+      gravity: 0.4,
+      gravityRange: 3.8,
+      numIter: 2500,
+      tile: true,
+      tilingPaddingVertical: 32,
+      tilingPaddingHorizontal: 32,
+      fixedNodeConstraint,
+    } as unknown as cytoscape.LayoutOptions).run();
+
+    // When compound nodes are present fixedNodeConstraint is not used by fcose;
+    // apply saved positions manually after layout so user-dragged positions are preserved.
+    if (hasCompoundNodes && Object.keys(positionMap).length > 0) {
+      this.cy.nodes().forEach(node => {
+        const saved = positionMap[node.id()];
+        if (saved && !node.data('isGroup')) {
+          node.position(saved);
+        }
+      });
+    }
 
     this.cy.on('tap', 'node', (event: EventObject) => {
       const node = event.target as NodeSingular;

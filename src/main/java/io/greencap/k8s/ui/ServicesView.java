@@ -46,6 +46,8 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
     private final List<ServiceInfo> allItems = new ArrayList<>();
     private final ListDataProvider<ServiceInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilter;
+
     public ServicesView(NetworkingService networkingService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.networkingService = networkingService;
         this.clusterContext = clusterContext;
@@ -80,6 +82,11 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
         if (hasCluster) {
             loadServices();
         }
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildServiceGrid() {
@@ -91,7 +98,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
 
         serviceGrid.setDataProvider(dataProvider);
 
-        TextField nameFilter = buildFilterField();
+        nameFilter = buildFilterField();
         TextField typeFilter = buildFilterField();
 
         dataProvider.setFilter(item ->

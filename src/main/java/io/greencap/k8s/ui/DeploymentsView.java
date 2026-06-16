@@ -60,6 +60,8 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
     private final List<DeploymentInfo> allItems = new ArrayList<>();
     private final ListDataProvider<DeploymentInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilter;
+
     public DeploymentsView(WorkloadService workloadService, AutoScalingService autoScalingService,
                            ObservabilityService observabilityService, ClusterContext clusterContext,
                            GridSelectionMemory selectionMemory) {
@@ -103,6 +105,11 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         if (hasCluster) {
             loadDeploymentsAsync(UI.getCurrent());
         }
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildDeployGrid() {
@@ -128,7 +135,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
         deployGrid.setDataProvider(dataProvider);
 
-        TextField nameFilter = buildFilterField();
+        nameFilter = buildFilterField();
         TextField nodesFilter = buildFilterField();
 
         dataProvider.setFilter(item ->

@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
 | 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
 | 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
 | 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
 | 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
 | 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
+| 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
+
+- `CONTEXT.md`: `Topologia` atualizado — adicionado Ingress aos tipos de nó e ao fluxo de edges (Ingress→Service via `spec.rules[].http.paths[].backend.service.name`, apenas para Services existentes no namespace); comportamento de clique alterado de "navega para o Manifest" para "Go to resource" (navega para a view do recurso pré-filtrada por nome); `TopologyNode` atualizado com tipo Ingress e URL de resource view em vez de link para Manifest
+- `TopologyService`: listagem de Ingresses via Fabric8 `client.network().v1().ingresses()`; `ingressNode()` com ingressClass/hosts/TLS; `extractBackendServiceNames()` extrai backends de `spec.rules[].http.paths[].backend.service` e `spec.defaultBackend.service`; método `manifestUrl()` renomeado para `resourceViewUrl()` mapeando cada tipo para a rota da view com `?name=`; parâmetro `namespace` removido dos métodos `*Node()` que não o utilizavam mais
+- `topology-graph.ts`: cor Ingress `#06B6D4` (ciano) em `NODE_COLORS`; cor das arestas de `#CBD5E1` para `#64748B` (contraste contra fundo dos grupos); fcose separado da inicialização do Cytoscape (`layout: preset` no construtor + `cy.layout(fcose).run()` após); `fixedNodeConstraint` desabilitado quando compound nodes presentes (fcose não suporta o mix); posições salvas aplicadas manualmente após o layout quando grouping ativo
+- `TopologyNodeDrawer`: bloco `isIngress` exibe Hosts, badge TLS (`buildTlsBadgeRow()`), IngressClass; botão "Go to resource" substitui "Ver YAML"; pod groups usam "Go to Pods"
+- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` promovido a instância; `beforeEnter` lê `?name=` e aplica `nameFilter.setValue()` seguindo o padrão `?job=` do `PodsView`
+- `samples/greencap-demo/manifests/`: label `app.kubernetes.io/part-of: greencap-demo` adicionada em todos os 13 manifests (Deployments e CronJob também no pod template); recursos aplicados e Deployments reiniciados para propagação das labels
+- Issues: `.scratch/sprint-77/issues/01-ingress-topology-node.md`, `02-goto-resource-button.md`, `03-prefilter-name-query-param.md`
 
 ### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
 
@@ -176,18 +186,6 @@
 - `PodsView`: novo `Checkbox` "Hide completed Job pods" (marcado por padrão); novo predicado `isCompletedJobPod` (`jobName` não vazio + `phase == "Succeeded"`) combinado ao filtro existente do `ListDataProvider`, junto com Name/Status/Node e o filtro de Job — Pods `Failed` de Jobs permanecem sempre visíveis, independente do toggle
 - Ao abrir via `?job=<nome>` (botão "View Pods" de `JobsView`/`CronJobsView`), o checkbox inicia desmarcado — evita grid vazia ao ver os pods de um Job já `Complete`; volta a marcado ao limpar o filtro de Job pelo `jobFilterBanner`
 - Issue: `.scratch/sprint-67/issues/01-hide-completed-job-pods.md`
-
-### Sprint 66 ✅ — Workloads: coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods
-
-- `CONTEXT.md`: glossário de `Deployment`, `ReplicaSet`, `StatefulSet` e `Job` atualizado documentando a nova coluna "Nodes" (Nodes distintos que executam os Pods do recurso, ou "—")
-- `PodNodeResolver` (novo, `io.greencap.k8s.kubernetes`): utilitário stateless que resolve os Nodes distintos cujos Pods casam com `spec.selector.matchLabels` de um Deployment/ReplicaSet/StatefulSet/Job — extraído para não inflar `WorkloadService` (já com ~455 linhas)
-- `DeploymentInfo`, `ReplicaSetInfo`, `StatefulSetInfo`, `JobInfo`: novo campo `nodes` (String, comma-separated ou "—")
-- `WorkloadService`: `listDeployments`/`listReplicaSets`/`listStatefulSets`/`listJobs` passam a buscar os Pods do namespace (ou de todos, se `isAllNamespaces`) e preenchem `nodes` via `PodNodeResolver.resolveNodes(...)`
-- `DeploymentsView`, `ReplicaSetView`, `StatefulSetsView`, `JobsView`: nova coluna "Nodes" (sempre antes de "Age") com filtro de texto, mesmo padrão de Name/Owner/Status
-- `PodsView`: coluna "Node" existente ganhou filtro de texto (mesmo padrão das demais)
-- Validado ponta a ponta no `greencap-demo` (3 Nodes, driver docker, sprint 65): coluna Nodes/Node preenchida corretamente e filtro funcionando nas 5 views
-- CronJob de exemplo `node-spread-test` (novo, `samples/greencap-demo/manifests/13-node-spread-cronjob.yaml`): roda a cada minuto no namespace `greencap-demo`, útil para observar a distribuição de Pods entre Nodes na `JobsView`/`PodsView`
-- Issues: `.scratch/sprint-66/issues/01-nodes-backend.md`, `.scratch/sprint-66/issues/02-nodes-ui.md`
 
 
 ---

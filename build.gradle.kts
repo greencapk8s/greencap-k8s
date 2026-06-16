@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "io.greencap"
-version = "0.1.72-rc"
+version = "0.1.76-rc"
 
 java {
     toolchain {

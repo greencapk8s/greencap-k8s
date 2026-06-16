@@ -45,6 +45,8 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
     private final List<IngressInfo> allItems = new ArrayList<>();
     private final ListDataProvider<IngressInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilter;
+
     public IngressView(NetworkingService networkingService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.networkingService = networkingService;
         this.clusterContext = clusterContext;
@@ -79,6 +81,11 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
         if (hasCluster) {
             loadIngresses();
         }
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildIngressGrid() {
@@ -91,7 +98,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
 
         ingressGrid.setDataProvider(dataProvider);
 
-        TextField nameFilter = buildFilterField();
+        nameFilter = buildFilterField();
         TextField classFilter = buildFilterField();
 
         dataProvider.setFilter(item ->

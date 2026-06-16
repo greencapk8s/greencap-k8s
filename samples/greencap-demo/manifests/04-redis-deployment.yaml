@@ -5,6 +5,7 @@ metadata:
   namespace: greencap-demo
   labels:
     app.kubernetes.io/name: redis
+    app.kubernetes.io/part-of: greencap-demo
     app.kubernetes.io/component: cache
     app.kubernetes.io/managed-by: greencap
 spec:
@@ -16,6 +17,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: redis
+        app.kubernetes.io/part-of: greencap-demo
         app.kubernetes.io/component: cache
     spec:
       containers:

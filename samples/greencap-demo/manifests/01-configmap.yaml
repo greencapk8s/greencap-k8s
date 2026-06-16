@@ -4,6 +4,7 @@ metadata:
   name: app-config
   namespace: greencap-demo
   labels:
+    app.kubernetes.io/part-of: greencap-demo
     app.kubernetes.io/managed-by: greencap
 data:
   APP_ENV: "production"

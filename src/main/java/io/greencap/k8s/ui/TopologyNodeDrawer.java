@@ -94,10 +94,15 @@ class TopologyNodeDrawer extends VerticalLayout {
         content.setPadding(false);
         content.setSpacing(true);
 
+        boolean isIngress = "Ingress".equals(type);
         boolean isPodGroup = type.contains("Pod");
         boolean isPvc = "PersistentVolumeClaim".equals(type);
 
-        if (isPvc) {
+        if (isIngress) {
+            if (!capacity.isBlank()) content.add(buildInfoRow("Hosts", capacity));
+            content.add(buildTlsBadgeRow(accessMode));
+            if (!serviceType.isBlank() && !"—".equals(serviceType)) content.add(buildInfoRow("IngressClass", serviceType));
+        } else if (isPvc) {
             content.add(buildInfoRow("Status", status));
             if (!capacity.isBlank()) content.add(buildInfoRow("Capacity", capacity));
             if (!serviceType.isBlank()) content.add(buildInfoRow("Storage Class", serviceType));
@@ -163,13 +168,28 @@ class TopologyNodeDrawer extends VerticalLayout {
         return section;
     }
 
-    private Button buildActionButton(String manifestUrl, boolean isPodGroup) {
-        String label = isPodGroup ? "Ver Pods" : "Ver YAML";
+    private Button buildActionButton(String resourceUrl, boolean isPodGroup) {
+        String label = isPodGroup ? "Go to Pods" : "Go to resource";
         Button btn = new Button(label, VaadinIcon.EXTERNAL_LINK.create());
         btn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         btn.setWidthFull();
-        btn.addClickListener(e -> btn.getUI().ifPresent(ui -> ui.navigate(manifestUrl)));
+        btn.addClickListener(e -> btn.getUI().ifPresent(ui -> ui.navigate(resourceUrl)));
         return btn;
+    }
+
+    private HorizontalLayout buildTlsBadgeRow(String tlsValue) {
+        Span keySpan = new Span("TLS");
+        keySpan.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
+        keySpan.getStyle().set("min-width", "90px");
+
+        Span badge = new Span(tlsValue);
+        badge.getElement().getThemeList().add("badge");
+        badge.getElement().getThemeList().add("Secure".equals(tlsValue) ? "success" : "contrast");
+
+        HorizontalLayout row = new HorizontalLayout(keySpan, badge);
+        row.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        row.setWidthFull();
+        return row;
     }
 
     private Span buildStatusBadge(String status) {

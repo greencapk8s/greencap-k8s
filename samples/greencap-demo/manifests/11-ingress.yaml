@@ -5,6 +5,7 @@ metadata:
   namespace: greencap-demo
   labels:
     app.kubernetes.io/name: greencap-demo
+    app.kubernetes.io/part-of: greencap-demo
     app.kubernetes.io/managed-by: greencap
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /$2

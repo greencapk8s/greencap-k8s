@@ -182,7 +182,7 @@ UI section in the sidebar grouping views related to Clusters as a whole rather t
 _Avoid_: Cluster-wide, Admin
 
 **Topologia**:
-UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), and volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node navigates to its Manifest. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.
+UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim, Ingress. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`), and backend service references (Ingress→Service via `spec.rules[].http.paths[].backend.service.name` — only when the target Service exists in the namespace). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node opens a detail panel; the "Go to resource" button navigates to the resource's listing view pre-filtered by name. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.
 _Avoid_: Diagram, map, graph
 
 **TopologyGraph**:
@@ -190,7 +190,7 @@ The data transfer object returned by `TopologyService` representing the full gra
 _Avoid_: Graph data, node map
 
 **TopologyNode**:
-A single resource in the `TopologyGraph`. Carries: a unique `id` (type + name), a display `label` (resource name), a `type` (Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim), a `status` (for badge coloring), and a `manifestUrl` (deep-link to the Manifest view). PersistentVolumeClaim nodes additionally carry `capacity`, `accessMode`, and `serviceType` (used for storageClass).
+A single resource in the `TopologyGraph`. Carries: a unique `id` (type + name), a display `label` (resource name), a `type` (Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim, Ingress), a `status` (for badge coloring), and a resource view URL (used by the "Go to resource" button in the detail panel to navigate to the resource's listing view pre-filtered by name). PersistentVolumeClaim nodes additionally carry capacity, access mode, and storage class. Ingress nodes additionally carry hosts, TLS status ("Secure"/"Plain"), and IngressClass.
 _Avoid_: Node, vertex, element
 
 **TopologyEdge**:

@@ -45,6 +45,8 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
     private final List<PersistentVolumeClaimInfo> allItems = new ArrayList<>();
     private final ListDataProvider<PersistentVolumeClaimInfo> dataProvider = new ListDataProvider<>(allItems);
 
+    private TextField nameFilter;
+
     public PersistentVolumeClaimsView(StorageService storageService, ClusterContext clusterContext, GridSelectionMemory selectionMemory) {
         this.storageService = storageService;
         this.clusterContext = clusterContext;
@@ -79,6 +81,11 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
         if (hasCluster) {
             loadPersistentVolumeClaims();
         }
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildGrid() {
@@ -91,7 +98,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
 
         grid.setDataProvider(dataProvider);
 
-        TextField nameFilter   = buildFilterField();
+        nameFilter = buildFilterField();
         TextField statusFilter = buildFilterField();
 
         dataProvider.setFilter(item ->

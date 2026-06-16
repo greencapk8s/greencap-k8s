@@ -103,11 +103,11 @@
     "lit": "$lit",
     "@polymer/polymer": "$@polymer/polymer",
     "react": "$react",
-    "cytoscape": "$cytoscape",
     "date-fns": "$date-fns",
     "@vaadin/vaadin-themable-mixin": "$@vaadin/vaadin-themable-mixin",
     "@vaadin/vaadin-lumo-styles": "$@vaadin/vaadin-lumo-styles",
     "@vaadin/vaadin-material-styles": "$@vaadin/vaadin-material-styles",
+    "cytoscape": "$cytoscape",
     "cytoscape-fcose": "$cytoscape-fcose"
   }
 }

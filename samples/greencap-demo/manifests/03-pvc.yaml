@@ -4,6 +4,7 @@ metadata:
   name: redis-data
   namespace: greencap-demo
   labels:
+    app.kubernetes.io/part-of: greencap-demo
     app.kubernetes.io/managed-by: greencap
     app.kubernetes.io/component: cache
 spec:

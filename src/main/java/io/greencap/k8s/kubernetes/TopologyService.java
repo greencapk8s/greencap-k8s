@@ -6,6 +6,7 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
+import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
@@ -48,16 +49,17 @@ public class TopologyService {
                     .toList();
             List<Service> services = client.services().inNamespace(namespace).list().getItems();
             List<PersistentVolumeClaim> pvcs = client.persistentVolumeClaims().inNamespace(namespace).list().getItems();
+            List<Ingress> ingresses = client.network().v1().ingresses().inNamespace(namespace).list().getItems();
 
             List<TopologyNode> nodes = new ArrayList<>();
             List<TopologyEdge> edges = new ArrayList<>();
 
             for (Deployment d : deployments) {
-                nodes.add(deploymentNode(d, namespace));
+                nodes.add(deploymentNode(d));
             }
 
             for (ReplicaSet rs : replicaSets) {
-                nodes.add(replicaSetNode(rs, namespace));
+                nodes.add(replicaSetNode(rs));
                 ownerDeploymentId(rs).ifPresent(ownerId ->
                         edges.add(new TopologyEdge(ownerId, nodeId("replicaset", rs.getMetadata().getName()))));
             }
@@ -83,11 +85,11 @@ public class TopologyService {
             }
 
             for (Pod pod : orphanPods) {
-                nodes.add(podNode(pod, namespace));
+                nodes.add(podNode(pod));
             }
 
             for (Service svc : services) {
-                nodes.add(serviceNode(svc, namespace));
+                nodes.add(serviceNode(svc));
                 Map<String, String> selector = Optional.ofNullable(svc.getSpec())
                         .map(s -> s.getSelector())
                         .orElse(Map.of());
@@ -110,7 +112,21 @@ public class TopologyService {
             }
 
             for (PersistentVolumeClaim pvc : pvcs) {
-                nodes.add(pvcNode(pvc, namespace));
+                nodes.add(pvcNode(pvc));
+            }
+
+            Set<String> serviceNames = services.stream()
+                    .map(svc -> svc.getMetadata().getName())
+                    .collect(Collectors.toSet());
+
+            for (Ingress ing : ingresses) {
+                nodes.add(ingressNode(ing));
+                String ingressId = nodeId("ingress", ing.getMetadata().getName());
+                for (String svcName : extractBackendServiceNames(ing)) {
+                    if (serviceNames.contains(svcName)) {
+                        edges.add(new TopologyEdge(ingressId, nodeId("service", svcName)));
+                    }
+                }
             }
 
             for (Map.Entry<String, List<Pod>> entry : podsByOwnerRs.entrySet()) {
@@ -135,31 +151,33 @@ public class TopologyService {
         }
     }
 
-    private TopologyNode deploymentNode(Deployment d, String namespace) {
+    private TopologyNode deploymentNode(Deployment d) {
         int ready = Optional.ofNullable(d.getStatus()).map(s -> s.getReadyReplicas()).orElse(0);
         int desired = Optional.ofNullable(d.getSpec()).map(s -> s.getReplicas()).orElse(0);
         String status = desired == 0 ? "Unknown" : (ready >= desired ? "Running" : "Degraded");
         Map<String, String> labels = Optional.ofNullable(d.getMetadata().getLabels()).orElse(Map.of());
+        String name = d.getMetadata().getName();
         return new TopologyNode(
-                nodeId("deployment", d.getMetadata().getName()),
-                d.getMetadata().getName(),
+                nodeId("deployment", name),
+                name,
                 "Deployment",
                 status,
-                manifestUrl("deployment", namespace, d.getMetadata().getName()),
+                resourceViewUrl("deployment", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
-    private TopologyNode replicaSetNode(ReplicaSet rs, String namespace) {
+    private TopologyNode replicaSetNode(ReplicaSet rs) {
         int ready = Optional.ofNullable(rs.getStatus()).map(s -> s.getReadyReplicas()).orElse(0);
         int desired = Optional.ofNullable(rs.getSpec()).map(s -> s.getReplicas()).orElse(0);
         String status = desired == 0 ? "Unknown" : (ready >= desired ? "Running" : "Degraded");
         Map<String, String> labels = Optional.ofNullable(rs.getMetadata().getLabels()).orElse(Map.of());
+        String name = rs.getMetadata().getName();
         return new TopologyNode(
-                nodeId("replicaset", rs.getMetadata().getName()),
-                rs.getMetadata().getName(),
+                nodeId("replicaset", name),
+                name,
                 "ReplicaSet",
                 status,
-                manifestUrl("replicaset", namespace, rs.getMetadata().getName()),
+                resourceViewUrl("replicaset", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
@@ -179,31 +197,82 @@ public class TopologyService {
                 Map.of(), 0, count, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
-    private TopologyNode podNode(Pod pod, String namespace) {
+    private TopologyNode podNode(Pod pod) {
         String phase = Optional.ofNullable(pod.getStatus()).map(s -> s.getPhase()).orElse("Unknown");
         Map<String, String> labels = Optional.ofNullable(pod.getMetadata().getLabels()).orElse(Map.of());
+        String name = pod.getMetadata().getName();
         return new TopologyNode(
-                nodeId("pod", pod.getMetadata().getName()),
-                pod.getMetadata().getName(),
+                nodeId("pod", name),
+                name,
                 "1 Pod",
                 phase,
-                manifestUrl("pod", namespace, pod.getMetadata().getName()),
+                "workloads/pods",
                 labels, 0, 0, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
-    private TopologyNode serviceNode(Service svc, String namespace) {
+    private TopologyNode serviceNode(Service svc) {
         String serviceType = Optional.ofNullable(svc.getSpec()).map(s -> s.getType()).orElse("");
         Map<String, String> labels = Optional.ofNullable(svc.getMetadata().getLabels()).orElse(Map.of());
+        String name = svc.getMetadata().getName();
         return new TopologyNode(
-                nodeId("service", svc.getMetadata().getName()),
-                svc.getMetadata().getName(),
+                nodeId("service", name),
+                name,
                 "Service",
                 "Active",
-                manifestUrl("service", namespace, svc.getMetadata().getName()),
+                resourceViewUrl("service", name),
                 labels, 0, 0, serviceType, "", "", partOfGroup(labels), componentGroup(labels));
     }
 
-    private TopologyNode pvcNode(PersistentVolumeClaim pvc, String namespace) {
+    private TopologyNode ingressNode(Ingress ing) {
+        String ingressClass = Optional.ofNullable(ing.getSpec())
+                .map(s -> s.getIngressClassName())
+                .filter(c -> c != null && !c.isBlank())
+                .orElse("—");
+        String hosts = Optional.ofNullable(ing.getSpec())
+                .map(s -> s.getRules())
+                .filter(rules -> rules != null && !rules.isEmpty())
+                .map(rules -> rules.stream()
+                        .map(r -> r.getHost() != null ? r.getHost() : "*")
+                        .distinct()
+                        .collect(Collectors.joining(", ")))
+                .orElse("—");
+        boolean hasTls = Optional.ofNullable(ing.getSpec())
+                .map(s -> s.getTls())
+                .map(tls -> !tls.isEmpty())
+                .orElse(false);
+        String name = ing.getMetadata().getName();
+        return new TopologyNode(
+                nodeId("ingress", name),
+                name,
+                "Ingress",
+                "Active",
+                resourceViewUrl("ingress", name),
+                Map.of(), 0, 0, ingressClass, hosts, hasTls ? "Secure" : "Plain", "", "");
+    }
+
+    private Set<String> extractBackendServiceNames(Ingress ing) {
+        Set<String> names = new java.util.LinkedHashSet<>();
+        Optional.ofNullable(ing.getSpec())
+                .map(s -> s.getDefaultBackend())
+                .map(b -> b.getService())
+                .map(s -> s.getName())
+                .filter(n -> n != null && !n.isBlank())
+                .ifPresent(names::add);
+        Optional.ofNullable(ing.getSpec())
+                .map(s -> s.getRules())
+                .orElse(List.of())
+                .forEach(rule -> Optional.ofNullable(rule.getHttp())
+                        .map(h -> h.getPaths())
+                        .orElse(List.of())
+                        .forEach(path -> Optional.ofNullable(path.getBackend())
+                                .map(b -> b.getService())
+                                .map(s -> s.getName())
+                                .filter(n -> n != null && !n.isBlank())
+                                .ifPresent(names::add)));
+        return names;
+    }
+
+    private TopologyNode pvcNode(PersistentVolumeClaim pvc) {
         Map<String, String> labels = Optional.ofNullable(pvc.getMetadata().getLabels()).orElse(Map.of());
         String phase = Optional.ofNullable(pvc.getStatus()).map(s -> s.getPhase()).orElse("Unknown");
         String status = derivePvcStatus(pvc, phase);
@@ -218,12 +287,13 @@ public class TopologyService {
                 .filter(modes -> !modes.isEmpty())
                 .map(modes -> modes.get(0))
                 .orElse("");
+        String name = pvc.getMetadata().getName();
         return new TopologyNode(
-                nodeId("persistentvolumeclaim", pvc.getMetadata().getName()),
-                pvc.getMetadata().getName(),
+                nodeId("persistentvolumeclaim", name),
+                name,
                 "PersistentVolumeClaim",
                 status,
-                manifestUrl("persistentvolumeclaim", namespace, pvc.getMetadata().getName()),
+                resourceViewUrl("persistentvolumeclaim", name),
                 Map.of(), 0, 0, storageClass, capacity, accessMode, partOfGroup(labels), componentGroup(labels));
     }
 
@@ -306,7 +376,14 @@ public class TopologyService {
         return type + "/" + name;
     }
 
-    private String manifestUrl(String resourceType, String namespace, String name) {
-        return "yaml/" + resourceType + "/" + namespace + "/" + name;
+    private String resourceViewUrl(String resourceType, String name) {
+        return switch (resourceType) {
+            case "deployment" -> "workloads/deployments?name=" + name;
+            case "replicaset" -> "workloads/replicasets?name=" + name;
+            case "service" -> "networking/services?name=" + name;
+            case "persistentvolumeclaim" -> "storage/pvcs?name=" + name;
+            case "ingress" -> "networking/ingresses?name=" + name;
+            default -> "";
+        };
     }
 }
