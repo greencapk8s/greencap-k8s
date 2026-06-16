@@ -21,6 +21,11 @@ public class TopologyLayoutService {
     }
 
     @Transactional
+    public void deleteLayout(Long userId, Long clusterId, String namespace) {
+        topologyLayoutRepository.deleteByUserIdAndClusterIdAndNamespace(userId, clusterId, namespace);
+    }
+
+    @Transactional
     public void upsertLayout(Long userId, Long clusterId, String namespace, String nodePositions, boolean groupingEnabled) {
         TopologyLayout layout = topologyLayoutRepository
                 .findByUserIdAndClusterIdAndNamespace(userId, clusterId, namespace)

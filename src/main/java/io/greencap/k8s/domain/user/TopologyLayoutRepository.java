@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface TopologyLayoutRepository extends JpaRepository<TopologyLayout, Long> {
 
     Optional<TopologyLayout> findByUserIdAndClusterIdAndNamespace(Long userId, Long clusterId, String namespace);
+
+    void deleteByUserIdAndClusterIdAndNamespace(Long userId, Long clusterId, String namespace);
 }

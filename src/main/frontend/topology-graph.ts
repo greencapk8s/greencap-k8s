@@ -198,9 +198,13 @@ export class TopologyGraph extends LitElement {
     // fcose does not support fixedNodeConstraint when compound nodes (groups) are present;
     // when grouping is active, saved positions are applied manually after the layout run.
     const hasCompoundNodes = groupElements.size > 0;
-    const fixedNodeConstraint = (!hasCompoundNodes && Object.keys(positionMap).length > 0)
+    const hasSavedPositions = Object.keys(positionMap).length > 0;
+    const fixedNodeConstraint = (!hasCompoundNodes && hasSavedPositions)
       ? Object.entries(positionMap).map(([nodeId, pos]) => ({ nodeId, position: { x: pos.x, y: pos.y } }))
       : undefined;
+    // randomize: true on first visit so fcose can spread nodes from random initial positions;
+    // false when saved positions exist so the layout starts from the last known state.
+    const randomize = !hasSavedPositions;
 
     this.cy = cytoscape({
       container,
@@ -278,7 +282,7 @@ export class TopologyGraph extends LitElement {
     this.cy.layout({
       name: 'fcose',
       quality: 'default',
-      randomize: false,
+      randomize,
       animate: false,
       padding: 48,
       nodeSeparation: 80,
@@ -306,6 +310,7 @@ export class TopologyGraph extends LitElement {
 
     this.cy.on('tap', 'node', (event: EventObject) => {
       const node = event.target as NodeSingular;
+      if (node.data('isGroup')) return;
       this.dispatchEvent(new CustomEvent('node-clicked', {
         detail: {
           id: node.data('id') as string,

@@ -89,6 +89,15 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
                 .set("right", "var(--lumo-space-3xl)")
                 .set("z-index", "1");
 
+        Button resetPositionsBtn = new Button(VaadinIcon.REFRESH.create(), e -> resetPositions());
+        resetPositionsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_CONTRAST);
+        resetPositionsBtn.getElement().setAttribute("title", "Reset node positions");
+        resetPositionsBtn.getStyle()
+                .set("position", "absolute")
+                .set("top", "var(--lumo-space-m)")
+                .set("right", "calc(var(--lumo-space-m) + 36px)")
+                .set("z-index", "1");
+
         drawer = new TopologyNodeDrawer();
 
         var helpIcon = VaadinIcon.QUESTION_CIRCLE.create();
@@ -111,7 +120,7 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
             drawer.close();
         });
 
-        add(noClusterMessage, loadingLayout, emptyLayout, graphComponent, drawer, groupingToggle, helpBtn);
+        add(noClusterMessage, loadingLayout, emptyLayout, graphComponent, drawer, groupingToggle, resetPositionsBtn, helpBtn);
         setFlexGrow(1, graphComponent);
     }
 
@@ -172,6 +181,14 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
                 });
             }
         });
+    }
+
+    private void resetPositions() {
+        if (clusterContext.getCluster() == null) return;
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userRepository.findByUsername(username).ifPresent(user ->
+                topologyLayoutService.deleteLayout(user.getId(), clusterContext.getCluster().getId(), clusterContext.getNamespace()));
+        UI.getCurrent().navigate("topologia");
     }
 
     private void showOnly(com.vaadin.flow.component.Component visible) {
