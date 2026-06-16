@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
 | 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
 | 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
 | 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
+| 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,12 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
+
+- `ClustersView`: `buildToolbar()` com `H2` removido; substituído por `UiConstants.buildSectionHeader` com H3 + botão "Add Cluster" (`LUMO_PRIMARY + LUMO_SMALL`) como extra leading button; ações "Test Connection" (`VaadinIcon.CONNECT`) e "Remove" (`VaadinIcon.TRASH`, destrutivo) movidas para `SelectionAction` no header (habilitadas pela seleção de linha); coluna de ações inline removida do grid; `GridSelectionMemory` injetado com `configureSingleSelection`; `refreshGrid()` retorna `boolean` para uso como `BooleanSupplier`; imports `H2` e `HorizontalLayout` removidos
+- `UserManagementView`: mesmo padrão — botão "Add User" (`LUMO_PRIMARY + LUMO_SMALL`); ações "Edit Permissions" (`VaadinIcon.EDIT`) e "Deactivate" (`VaadinIcon.BAN`, destrutivo) como `SelectionAction`; proteções antes feitas via botão desabilitado por linha passaram para early-exit com toast em `openEditPermissionsDialog` (admin padrão bloqueado) e `confirmDeactivate` (auto-desativação e usuário já inativo bloqueados); imports `H2` e `H4` removidos
+- Issues: `.scratch/sprint-79/issues/01-clusters-view-header-padrao.md`, `02-user-management-view-header-padrao.md`
 
 ### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
 
@@ -175,18 +181,6 @@
 - `UserManagementView.buildGlobalGroups()`: novo grupo "Container Registry" (`GLOBAL_REGISTRY_VIEW`) — permission introduzida na sprint 68 que não havia sido exposta na treeview de permissões (GLOBAL), mesmo padrão de grupo único do "Infrastructure"
 - `RegistryView`: ação "View Tags" sai da barra de título (selection action) e passa para uma coluna de ações na própria grid (`UiConstants.addActionsColumn`, botão por linha), mesmo padrão de `JobsView` ("View Pods")
 - Issue: `.scratch/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
-
-### Sprint 68 ✅ — Container Registry: menu Global, listagem de Repositories e Tags
-
-- `CONTEXT.md`: novos termos `Registry` (capacidade derivada do `Cluster`, alcançada via port-forward da API do Kubernetes para o `Service` `registry` no Namespace `kube-system` — sem entidade persistida, sem credenciais novas), `Repository` (coleção nomeada de versões de imagem) e `Tag` (referência nomeada a uma versão específica, com digest/size/created); `docs/adr/0006-registry-via-port-forward.md` documenta a decisão de alcançar o Registry via port-forward em vez de uma entidade/configuração própria
-- `RepositoryInfo`/`TagInfo` (novos DTOs): `RepositoryInfo(name, tagCount)`, `TagInfo(name, digest, size, createdAt)`
-- `RegistryService` (novo, `io.greencap.k8s.kubernetes`): `listRepositories(Cluster)` — port-forward para o `Service` `registry`/`kube-system` (porta `5000`, porta do container — Fabric8 `ServiceResource#portForward` encaminha direto para a porta do Pod, não resolve `targetPort`), `GET /v2/_catalog` + `/v2/<repo>/tags/list` via `java.net.http.HttpClient`; `listTags(Cluster, repository)` — para cada tag, `GET /v2/<repo>/manifests/<tag>` (digest via header `Docker-Content-Digest`, size = `config.size` + soma de `layers[].size`) e `GET /v2/<repo>/blobs/<configDigest>` (campo `created`, formatado via `NamespaceService.age(...)`); qualquer exceção (Service ausente, port-forward falha, catálogo vazio) → `log.warn` + `List.of()`, sem `KubernetesOperationException` — ausência do Registry é estado esperado, não falha de cluster
-- `Permission.GLOBAL_REGISTRY_VIEW` (novo, grupo Global): incluído em `operatorPermissions()`/`viewerPermissions()`; `V22__add_registry_permission.sql` concede a todos os usuários com `GLOBAL_INFRASTRUCTURE_VIEW`
-- `RegistryView` (nova): rota `registry`, item "Container Registry" no drawer GLOBAL (`MainLayout.buildRegistryNavItem()`, ícone `VaadinIcon.ARCHIVE`); grid de Repositories (Repository/Tags, filtro por nome), ação "View Tags" navega para `registry/<repository>`; estado vazio único ("No repositories found. Make sure the Service \"registry\" in the \"kube-system\" namespace is available on this Cluster.") sem distinguir Service ausente/port-forward falho/catálogo vazio
-- `RegistryTagsView` (nova): rota `registry/:repository*` (wildcard para repositories com `/` no nome, ex. `greencap-demo/backend`); cabeçalho com nome do repository + botão Back para `RegistryView`; grid de Tags (Tag/Digest/Size/Created) — coluna Digest com `overflow:hidden`/`text-overflow:ellipsis`/`title` (tooltip) em vez de truncamento fixo
-- `samples/greencap-demo/cluster-provision.sh`: addon `registry` habilitado junto de `metrics-server`/`ingress`; `create-demo.sh` refatorado — addons (antes espalhados entre os dois scripts) agora centralizados em `cluster-provision.sh`, `create-demo.sh` passa a só aplicar os manifests do demo; `README.md` atualizado
-- Validado ponta a ponta no `greencap-demo`: addon `registry` habilitado, imagens de teste (`greencap-demo/hello` com tags `v1`/`v2`/`latest`, `greencap-demo/backend` com tag `v1`) buildadas e enviadas via port-forward + `docker push`; menu "Container Registry" lista os repositories com contagem de tags e "View Tags" exibe nome/digest/size/created corretamente
-- Issues: `.scratch/sprint-68/issues/01-registry-menu-and-repository-listing.md`, `02-repository-tags-view.md`
 
 
 ---

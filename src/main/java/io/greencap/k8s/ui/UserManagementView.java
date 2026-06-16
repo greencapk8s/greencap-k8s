@@ -7,8 +7,6 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.H2;
-import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -46,14 +44,42 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String DEFAULT_ADMIN_USERNAME = "admin";
+    private static final String HELP_TITLE = "Users";
+    private static final String HELP_TEXT = "Users are the accounts that can log into GreenCap K8s. " +
+            "Each user has a set of Permissions that control which views and actions they can access. " +
+            "Select a user and use \"Edit Permissions\" to adjust access, or \"Deactivate\" to revoke login. " +
+            "The default admin account cannot have its permissions modified.";
 
     private final UserService userService;
     private final Grid<User> grid = new Grid<>(User.class, false);
 
-    public UserManagementView(UserService userService) {
+    public UserManagementView(UserService userService, GridSelectionMemory selectionMemory) {
         this.userService = userService;
+
         setSizeFull();
-        add(buildToolbar(), buildGrid());
+        setPadding(true);
+
+        buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), User::getUsername);
+
+        boolean canWrite = SecurityUtils.hasPermission(Permission.SETTINGS_USERS_WRITE);
+
+        List<UiConstants.SelectionAction<User>> selectionActions = List.of(
+                UiConstants.SelectionAction.of(VaadinIcon.EDIT, "Edit Permissions", canWrite, this::openEditPermissionsDialog),
+                UiConstants.SelectionAction.destructive(VaadinIcon.BAN, "Deactivate", canWrite, this::confirmDeactivate)
+        );
+
+        List<Button> extraButtons = new ArrayList<>();
+        if (canWrite) {
+            Button addBtn = new Button("Add User", VaadinIcon.PLUS.create());
+            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+            addBtn.addClickListener(e -> openAddDialog());
+            extraButtons.add(addBtn);
+        }
+
+        add(UiConstants.buildSectionHeader("Users", this::refreshGrid, HELP_TITLE, HELP_TEXT,
+                        grid, selectionActions, extraButtons),
+                grid);
     }
 
     @Override
@@ -65,28 +91,13 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         refreshGrid();
     }
 
-    private HorizontalLayout buildToolbar() {
-        Button addBtn = new Button("Add User", VaadinIcon.PLUS.create(), e -> openAddDialog());
-        addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addBtn.setEnabled(SecurityUtils.hasPermission(Permission.SETTINGS_USERS_WRITE));
-
-        H2 title = new H2("Users");
-        HorizontalLayout toolbar = new HorizontalLayout(title, addBtn);
-        toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
-        toolbar.expand(title);
-        toolbar.setWidthFull();
-        return toolbar;
-    }
-
-    private Grid<User> buildGrid() {
+    private void buildGrid() {
         grid.addColumn(User::getUsername).setHeader("Username").setSortable(true).setFlexGrow(1).setResizable(true);
         grid.addColumn(User::getEmail).setHeader("Email").setFlexGrow(2).setResizable(true);
         grid.addComponentColumn(this::permissionCountBadge).setHeader("Permissions").setWidth("140px").setResizable(true);
         grid.addComponentColumn(this::activeBadge).setHeader("Status").setWidth("100px").setResizable(true);
         grid.addColumn(u -> u.getCreatedAt().format(DATE_FORMATTER)).setHeader("Created").setWidth("160px").setResizable(true);
-        UiConstants.addActionsColumn(grid, 2, this::buildActions);
         grid.setSizeFull();
-        return grid;
     }
 
     private Span permissionCountBadge(User user) {
@@ -111,33 +122,16 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         return badge;
     }
 
-    private List<Button> buildActions(User user) {
-        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
-        boolean isSelf = user.getUsername().equals(currentUsername);
-        boolean canWrite = SecurityUtils.hasPermission(Permission.SETTINGS_USERS_WRITE);
-
-        var editIcon = VaadinIcon.EDIT.create();
-        editIcon.setSize(UiConstants.ICON_SIZE);
-        Button editBtn = new Button(editIcon, e -> openEditPermissionsDialog(user));
-        editBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-        editBtn.getElement().setAttribute("title", "Edit permissions");
-        boolean isDefaultAdmin = DEFAULT_ADMIN_USERNAME.equals(user.getUsername());
-        editBtn.setEnabled(canWrite && !isDefaultAdmin);
-        if (isDefaultAdmin) {
-            editBtn.getElement().setAttribute("title", "Default admin permissions are protected");
-        }
-
-        var deactivateIcon = VaadinIcon.BAN.create();
-        deactivateIcon.setSize(UiConstants.ICON_SIZE);
-        Button deactivateBtn = new Button(deactivateIcon, e -> confirmDeactivate(user));
-        deactivateBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-        deactivateBtn.getElement().setAttribute("title", "Deactivate user");
-        deactivateBtn.setEnabled(user.isActive() && !isSelf && canWrite);
-
-        return List.of(editBtn, deactivateBtn);
-    }
-
     private void confirmDeactivate(User user) {
+        String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (user.getUsername().equals(currentUsername)) {
+            notify("Cannot deactivate your own account", NotificationVariant.LUMO_WARNING);
+            return;
+        }
+        if (!user.isActive()) {
+            notify("User " + user.getUsername() + " is already inactive", NotificationVariant.LUMO_WARNING);
+            return;
+        }
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Deactivate user");
         dialog.add(new com.vaadin.flow.component.html.Paragraph(
@@ -224,6 +218,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     }
 
     private void openEditPermissionsDialog(User user) {
+        if (DEFAULT_ADMIN_USERNAME.equals(user.getUsername())) {
+            notify("Default admin permissions are protected", NotificationVariant.LUMO_WARNING);
+            return;
+        }
         PermissionTreePanel permissionPanel = new PermissionTreePanel(user.getPermissions());
 
         Dialog dialog = new Dialog();
@@ -244,8 +242,9 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         dialog.open();
     }
 
-    private void refreshGrid() {
+    private boolean refreshGrid() {
         grid.setItems(userService.findAll());
+        return true;
     }
 
     private void notify(String message, NotificationVariant variant) {

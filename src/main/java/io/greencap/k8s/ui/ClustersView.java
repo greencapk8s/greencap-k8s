@@ -6,12 +6,10 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -38,12 +36,19 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 @Route(value = "clusters", layout = MainLayout.class)
 @PageTitle("Clusters — GreenCap K8s")
 @PermitAll
 public class ClustersView extends VerticalLayout implements BeforeEnterObserver {
+
+    private static final String HELP_TITLE = "Clusters";
+    private static final String HELP_TEXT = "A Cluster is a registered Kubernetes environment (kubeconfig). " +
+            "Select the active cluster using the radio button — all workload views will reflect its resources. " +
+            "Select a row and use \"Test Connection\" to verify reachability, or \"Remove\" to delete the registration " +
+            "(the cluster itself is not affected).";
 
     private final ClusterService clusterService;
     private final KubeconfigValidator kubeconfigValidator;
@@ -52,13 +57,37 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
     private final Grid<Cluster> grid = new Grid<>(Cluster.class, false);
 
     public ClustersView(ClusterService clusterService, KubeconfigValidator kubeconfigValidator,
-                        ClusterContext clusterContext, UserService userService) {
+                        ClusterContext clusterContext, UserService userService,
+                        GridSelectionMemory selectionMemory) {
         this.clusterService = clusterService;
         this.kubeconfigValidator = kubeconfigValidator;
         this.clusterContext = clusterContext;
         this.userService = userService;
+
         setSizeFull();
-        add(buildToolbar(), buildGrid());
+        setPadding(true);
+
+        buildGrid();
+        UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), Cluster::getName);
+
+        boolean canWrite = SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE);
+
+        List<UiConstants.SelectionAction<Cluster>> selectionActions = List.of(
+                UiConstants.SelectionAction.of(VaadinIcon.CONNECT, "Test Connection", this::testConnection),
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Remove", canWrite, this::confirmDelete)
+        );
+
+        List<Button> extraButtons = new ArrayList<>();
+        if (canWrite) {
+            Button addBtn = new Button("Add Cluster", VaadinIcon.PLUS.create());
+            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+            addBtn.addClickListener(e -> openAddDialog());
+            extraButtons.add(addBtn);
+        }
+
+        add(UiConstants.buildSectionHeader("Clusters", this::refreshGrid, HELP_TITLE, HELP_TEXT,
+                        grid, selectionActions, extraButtons),
+                grid);
     }
 
     @Override
@@ -70,28 +99,13 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         refreshGrid();
     }
 
-    private HorizontalLayout buildToolbar() {
-        Button addBtn = new Button("Add Cluster", VaadinIcon.PLUS.create(),
-                e -> openAddDialog());
-        addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        addBtn.setEnabled(SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE));
-
-        HorizontalLayout toolbar = new HorizontalLayout(new H2("Clusters"), addBtn);
-        toolbar.setDefaultVerticalComponentAlignment(Alignment.CENTER);
-        toolbar.expand(new H2("Clusters"));
-        toolbar.setWidthFull();
-        return toolbar;
-    }
-
-    private Grid<Cluster> buildGrid() {
+    private void buildGrid() {
         grid.addComponentColumn(this::buildRadioCell).setHeader("Active").setWidth("90px").setFlexGrow(0).setResizable(true);
         grid.addColumn(Cluster::getName).setHeader("Name").setSortable(true).setFlexGrow(1).setResizable(true);
         grid.addColumn(c -> c.getProvider().name()).setHeader("Provider").setWidth("120px").setResizable(true);
         grid.addComponentColumn(c -> statusBadge(c.getConnectionStatus()))
                 .setHeader("Status").setWidth("140px").setResizable(true);
-        UiConstants.addActionsColumn(grid, 2, this::buildActions);
         grid.setSizeFull();
-        return grid;
     }
 
     private Div buildRadioCell(Cluster cluster) {
@@ -139,23 +153,6 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
             default           -> {}
         }
         return badge;
-    }
-
-    private List<Button> buildActions(Cluster cluster) {
-        var testIcon = VaadinIcon.CONNECT.create();
-        testIcon.setSize(UiConstants.ICON_SIZE);
-        Button testBtn = new Button(testIcon, e -> testConnection(cluster));
-        testBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-        testBtn.getElement().setAttribute("title", "Test connection");
-
-        var deleteIcon = VaadinIcon.TRASH.create();
-        deleteIcon.setSize(UiConstants.ICON_SIZE);
-        Button deleteBtn = new Button(deleteIcon, e -> confirmDelete(cluster));
-        deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
-        deleteBtn.getElement().setAttribute("title", "Remove cluster");
-        deleteBtn.setEnabled(SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE));
-
-        return List.of(testBtn, deleteBtn);
     }
 
     private void confirmDelete(Cluster cluster) {
@@ -303,8 +300,9 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
                 .findFirst());
     }
 
-    private void refreshGrid() {
+    private boolean refreshGrid() {
         grid.setItems(clusterService.findAll());
+        return true;
     }
 
     private void notify(String message, NotificationVariant variant) {
