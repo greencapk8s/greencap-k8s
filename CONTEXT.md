@@ -26,8 +26,16 @@ A named capability granted explicitly to a User. Persisted as a `Set<Permission>
 _Avoid_: Role, privilege, group
 
 **Namespace**:
-A logical isolation unit within a Cluster that groups Workloads. Not a Workload itself.
+A logical isolation unit within a Cluster that groups Workloads. Cluster-scoped — not itself a Workload. In GreenCap, displayed in the Global section with resource counts (Pods, Deployments, Services) to give a quick overview of what lives inside. Supports two write operations: Create and Delete Namespace. System namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) are protected from deletion in the UI — the Delete action is disabled when one of these is selected.
 _Avoid_: Environment, project, partition
+
+**Create Namespace**:
+A write operation that provisions a new Namespace in the active Cluster. Requires only a name (validated against Kubernetes DNS subdomain rules). Protected by `GLOBAL_NAMESPACES_WRITE`.
+_Avoid_: New namespace, add namespace
+
+**Delete Namespace**:
+A write operation that permanently removes a Namespace and **all namespaced resources inside it** — Pods, Deployments, Services, ConfigMaps, Secrets, PersistentVolumeClaims, Ingresses, and more — via Kubernetes cascading deletion. The Namespace transitions to `Terminating` until all contained resources are garbage-collected. In GreenCap, requires the user to type the Namespace name in the confirmation dialog before proceeding, reducing the risk of accidental destruction. Protected by `GLOBAL_NAMESPACES_DELETE`. Not available for system namespaces.
+_Avoid_: Remove namespace, drop namespace
 
 **Workload**:
 A deployable unit running inside a Namespace. In GreenCap, the concrete types are Pod, Deployment, ReplicaSet, StatefulSet, Job, and CronJob.
@@ -170,7 +178,7 @@ UI subsection within Project grouping namespace-scoped monitoring views. Current
 _Avoid_: Monitoring, Telemetry
 
 **Global**:
-UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
+UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Namespaces, Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
 _Avoid_: Cluster-wide, Admin
 
 **Topologia**:

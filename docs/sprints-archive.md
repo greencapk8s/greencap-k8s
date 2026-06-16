@@ -611,3 +611,12 @@
 - Fix encontrado na primeira execução no GitHub Actions: `.gitignore` ignorava `gradle/wrapper/gradle-wrapper.jar` — a regra `!gradle/wrapper/gradle-wrapper.jar` (seção Gradle) era sobrescrita pela regra `*.jar` declarada mais abaixo (seção Spring Boot), então o jar nunca foi commitado; checkout limpo (CI) ficava sem o jar e `./gradlew` falhava com `ClassNotFoundException: GradleWrapperMain`. Corrigido movendo a negação para depois de `*.jar` e commitando `gradle/wrapper/gradle-wrapper.jar`
 - Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
 - Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
+
+### Sprint 65 ✅ — Infraestrutura de Demo: migrar greencap-demo para driver docker multi-node
+
+- `cluster-provision.sh`: `DRIVER` `virtualbox` → `docker` (auto-detectado pelo minikube no Linux com Docker instalado; elimina o bug do DHCP da rede host-only que impedia clusters multi-node de voltarem saudáveis após reboot); `NODES` `1` → `3` (control-plane + 2 workers); `CPUS=2`/`MEMORY=2048` por node (~6GB total); mensagem final corrigida de `create.sh` para `create-demo.sh`
+- `add-hosts.sh`: `minikube ip` → `minikube ip -p greencap-demo`; endurecido com `set -euo pipefail` e validação de que a saída é um IPv4 antes de gravar em `/etc/hosts` — fix encontrado no aceite manual: uma corrida com `create-demo.sh` ainda em andamento gravava uma mensagem de erro literal em `/etc/hosts`
+- `samples/greencap-demo/README.md` (novo): quick start, tabela de trade-offs de drivers (docker/virtualbox/kvm2), troubleshooting do bug do virtualbox e do reboot com driver docker, requisitos
+- Validado ponta a ponta: provisionamento com 3 nodes via driver `docker` OK, `create-demo.sh` (rollout + addon ingress) OK, acesso a `http://greencap-demo.local` OK
+- Aceite manual (reboot do host): cluster com 3 nodes volta `Running`/`OK` sem reprovisionar; com driver `docker` os containers dos nodes não religam automaticamente no boot — é necessário rodar `minikube start -p greencap-demo` manualmente, documentado no README; `http://greencap-demo.local` volta a responder em seguida sem passos adicionais
+- Issue: `.scratch/archive/sprint-65/issues/01-migrar-driver-docker-multinode.md`

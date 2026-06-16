@@ -353,6 +353,12 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                 put("Clusters (Write)", Permission.GLOBAL_CLUSTERS_WRITE);
             }}, initial));
 
+            groups.add(buildGroup("Namespaces", new LinkedHashMap<>() {{
+                put("Namespaces (View)", Permission.GLOBAL_NAMESPACES_VIEW);
+                put("Namespaces (Write)", Permission.GLOBAL_NAMESPACES_WRITE);
+                put("Namespaces (Delete)", Permission.GLOBAL_NAMESPACES_DELETE);
+            }}, initial));
+
             groups.add(buildGroup("Infrastructure", Map.of(
                     "Infrastructure", Permission.GLOBAL_INFRASTRUCTURE_VIEW
             ), initial));

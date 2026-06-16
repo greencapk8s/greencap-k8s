@@ -578,7 +578,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem clustersItem = navItem("Clusters", ClustersView.class, VaadinIcon.SERVER,
                 SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW));
 
-        nav.addItem(clustersItem, buildInfrastructureNavItem(), buildRegistryNavItem());
+        SideNavItem namespacesItem = navItem("Namespaces", NamespacesView.class, VaadinIcon.FOLDER_O,
+                SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_VIEW));
+
+        if (SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_VIEW)) {
+            clusterDependentNavItems.add(namespacesItem);
+        }
+
+        nav.addItem(clustersItem, namespacesItem, buildInfrastructureNavItem(), buildRegistryNavItem());
         return nav;
     }
 

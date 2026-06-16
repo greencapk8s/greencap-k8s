@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 65 | Infraestrutura de Demo — migrar greencap-demo para driver docker multi-node | ✅ Concluído |
 | 66 | Workloads — coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods | ✅ Concluído |
 | 67 | PodsView — esconder Pods Succeeded de Jobs por padrão (toggle) | ✅ Concluído |
 | 68 | Container Registry — menu Global, listagem de Repositories e Tags | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
 | 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
+| 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,17 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
+
+- `NamespaceInfo`: +campos `podCount`, `deploymentCount`, `serviceCount`
+- `NamespaceService`: `listNamespacesWithCounts()` (4 chamadas Fabric8 — namespaces, pods, deployments, services — agrupadas por namespace em uma única conexão), `createNamespace()`, `deleteNamespace()`; `listNamespaceNames()` passa a filtrar namespaces em fase `Terminating` para que namespaces deletados não reapareçam no combobox da navbar durante a exclusão em cascata
+- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE` (novos): VIEW concedido a todos com `GLOBAL_CLUSTERS_VIEW`; WRITE e DELETE concedidos a usuários com `GLOBAL_CLUSTERS_WRITE`; `V26__add_namespace_permissions.sql`
+- `NamespacesView` (nova, rota `global/namespaces`): grid com Name/Status/Pods/Deployments/Services/Age; botão "Create Namespace" (visível com WRITE) — dialog com campo de nome validado por regex DNS; ação "Delete" (visível com DELETE) — dialog exige digitar o nome do namespace antes de confirmar, com aviso explícito de destruição cascata; system namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) bloqueados para deleção; após create/delete chama `MainLayout.refreshClusterState()` para recarregar o combobox de namespaces; se o namespace deletado era o namespace ativo, o contexto é zerado antes do refresh (seleciona "default" automaticamente); async load com padrão `CompletableFuture` + `UiConstants.VIRTUAL_THREADS`
+- `MainLayout`: item "Namespaces" (ícone `FOLDER_O`) na seção Global, entre Clusters e Infrastructure, adicionado à lista `clusterDependentNavItems`
+- `UserManagementView`: grupo "Namespaces" com as 3 permissões na treeview Global
+- `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace` detalhadas; `Global` atualizado para incluir Namespaces
+- Issue: `.scratch/sprint-76/issues/01-namespaces-view.md`
 
 ### Sprint 75 ✅ — Deploy Application: wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress
 
@@ -177,15 +188,6 @@
 - Validado ponta a ponta no `greencap-demo` (3 Nodes, driver docker, sprint 65): coluna Nodes/Node preenchida corretamente e filtro funcionando nas 5 views
 - CronJob de exemplo `node-spread-test` (novo, `samples/greencap-demo/manifests/13-node-spread-cronjob.yaml`): roda a cada minuto no namespace `greencap-demo`, útil para observar a distribuição de Pods entre Nodes na `JobsView`/`PodsView`
 - Issues: `.scratch/sprint-66/issues/01-nodes-backend.md`, `.scratch/sprint-66/issues/02-nodes-ui.md`
-
-### Sprint 65 ✅ — Infraestrutura de Demo: migrar greencap-demo para driver docker multi-node
-
-- `cluster-provision.sh`: `DRIVER` `virtualbox` → `docker` (auto-detectado pelo minikube no Linux com Docker instalado; elimina o bug do DHCP da rede host-only que impedia clusters multi-node de voltarem saudáveis após reboot); `NODES` `1` → `3` (control-plane + 2 workers); `CPUS=2`/`MEMORY=2048` por node (~6GB total); mensagem final corrigida de `create.sh` para `create-demo.sh`
-- `add-hosts.sh`: `minikube ip` → `minikube ip -p greencap-demo`; endurecido com `set -euo pipefail` e validação de que a saída é um IPv4 antes de gravar em `/etc/hosts` — fix encontrado no aceite manual: uma corrida com `create-demo.sh` ainda em andamento gravava uma mensagem de erro literal em `/etc/hosts`
-- `samples/greencap-demo/README.md` (novo): quick start, tabela de trade-offs de drivers (docker/virtualbox/kvm2), troubleshooting do bug do virtualbox e do reboot com driver docker, requisitos
-- Validado ponta a ponta: provisionamento com 3 nodes via driver `docker` OK, `create-demo.sh` (rollout + addon ingress) OK, acesso a `http://greencap-demo.local` OK
-- Aceite manual (reboot do host): cluster com 3 nodes volta `Running`/`OK` sem reprovisionar; com driver `docker` os containers dos nodes não religam automaticamente no boot — é necessário rodar `minikube start -p greencap-demo` manualmente, documentado no README; `http://greencap-demo.local` volta a responder em seguida sem passos adicionais
-- Issue: `.scratch/sprint-65/issues/01-migrar-driver-docker-multinode.md`
 
 
 ---
