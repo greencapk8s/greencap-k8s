@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 69 | Fix — Container Registry: item ausente na treeview de permissões + View Tags na grid | ✅ Concluído |
 | 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
+| 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,15 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
+
+- `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; método `displayName()` retorna `"Minikube (Docker)"` / `"OpenShift"`
+- `V27__rename_provider_kubernetes_to_minikube_docker.sql`: DROP/re-ADD CHECK constraint; UPDATE `'Kubernetes'` → `'MinikubeDocker'` em linhas existentes
+- `ClustersView` grid: coluna Provider usa `displayName()` em vez de `.name()`
+- `ClustersView` dialog: Select usa `ItemLabelGenerator` com `displayName()`; default alterado para `MinikubeDocker`; ao selecionar OpenShift, exibe aviso inline `"OpenShift support is coming in a future release."` e desabilita o botão Save; code block escuro com `kubectl config view --flatten --minify` e botão de cópia via `navigator.clipboard.writeText`
+- `CONTEXT.md`: entrada `ClusterProvider` atualizada com os valores reais (`MinikubeDocker`, `OpenShift`)
+- Issue: `.scratch/sprint-80/issues/01-add-cluster-dialog-ux.md`
 
 ### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
 
@@ -175,12 +184,6 @@
 - `PlatformSettingsView.buildRefreshCard()`: fallback do ComboBox (sem preferência salva) passa de `NONE` para `THREE_SECONDS`
 - `MainLayout`: default do field `currentRefreshInterval` e fallback em `onAttach()` passam de `NONE` para `THREE_SECONDS` — auto-refresh a 3s ativo desde o login para quem nunca configurou; usuários que já salvaram explicitamente "No auto refresh" (0) ou outro valor continuam inalterados; aplicado uniformemente a todas as views `Refreshable`, sem migration Flyway (mesmo padrão do fallback de tema `"DARK"`)
 - Issue: `.scratch/sprint-70/issues/01-auto-refresh-3-seconds-default.md`
-
-### Sprint 69 ✅ — Fix: Container Registry — item ausente na treeview de permissões + ação View Tags na grid
-
-- `UserManagementView.buildGlobalGroups()`: novo grupo "Container Registry" (`GLOBAL_REGISTRY_VIEW`) — permission introduzida na sprint 68 que não havia sido exposta na treeview de permissões (GLOBAL), mesmo padrão de grupo único do "Infrastructure"
-- `RegistryView`: ação "View Tags" sai da barra de título (selection action) e passa para uma coluna de ações na própria grid (`UiConstants.addActionsColumn`, botão por linha), mesmo padrão de `JobsView` ("View Pods")
-- Issue: `.scratch/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
 
 
 ---

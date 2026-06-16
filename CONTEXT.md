@@ -82,7 +82,7 @@ A write operation on a CronJob that pauses new Job creation by patching `spec.su
 _Avoid_: Pause, stop, disable
 
 **ClusterProvider**:
-Contextual metadata describing the Kubernetes distribution behind a Cluster (OKD, OpenShift, Kubernetes, Rancher). Does not alter GreenCap's behavior — used for display and identification only.
+Contextual metadata describing the Kubernetes distribution behind a Cluster. Current values: `MinikubeDocker` (displayed as "Minikube (Docker)") and `OpenShift` (planned, not yet supported). Does not alter GreenCap's behavior — used for display and identification only.
 _Avoid_: Type, flavor, vendor
 
 **Kubeconfig**:

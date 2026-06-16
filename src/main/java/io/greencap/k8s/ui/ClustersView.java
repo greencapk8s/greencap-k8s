@@ -6,10 +6,13 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -102,7 +105,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
     private void buildGrid() {
         grid.addComponentColumn(this::buildRadioCell).setHeader("Active").setWidth("90px").setFlexGrow(0).setResizable(true);
         grid.addColumn(Cluster::getName).setHeader("Name").setSortable(true).setFlexGrow(1).setResizable(true);
-        grid.addColumn(c -> c.getProvider().name()).setHeader("Provider").setWidth("120px").setResizable(true);
+        grid.addColumn(c -> c.getProvider().displayName()).setHeader("Provider").setWidth("140px").setResizable(true);
         grid.addComponentColumn(c -> statusBadge(c.getConnectionStatus()))
                 .setHeader("Status").setWidth("140px").setResizable(true);
         grid.setSizeFull();
@@ -212,17 +215,25 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         Select<ClusterProvider> providerSelect = new Select<>();
         providerSelect.setLabel("Provider");
         providerSelect.setItems(ClusterProvider.values());
-        providerSelect.setValue(ClusterProvider.Kubernetes);
+        providerSelect.setItemLabelGenerator(ClusterProvider::displayName);
+        providerSelect.setValue(ClusterProvider.MinikubeDocker);
         providerSelect.setWidthFull();
+
+        Paragraph openShiftWarning = new Paragraph("OpenShift support is coming in a future release.");
+        openShiftWarning.getStyle()
+                .set("color", "var(--lumo-secondary-text-color)")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("margin", "0");
+        openShiftWarning.setVisible(false);
 
         TextArea kubeconfigArea = new TextArea("Kubeconfig YAML");
         kubeconfigArea.setWidthFull();
         kubeconfigArea.setMinHeight("200px");
         kubeconfigArea.setPlaceholder(
                 "Paste the kubeconfig content or upload the file.\n\n" +
-                "⚠️ The kubeconfig must be portable and self-contained: generate it with\n" +
-                "kubectl config view --flatten --minify\n" +
-                "to embed certificates and export only the required context.");
+                "⚠️ The kubeconfig must be portable and self-contained — use the command below to generate it.");
+
+        Div commandBlock = buildCopyableCommand("kubectl config view --flatten --minify");
 
         MemoryBuffer buffer = new MemoryBuffer();
         Upload upload = new Upload(buffer);
@@ -241,15 +252,24 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
             }
         });
 
+        Button saveBtn = new Button("Save");
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        providerSelect.addValueChangeListener(e -> {
+            boolean isOpenShift = e.getValue() == ClusterProvider.OpenShift;
+            openShiftWarning.setVisible(isOpenShift);
+            saveBtn.setEnabled(!isOpenShift);
+        });
+
         FormLayout form = new FormLayout(nameField, providerSelect);
         form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
 
-        VerticalLayout content = new VerticalLayout(form, upload, kubeconfigArea);
+        VerticalLayout content = new VerticalLayout(form, openShiftWarning, commandBlock, upload, kubeconfigArea);
         content.setPadding(false);
         content.setSpacing(true);
         dialog.add(content);
 
-        Button saveBtn = new Button("Save", e -> {
+        saveBtn.addClickListener(e -> {
             if (nameField.isEmpty()) {
                 nameField.setErrorMessage("Name is required");
                 nameField.setInvalid(true);
@@ -284,13 +304,53 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
                             ? NotificationVariant.LUMO_SUCCESS
                             : NotificationVariant.LUMO_WARNING);
         });
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.open();
         nameField.focus();
+    }
+
+    private Div buildCopyableCommand(String command) {
+        Span commandText = new Span(command);
+        commandText.getStyle()
+                .set("font-family", "monospace")
+                .set("font-size", "var(--lumo-font-size-s)")
+                .set("color", "#e2e8f0")
+                .set("flex", "1");
+
+        Icon copyIcon = VaadinIcon.COPY_O.create();
+        copyIcon.setSize("20px");
+        copyIcon.getStyle().set("color", "#94a3b8").set("flex-shrink", "0");
+
+        Button copyBtn = new Button(copyIcon);
+        copyBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL);
+        copyBtn.getStyle()
+                .set("color", "#94a3b8")
+                .set("padding", "0")
+                .set("cursor", "pointer");
+        copyBtn.addClickListener(e -> {
+            getUI().ifPresent(ui -> ui.getPage().executeJs(
+                    "navigator.clipboard.writeText($0)", command));
+            notify("Command copied to clipboard", NotificationVariant.LUMO_SUCCESS);
+        });
+
+        HorizontalLayout row = new HorizontalLayout(commandText, copyBtn);
+        row.setAlignItems(com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment.CENTER);
+        row.setWidthFull();
+        row.setPadding(false);
+        row.setSpacing(false);
+        row.getStyle().set("gap", "8px");
+
+        Div block = new Div(row);
+        block.setWidthFull();
+        block.getStyle()
+                .set("background", "#1e293b")
+                .set("border-radius", "6px")
+                .set("padding", "10px 12px")
+                .set("box-sizing", "border-box");
+        return block;
     }
 
     private java.util.Optional<MainLayout> getMainLayout() {
