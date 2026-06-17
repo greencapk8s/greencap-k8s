@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 70 | Platform Settings — auto-refresh: nova opção "3 seconds" e novo default | ✅ Concluído |
 | 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
+| 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
+
+- `build.gradle.kts`: dependências TestContainers adicionadas (`spring-boot-testcontainers`, `postgresql`, `junit-jupiter`); H2 removido
+- `application-test.yaml`: configuração de datasource/H2/Flyway manual removida; mantida apenas a chave de encriptação — o `@ServiceConnection` do Spring Boot 3 auto-configura o datasource a partir do container
+- `GreenCapApplicationTests`: reescrito com `@Testcontainers` + `@ServiceConnection` + `PostgreSQLContainer("postgres:16")`; valida implicitamente que todas as migrations Flyway executam sem erro no PostgreSQL real
+- `PostgresIntegrationTest` (nova classe base): `@SpringBootTest(webEnvironment = MOCK)` + container estático compartilhado entre subclasses; `MOCK` necessário pois o `SpringBootAutoConfiguration` do Vaadin exige `WebApplicationContext`
+- `WorkloadServiceTest` (nova): 4 cenários com `@EnableKubernetesMockClient(crud = true)` — mapeamento de campos de `PodInfo`/`DeploymentInfo`, filtro por namespace vs. `"all"`, propagação de exceção Fabric8 como `KubernetesOperationException`
+- `NamespaceServiceTest` (nova): 4 cenários — filtro de namespaces em fase `Terminating`, contagens de recursos por namespace, criação de namespace, propagação de exceção
+- `UserServiceTest` (nova): 4 cenários — authorities corretas em `loadUserByUsername`, usuário inativo lança `UsernameNotFoundException`, senha armazenada como hash BCrypt nunca plaintext, usuário inexistente lança `UsernameNotFoundException`
+- `ClusterServiceTest` (nova): 3 cenários — kubeconfig encriptado no banco nunca plaintext, `createdBy` populado a partir do `SecurityContext`, `markAsDisconnectedIfConnected` só altera clusters `CONNECTED`
+- `CLAUDE.md`: fluxo de sprint atualizado — compilar a cada mudança relevante; `./gradlew test` somente antes do fechamento da sprint
+- Issues: `.scratch/sprint-81/issues/` (5 issues)
 
 ### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
 
@@ -177,13 +190,6 @@
 - Validado ponta a ponta no `greencap-demo`: `cluster-provision.sh` roda do zero e idempotente (PVC `unchanged`, patch `no change`); push de imagens de teste (`greencap-demo/persistence-test:v1`, `greencap-demo/hello:v1/v2/latest`, `greencap-demo/backend:v1`) via port-forward; após `minikube stop`/`start -p greencap-demo` (restart completo do cluster), pod do registry voltou no mesmo node e os 3 repositories continuaram visíveis no catálogo e na UI "Container Registry"
 - Issue: `.scratch/sprint-71/issues/01-pvc-persistencia-registry.md`
 
-### Sprint 70 ✅ — Platform Settings: auto-refresh — nova opção "3 seconds" e novo default
-
-- `CONTEXT.md`: entrada `PlatformSettings` atualizada — auto-refresh varia de "no auto-refresh" até 1 minuto; usuário sem preferência salva (conta nova ou que nunca abriu Platform Settings) passa a ter default de 3 segundos, escolhido pela responsividade para o público-alvo de clusters pequenos de dev/teste
-- `RefreshInterval`: novo valor `THREE_SECONDS("3 seconds", 3)`, posicionado entre `NONE` e `FIVE_SECONDS`
-- `PlatformSettingsView.buildRefreshCard()`: fallback do ComboBox (sem preferência salva) passa de `NONE` para `THREE_SECONDS`
-- `MainLayout`: default do field `currentRefreshInterval` e fallback em `onAttach()` passam de `NONE` para `THREE_SECONDS` — auto-refresh a 3s ativo desde o login para quem nunca configurou; usuários que já salvaram explicitamente "No auto refresh" (0) ou outro valor continuam inalterados; aplicado uniformemente a todas as views `Refreshable`, sem migration Flyway (mesmo padrão do fallback de tema `"DARK"`)
-- Issue: `.scratch/sprint-70/issues/01-auto-refresh-3-seconds-default.md`
 
 
 ---

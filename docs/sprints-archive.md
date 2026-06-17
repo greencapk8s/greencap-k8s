@@ -657,3 +657,11 @@
 - `UserManagementView.buildGlobalGroups()`: novo grupo "Container Registry" (`GLOBAL_REGISTRY_VIEW`) — permission introduzida na sprint 68 que não havia sido exposta na treeview de permissões (GLOBAL), mesmo padrão de grupo único do "Infrastructure"
 - `RegistryView`: ação "View Tags" sai da barra de título (selection action) e passa para uma coluna de ações na própria grid (`UiConstants.addActionsColumn`, botão por linha), mesmo padrão de `JobsView` ("View Pods")
 - Issue: `.scratch/archive/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
+
+### Sprint 70 ✅ — Platform Settings: auto-refresh — nova opção "3 seconds" e novo default
+
+- `CONTEXT.md`: entrada `PlatformSettings` atualizada — auto-refresh varia de "no auto-refresh" até 1 minuto; usuário sem preferência salva (conta nova ou que nunca abriu Platform Settings) passa a ter default de 3 segundos, escolhido pela responsividade para o público-alvo de clusters pequenos de dev/teste
+- `RefreshInterval`: novo valor `THREE_SECONDS("3 seconds", 3)`, posicionado entre `NONE` e `FIVE_SECONDS`
+- `PlatformSettingsView.buildRefreshCard()`: fallback do ComboBox (sem preferência salva) passa de `NONE` para `THREE_SECONDS`
+- `MainLayout`: default do field `currentRefreshInterval` e fallback em `onAttach()` passam de `NONE` para `THREE_SECONDS` — auto-refresh a 3s ativo desde o login para quem nunca configurou; usuários que já salvaram explicitamente "No auto refresh" (0) ou outro valor continuam inalterados; aplicado uniformemente a todas as views `Refreshable`, sem migration Flyway (mesmo padrão do fallback de tema `"DARK"`)
+- Issue: `.scratch/archive/sprint-70/issues/01-auto-refresh-3-seconds-default.md`
