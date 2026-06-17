@@ -33,8 +33,11 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.DeployApplicationService;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NetworkingService;
+import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
+import io.greencap.k8s.kubernetes.compose.ComposeParser;
+import io.greencap.k8s.kubernetes.compose.ImportComposeService;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
@@ -62,7 +65,14 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
     private final RegistryService registryService;
     private final StorageService storageService;
     private final NetworkingService networkingService;
+    private final ObservabilityService observabilityService;
+    private final ComposeParser composeParser;
+    private final ImportComposeService importComposeService;
     private final UserService userService;
+
+    private enum DeployMode { IMAGE, COMPOSE }
+    private DeployMode activeMode = DeployMode.IMAGE;
+    private ImportComposeWizard importComposeWizard;
 
     // Step 1
     private final TextField namespaceField = new TextField("Application name");
@@ -101,12 +111,18 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                                   RegistryService registryService,
                                   StorageService storageService,
                                   NetworkingService networkingService,
+                                  ObservabilityService observabilityService,
+                                  ComposeParser composeParser,
+                                  ImportComposeService importComposeService,
                                   UserService userService) {
         this.clusterContext = clusterContext;
         this.deployApplicationService = deployApplicationService;
         this.registryService = registryService;
         this.storageService = storageService;
         this.networkingService = networkingService;
+        this.observabilityService = observabilityService;
+        this.composeParser = composeParser;
+        this.importComposeService = importComposeService;
         this.userService = userService;
         initLayout();
         initFields();
@@ -121,6 +137,60 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         loadRegistrySuggestions();
         loadClusterResources();
         renderStep(1);
+    }
+
+    private HorizontalLayout buildModeSelector() {
+        Button imageBtn = new Button("Deploy from image", VaadinIcon.ROCKET.create());
+        Button composeBtn = new Button("Import Compose", VaadinIcon.FILE_CODE.create());
+
+        imageBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        imageBtn.addClickListener(e -> {
+            if (activeMode == DeployMode.IMAGE) return;
+            activeMode = DeployMode.IMAGE;
+            imageBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            imageBtn.removeThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            composeBtn.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            showImageWizard();
+        });
+
+        composeBtn.addClickListener(e -> {
+            if (activeMode == DeployMode.COMPOSE) return;
+            activeMode = DeployMode.COMPOSE;
+            composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            composeBtn.removeThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+            imageBtn.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
+            showComposeWizard();
+        });
+
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, composeBtn);
+        selector.setSpacing(true);
+        return selector;
+    }
+
+    private void showImageWizard() {
+        stepIndicatorRow.setVisible(true);
+        stepContent.setVisible(true);
+        if (importComposeWizard != null) importComposeWizard.setVisible(false);
+        renderStep(1);
+    }
+
+    private void showComposeWizard() {
+        stepIndicatorRow.setVisible(false);
+        stepContent.setVisible(false);
+        backButton.setVisible(false);
+        nextButton.setVisible(false);
+        deployButton.setVisible(false);
+        if (importComposeWizard == null) {
+            importComposeWizard = new ImportComposeWizard(
+                    clusterContext, composeParser, importComposeService,
+                    registryService, observabilityService, storageService, userService);
+            add(importComposeWizard);
+        }
+        importComposeWizard.setVisible(true);
     }
 
     private void initLayout() {
@@ -153,7 +223,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         stepIndicatorRow.setWidthFull();
         stepIndicatorRow.setSpacing(true);
 
-        add(new H2("Deploy Application"), stepIndicatorRow, stepContent, footer);
+        add(new H2("Deploy Application"), buildModeSelector(), stepIndicatorRow, stepContent, footer);
     }
 
     private void initFields() {

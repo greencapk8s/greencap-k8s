@@ -18,6 +18,7 @@
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
 | 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 | 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
+| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | 🔄 Em andamento |
 
 ---
 
