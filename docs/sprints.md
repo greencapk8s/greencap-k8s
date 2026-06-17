@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 71 | Infraestrutura de Demo — PVC para persistir o Container Registry interno | ✅ Concluído |
 | 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
 | 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
 | 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
+| 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
 
 ---
 
@@ -82,6 +82,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
+
+- `build.gradle.kts`: dependência `karibu-testing-v24:2.1.2` adicionada
+- `KaribuTest` (nova classe base): `MockVaadin.setup/tearDown()` + helper `loginAs(String... authorities)` para configurar o `SecurityContextHolder` sem Spring; testes de view rodam sem TestContainers, sem banco, em ~1s
+- `NamespacesViewTest` (novo, 4 cenários): guard de system namespace (`kube-system` exibe notificação de erro sem abrir dialog), estado inicial do dialog (botão Delete desabilitado), type-to-confirm com nome errado (permanece desabilitado) e com nome correto (habilita)
+- `ClustersViewTest` (novo, 1 cenário): confirmação de remoção de cluster chama `clusterService.deleteCluster()` com o cluster selecionado
+- `docs/adr/0010-karibu-para-testes-de-views-vaadin.md` (novo): decisão de usar Karibu (in-memory, sem browser) em vez de Selenium/Playwright para cobrir lógica de orquestração de views
+- `CLAUDE.md`: fluxo de sprint atualizado — novo passo 6 (Testes) após o aceite manual, cobrindo as duas frentes: views Karibu e integração com `PostgresIntegrationTest`
+- Issue: `.scratch/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
 
 ### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
 
@@ -179,16 +189,6 @@
 - Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app` (`unifametro/flask-app:v1.1`) — push concluído e Tags (`latest`, `v1.1`) visíveis com digest/size/created
 - Registrados como follow-ups no backlog: Build a partir de Git Repository privado, histórico de Builds
 - Issue: `.scratch/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
-
-### Sprint 71 ✅ — Infraestrutura de Demo: PVC para persistir o Container Registry interno
-
-- `samples/greencap-demo/cluster-provision.sh`: após `minikube addons enable registry`, cria `PersistentVolumeClaim` `registry-storage` (4Gi, `kube-system`, StorageClass `standard`) e aplica `kubectl patch` (strategic merge) no `Deployment registry` adicionando `volumes`/`volumeMounts` (`/var/lib/registry`) e `nodeSelector: kubernetes.io/hostname: greencap-demo`; `kubectl rollout status deployment/registry` aguarda o rollout, mesmo padrão do wait do `ingress-nginx-controller`
-- Decisão (`/grill-with-docs`): patch in-place em vez de manifest próprio — preserva `Service`/`registry-proxy` do addon; validado que não há `kube-addon-manager` rodando neste cluster (reconcile contínuo não existe em versões recentes do minikube) e que `volumes`/`volumeMounts`/`nodeSelector` sobrevivem a reexecuções de `minikube addons enable registry` (merge de 3 vias do `kubectl apply` não remove campos fora do manifest do addon)
-- Achado crítico durante o teste: a StorageClass `standard` (hostpath-provisioner) cria PVs sem `nodeAffinity` — em multi-node, um Pod reagendado para outro node monta um diretório hostPath local vazio, "perdendo" os dados mesmo com a PVC `Bound`. Fix: `nodeSelector` fixa o Pod do registry no control-plane (`greencap-demo`), node estável (= nome do profile)
-- `samples/greencap-demo/README.md`: nova seção "Container Registry" documentando a persistência via PVC, o caveat do `nodeSelector` (control-plane sempre existe no demo de 3 nodes) e que os dados só são perdidos com `minikube delete -p greencap-demo`
-- Problema geral de `nodeAffinity` da StorageClass (afeta qualquer PVC) registrado no backlog como candidato de substituição por `local-path-provisioner`; ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap
-- Validado ponta a ponta no `greencap-demo`: `cluster-provision.sh` roda do zero e idempotente (PVC `unchanged`, patch `no change`); push de imagens de teste (`greencap-demo/persistence-test:v1`, `greencap-demo/hello:v1/v2/latest`, `greencap-demo/backend:v1`) via port-forward; após `minikube stop`/`start -p greencap-demo` (restart completo do cluster), pod do registry voltou no mesmo node e os 3 repositories continuaram visíveis no catálogo e na UI "Container Registry"
-- Issue: `.scratch/sprint-71/issues/01-pvc-persistencia-registry.md`
 
 
 

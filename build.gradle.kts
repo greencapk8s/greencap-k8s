@@ -67,6 +67,7 @@ dependencies {
     testImplementation("io.fabric8:kubernetes-server-mock:6.13.1")
     testImplementation("org.testcontainers:postgresql")
     testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("com.github.mvysny.kaributesting:karibu-testing-v24:2.1.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
