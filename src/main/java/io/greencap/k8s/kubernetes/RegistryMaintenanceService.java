@@ -33,6 +33,10 @@ public class RegistryMaintenanceService {
     private static final String REGISTRY_POD_LABEL = "actual-registry";
     private static final String REGISTRY_CONFIG_PATH = "/etc/distribution/config.yml";
     private static final Duration GARBAGE_COLLECT_TIMEOUT = Duration.ofSeconds(60);
+    // Repositories root inside the registry container — standard path for distribution/distribution.
+    // GC only removes unreferenced blobs; the repository directory itself must be removed explicitly
+    // so the /v2/_catalog endpoint stops listing the repository.
+    private static final String REGISTRY_REPOSITORIES_PATH = "/var/lib/registry/docker/registry/v2/repositories/";
 
     private final KubernetesClientFactory clientFactory;
     private final EncryptionService encryptionService;
@@ -44,6 +48,7 @@ public class RegistryMaintenanceService {
         try (RegistryConnection connection = openConnection(cluster)) {
             deleteManifests(connection, repository, tags);
             runGarbageCollect(connection.client());
+            deleteRepositoryDirectory(connection.client(), repository);
         } catch (Exception e) {
             log.error("Failed to remove repository {} on cluster {}: {}", repository, cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to remove Repository: " + e.getMessage(), e);
@@ -104,6 +109,26 @@ public class RegistryMaintenanceService {
             log.info("registry garbage-collect on {}: exit={}, output={}", podName, exitCode, stdout);
             if (exitCode == null || exitCode != 0) {
                 throw new IllegalStateException("garbage-collect exited with code " + exitCode + ": " + stderr);
+            }
+        }
+    }
+
+    private void deleteRepositoryDirectory(KubernetesClient client, String repository) throws Exception {
+        String podName = findRegistryPodName(client);
+        String repoPath = REGISTRY_REPOSITORIES_PATH + repository;
+
+        ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+        ByteArrayOutputStream stderr = new ByteArrayOutputStream();
+
+        try (ExecWatch watch = client.pods().inNamespace(REGISTRY_NAMESPACE).withName(podName)
+                .writingOutput(stdout)
+                .writingError(stderr)
+                .exec("rm", "-rf", repoPath)) {
+
+            Integer exitCode = watch.exitCode().get(GARBAGE_COLLECT_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            log.info("Deleted repository directory {} from pod {}: exit={}", repoPath, podName, exitCode);
+            if (exitCode == null || exitCode != 0) {
+                throw new IllegalStateException("Failed to delete repository directory, exit=" + exitCode + ": " + stderr);
             }
         }
     }

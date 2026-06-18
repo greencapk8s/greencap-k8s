@@ -18,6 +18,7 @@
 | 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 | 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
 | 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
+| 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 
 ---
 

@@ -32,8 +32,9 @@ class NamespacesViewTest extends KaribuTest {
     @Mock private ClusterContext clusterContext;
     @Mock private GridSelectionMemory gridSelectionMemory;
 
-    private static final NamespaceInfo KUBE_SYSTEM  = new NamespaceInfo("kube-system",  "Active", "100d", 10, 2, 5);
-    private static final NamespaceInfo MY_NAMESPACE = new NamespaceInfo("my-namespace", "Active",   "5d",  2, 1, 1);
+    private static final NamespaceInfo KUBE_SYSTEM        = new NamespaceInfo("kube-system",        "Active",      "100d", 10, 2, 5);
+    private static final NamespaceInfo MY_NAMESPACE       = new NamespaceInfo("my-namespace",       "Active",        "5d",  2, 1, 1);
+    private static final NamespaceInfo TERMINATING_NS     = new NamespaceInfo("terminating-ns",     "Terminating",   "2d",  0, 0, 0);
 
     private NamespacesView view;
 
@@ -44,12 +45,21 @@ class NamespacesViewTest extends KaribuTest {
         cluster.setProvider(ClusterProvider.MinikubeDocker);
 
         when(clusterContext.getCluster()).thenReturn(cluster);
-        when(namespaceService.listNamespacesWithCounts(any())).thenReturn(List.of(KUBE_SYSTEM, MY_NAMESPACE));
+        when(namespaceService.listNamespacesWithCounts(any())).thenReturn(List.of(KUBE_SYSTEM, MY_NAMESPACE, TERMINATING_NS));
         when(gridSelectionMemory.recall(any())).thenReturn(Optional.empty());
 
         loginAs("GLOBAL_NAMESPACES_VIEW", "GLOBAL_NAMESPACES_DELETE", "GLOBAL_NAMESPACES_WRITE");
         view = new NamespacesView(namespaceService, clusterContext, gridSelectionMemory);
         clickRefresh();
+    }
+
+    @Test
+    void deletingTerminatingNamespace_showsNotification_noDialogOpens() {
+        selectNamespace(TERMINATING_NS);
+        clickToolbarDelete();
+
+        assertThat(_find(Dialog.class)).isEmpty();
+        assertThat(_find(Notification.class)).isNotEmpty();
     }
 
     @Test

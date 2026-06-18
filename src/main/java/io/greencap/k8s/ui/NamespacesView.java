@@ -237,6 +237,10 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
             notify("System namespace \"" + namespace.name() + "\" cannot be deleted", NotificationVariant.LUMO_ERROR);
             return;
         }
+        if ("Terminating".equals(namespace.phase())) {
+            notify("Namespace \"" + namespace.name() + "\" is already being deleted", NotificationVariant.LUMO_CONTRAST);
+            return;
+        }
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Delete Namespace");

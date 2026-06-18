@@ -257,7 +257,10 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
             Button tagsBtn = new Button(tagsIcon);
             tagsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
             tagsBtn.getElement().setAttribute("title", "View Tags");
-            tagsBtn.addClickListener(e -> UI.getCurrent().navigate("registry/" + repository.name()));
+            tagsBtn.addClickListener(e -> {
+                grid.select(repository);
+                UI.getCurrent().navigate("registry/" + repository.name());
+            });
             return List.of(tagsBtn);
         });
 
