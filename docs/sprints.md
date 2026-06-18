@@ -8,8 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
-| 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
 | 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
 | 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
@@ -19,6 +17,7 @@
 | 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
 | 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
 | 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
+| 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
 
 ---
 
@@ -47,10 +46,6 @@
 #### 🟢 Diferencial — visão de cluster
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
-
-#### 🚀 New Application — terceiro modo de deploy
-
-- **Deploy from Dockerfile** — terceiro modo na `DeployApplicationView` (ao lado de "Deploy from Image" e "Deploy from Compose"). O usuário informa um Git Repository público (URL + branch + context path + Dockerfile path), GreenCap dispara um Build Kaniko (ADR 0007) para construir e empurrar a imagem para o Registry interno, e em seguida provisiona os recursos Kubernetes (Deployment, Service ClusterIP opcional, PVC opcional) exatamente como o "Deploy from Image" — com a diferença de que a imagem vem do Build em vez de ser informada manualmente. A tela de configuração intercala os campos do Git Repository antes dos campos de imagem/porta, e o passo de execução mostra o log do Build antes da criação dos recursos. Reusa a infra de `RegistryService.startBuild` + `ObservabilityService.fetchPodLogs` já disponível.
 
 #### 🐳 Deploy from Compose — follow-ups da Sprint 83
 

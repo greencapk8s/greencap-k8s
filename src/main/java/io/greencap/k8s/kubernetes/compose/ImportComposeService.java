@@ -65,7 +65,7 @@ public class ImportComposeService {
                                                                 ComposeDocument.ParsedService service,
                                                                 ComposeImportRequest.ServiceConfig config) {
         List<String> created = new ArrayList<>();
-        String serviceName = service.name();
+        String serviceName = sanitizeK8sName(service.name());
         Map<String, String> labels = Map.of(
                 TOPOLOGY_PART_OF_LABEL, namespace,
                 TOPOLOGY_COMPONENT_LABEL, serviceName,
@@ -286,6 +286,11 @@ public class ImportComposeService {
                         .endSpec()
                         .build()
         ).create();
+    }
+
+    private String sanitizeK8sName(String name) {
+        String slug = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return slug.length() > 63 ? slug.substring(0, 63) : slug;
     }
 
     private String pvcName(String serviceName, String volumeName) {

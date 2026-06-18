@@ -688,3 +688,20 @@
 - Fix no aceite: prefixo `git://` no `--context`; `fetchTagInfo` aceita manifesto OCI além de Docker v2
 - Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app`
 - Issue: `.scratch/archive/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
+
+### Sprint 74 ✅ — Container Registry: Remove Repository e Remove Tags com multi-seleção
+
+- `docs/adr/0008-registry-remove-via-manifest-delete-and-gc.md` (novo): remoção de repositório via DELETE de manifests por digest + garbage-collect (`registry garbage-collect`) executado via `pods/exec` do Fabric8 no Pod do registry (`actual-registry=true`, `kube-system`); primeiro uso de `pods/exec` no GreenCap; "Remove Tags" não roda GC — apenas DELETE por digest, idempotente (404 tratado como sucesso)
+- `CONTEXT.md`: termos `Remove Repository` e `Remove Tags` adicionados
+- `RegistryMaintenanceService` (novo): `deleteRepository` + `deleteTags`
+- `RegistryTagsView`: ações "Remove Tags" (multi-seleção, dialog de confirmação type-to-confirm) e confirmação de "Remove Repository" propagada para o serviço de manutenção
+- Issues: `.scratch/archive/sprint-74/issues/`
+
+### Sprint 75 ✅ — Deploy Application: wizard multi-step a partir de imagem
+
+- `docs/adr/0009-deploy-application-sem-rastreamento.md` (novo): recursos criados pelo wizard são objetos Kubernetes padrão, sem rastreamento no GreenCap; sincronismo banco↔cluster não justificado neste momento
+- `CONTEXT.md`: termo `Deploy Application` adicionado
+- `DeployApplicationService` (novo): cria Namespace + Deployment + Service ClusterIP (quando porta informada) + PVC (opcional) + Ingress (opcional); `DeployApplicationRequest`/`DeployApplicationResult` DTOs
+- `DeployApplicationView` (nova, rota `/deploy`): wizard 6 passos (Name, Image & Port, Resources, Volume, External Access, Review); sugestões de StorageClass e IngressClass carregadas do cluster; sugestão de host `<namespace>.greencap.local`; execução assíncrona em thread virtual; em sucesso navega para Topologia
+- `Permission.PROJECT_DEPLOY_APPLICATION` (novo): `V25__add_deploy_application_permission.sql`
+- Issues: `.scratch/archive/sprint-75/issues/`

@@ -149,14 +149,17 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     private HorizontalLayout buildModeSelector() {
         Button imageBtn = new Button("Deploy from Image", VaadinIcon.ROCKET.create());
+        Button dockerfileBtn = new Button("Deploy from Dockerfile", VaadinIcon.CODE.create());
         Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
 
         imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
+        dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
 
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, composeBtn);
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn);
         selector.setSpacing(true);
         return selector;
     }
@@ -165,6 +168,13 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         gitUrlField.setWidthFull();
         gitUrlField.setPlaceholder("https://github.com/user/repo");
         gitUrlField.setRequired(true);
+        gitUrlField.addValueChangeListener(e -> {
+            String suggested = extractRepoName(e.getValue());
+            String oldSuggested = extractRepoName(e.getOldValue());
+            if (!suggested.isBlank() && (namespaceField.isEmpty() || namespaceField.getValue().equals(oldSuggested))) {
+                namespaceField.setValue(suggested);
+            }
+        });
 
         branchField.setWidthFull();
         branchField.setValue("main");
@@ -199,6 +209,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         nextButton.setText(step == 2 ? "Deploy" : "Next");
         nextButton.setIcon(step == 2 ? VaadinIcon.ROCKET.create() : VaadinIcon.ARROW_RIGHT.create());
         nextButton.setIconAfterText(true);
+        if (step == 1) gitUrlField.focus();
     }
 
     private void updateStepIndicator() {
@@ -308,7 +319,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         if (service.hasSensitiveEnv())    panel.add(buildReviewItem("Secret",    service.name() + "-secret"));
 
         if (service.hasBuild()) {
-            String repoAndTag = service.image() != null ? service.image() : service.name() + ":latest";
+            String repoAndTag = service.image() != null ? service.image() : sanitizeK8sName(service.name()) + ":latest";
             String defaultImage = REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + repoAndTag;
             TextField imageField = new TextField("Image name (will be built and pushed to Registry)");
             imageField.setValue(defaultImage);
@@ -441,7 +452,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         for (ComposeDocument.ParsedService service : buildServices) {
             String resolvedImage = imageFieldsByService.containsKey(service.name())
                     ? imageFieldsByService.get(service.name()).getValue()
-                    : REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + service.name() + ":latest";
+                    : REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + sanitizeK8sName(service.name()) + ":latest";
 
             String imageForBuild = resolvedImage.startsWith(REGISTRY_PULL_HOST + "/")
                     ? resolvedImage.substring(REGISTRY_PULL_HOST.length() + 1)
@@ -714,5 +725,18 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private void showError(String message) {
         Notification n = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
         n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+    }
+
+    private String sanitizeK8sName(String name) {
+        String slug = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return slug.length() > 63 ? slug.substring(0, 63) : slug;
+    }
+
+    private String extractRepoName(String gitUrl) {
+        if (gitUrl == null || gitUrl.isBlank()) return "";
+        String cleaned = gitUrl.trim().replaceAll("\\.git$", "");
+        String repoName = cleaned.substring(cleaned.lastIndexOf('/') + 1);
+        String slug = repoName.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return slug.length() > 63 ? slug.substring(0, 63) : slug;
     }
 }
