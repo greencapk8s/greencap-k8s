@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 73 | Container Registry — Build & push de imagem via Kaniko a partir de Git Repository público | ✅ Concluído |
 | 74 | Container Registry — Remove Repository e Remove Tags com multi-seleção | ✅ Concluído |
 | 75 | Deploy Application — wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress a partir de imagem | ✅ Concluído |
 | 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
@@ -18,7 +17,7 @@
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
 | 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 | 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
-| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | 🔄 Em andamento |
+| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
 
 ---
 
@@ -47,6 +46,14 @@
 #### 🟢 Diferencial — visão de cluster
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
+
+#### 🚀 New Application — terceiro modo de deploy
+
+- **Deploy from Dockerfile** — terceiro modo na `DeployApplicationView` (ao lado de "Deploy from Image" e "Deploy from Compose"). O usuário informa um Git Repository público (URL + branch + context path + Dockerfile path), GreenCap dispara um Build Kaniko (ADR 0007) para construir e empurrar a imagem para o Registry interno, e em seguida provisiona os recursos Kubernetes (Deployment, Service ClusterIP opcional, PVC opcional) exatamente como o "Deploy from Image" — com a diferença de que a imagem vem do Build em vez de ser informada manualmente. A tela de configuração intercala os campos do Git Repository antes dos campos de imagem/porta, e o passo de execução mostra o log do Build antes da criação dos recursos. Reusa a infra de `RegistryService.startBuild` + `ObservabilityService.fetchPodLogs` já disponível.
+
+#### 🐳 Deploy from Compose — follow-ups da Sprint 83
+
+- **Ingress no Deploy from Compose** — a Sprint 83 deixou Ingress fora do escopo v1 (decisão registrada no `/grill-with-docs`). Cada serviço com `ports:` expõe apenas um ClusterIP Service. Follow-up: na tela de revisão, adicionar toggle "Expor externamente (Ingress)" por serviço com porta exposta, com campos de host e IngressClass editáveis — mesmo padrão do Deploy from Image. Avaliar também a criação de um único Ingress com múltiplos path rules (um por serviço), o que permite agrupar todos os endpoints sob um único host.
 
 #### 📦 Registry — follow-ups da Sprint 73
 
@@ -83,6 +90,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
+
+- `ComposeParser` (novo, `kubernetes/compose/`): busca o `docker-compose.yml` via HTTP raw do GitHub/GitLab, faz parse com SnakeYAML `SafeConstructor`; classifica variáveis de ambiente com heurística de chave sensível (`PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL` → Secret; restante → ConfigMap); volumes named → PVC, bind-mounts → aviso; `depends_on:` e diretivas não suportadas → lista de avisos consolidada
+- `ComposeDocument` (novo): modelo intermediário do Compose parseado — `ParsedService`, `BuildSpec`, `EnvEntry`, `VolumeEntry`
+- `ImportComposeService` (novo, `kubernetes/compose/`): provisiona Namespace, ConfigMap (`<service>-config`), Secret (`<service>-secret`), PVC (`<service>-pvc`), Deployment e Service ClusterIP para cada serviço; labels `app.kubernetes.io/part-of: <namespace>` + `app.kubernetes.io/component: <service-name>` em todos os recursos para agrupamento em Topologia; tenta todos os serviços antes de reportar falhas (sem rollback)
+- `ImportComposeView` (nova, rota `deploy/compose`): view independente com wizard de 3 passos — (1) Git URL + branch + path + namespace; (2) revisão por serviço com campos editáveis (imagem para `build:` pré-preenchida como `localhost:5000/<namespace>/<service>:latest`, PVC StorageClass/size, warnings de bind-mounts/`depends_on:`/diretivas ignoradas); (3) execução — Builds Kaniko sequenciais com log live + grid de status em 2 colunas + provisionamento K8s + resultado; em sucesso total navega para Topologia do novo Namespace
+- `DeployApplicationView`: seletor de modo "Deploy from Image" / "Deploy from Compose" no topo; botão "Deploy from Compose" navega para `ImportComposeView` (views independentes, sem aninhamento)
+- Fixes encontrados no aceite: imagem para `build:` precisava do prefixo `localhost:5000/` (registry-proxy hostPort); contexto de build (`--context-sub-path`) resolvia relativo à raiz do repo em vez de relativo ao diretório do `docker-compose.yml`; nome do repositório inclui namespace como prefixo (`<namespace>/<service>:tag`)
+- Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
+- `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
+- `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
+- Issues: `.scratch/sprint-83/issues/` (4 issues, todas `done`)
 
 ### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
 
@@ -176,22 +196,6 @@
 - `RegistryTagsView`: injeta `RegistryMaintenanceService`; `Grid.SelectionMode.MULTI` + botão "Remove Tags" (TRASH, LUMO_ERROR) visíveis apenas com `GLOBAL_REGISTRY_DELETE`; listener de seleção habilita/desabilita o botão; `openDeleteTagsDialog` com `ConfirmDialog` listando os nomes das tags selecionadas; HELP_TEXT atualizado com nota sobre storage liberado apenas no próximo GC
 - Validado ponta a ponta no `greencap-demo`: Remove Repository elimina repositório da listagem após confirmação (remoção otimista imediata, sem reaparecer nos refreshes seguintes); Remove Tags remove as tags selecionadas da grid; usuário VIEWER não vê nem botão Remove Repository nem checkboxes de multi-seleção
 - Issues: `.scratch/sprint-74/issues/01-remove-repository.md`, `02-remove-tags-multi-selection.md`
-
-### Sprint 73 ✅ — Container Registry: Build & push de imagem via Kaniko a partir de Git Repository público
-
-- `docs/adr/0007-build-via-kaniko-job-git-context.md` (novo): Build executado como `Job` Kaniko (`gcr.io/kaniko-project/executor`) criado pelo GreenCap via Fabric8 no Namespace `greencap-system` (criado sob demanda), mesmo padrão de `WorkloadService.triggerCronJob`; contexto de build via suporte nativo do Kaniko a Git (`--context=git://<host>/<owner>/<repo>.git#refs/heads/<branch>`, sem upload/ConfigMap/PVC); push para o Registry interno via DNS do cluster (`registry.kube-system.svc.cluster.local:80`, porta do Service que mapeia para a porta 5000 do container — corrigido durante o aceite, estava `:5000`); Job efêmero (`ttlSecondsAfterFinished=600`), sem histórico persistido; apenas repositórios públicos
-- `CONTEXT.md`: termo `Registry` atualizado (suporta a operação de escrita Build); novos termos `Build` (operação de escrita que builda e faz push de uma imagem a partir de um Git Repository, progresso em log ao vivo, sem histórico persistido) e `Git Repository` (origem pública identificada por URL/branch, Context path opcional e path do Dockerfile dentro do Context)
-- `kubernetes/dto/BuildRequest`/`BuildProgress` (novos): `BuildRequest(gitRepositoryUrl, branch, contextPath, dockerfilePath, repository, tag)`, `BuildProgress(podName, status)`
-- `RegistryService`: `startBuild(Cluster, BuildRequest)` cria o Namespace `greencap-system` se ausente e o `Job` Kaniko (args `--dockerfile`, `--context`, `--destination`, `--insecure`, `--context-sub-path` quando `contextPath` informado); `getBuildProgress(Cluster, jobName)` retorna status do Job (`Running`/`Complete`/`Failed`) e o nome do Pod (label `job-name`); helpers `buildGitContext`/`buildDestination`/`resolveDockerfilePath`/`resolveContextSubPath` cobertos por `RegistryServiceTest`
-- `Permission.GLOBAL_REGISTRY_BUILD` (novo, ADMIN/OPERATOR): `V23__add_registry_build_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`; `UserManagementView` separa "Container Registry (View)" e "Container Registry (Build)" na treeview
-- `RegistryView`: botão "Build Image" (visível só com `GLOBAL_REGISTRY_BUILD`) abre diálogo com Git Repository URL, Branch, Context path, Dockerfile path, Repository e Tag (validação por regex); ao confirmar, navega para `registry/build/<jobName>`; `UiConstants.buildSectionHeader` ganhou overload com botões extras no cabeçalho
-- `BuildLogsView` (nova, rota `registry/build/:jobName`): badge de status, logs do Pod Kaniko (container `kaniko`) via `ObservabilityService.fetchPodLogs` com polling de 3s, pausar/retomar, botão voltar
-- Fix encontrado no aceite manual: Kaniko v1.23.2 só reconhece o prefixo `git://` no `--context` (não `git+https://`); `fetchTagInfo` (leitura de Tags) só aceitava `Accept: application/vnd.docker.distribution.manifest.v2+json`, mas o Kaniko publica manifesto OCI (`application/vnd.oci.image.manifest.v1+json`) — registry respondia 404 e `listTags` retornava vazio mesmo com a contagem de tags correta em `listRepositories`; corrigido aceitando ambos os media types (records `ManifestResponse`/`ConfigRef`/`ConfigBlob` já compatíveis com o schema OCI)
-- Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app` (`unifametro/flask-app:v1.1`) — push concluído e Tags (`latest`, `v1.1`) visíveis com digest/size/created
-- Registrados como follow-ups no backlog: Build a partir de Git Repository privado, histórico de Builds
-- Issue: `.scratch/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
-
-
 
 ---
 

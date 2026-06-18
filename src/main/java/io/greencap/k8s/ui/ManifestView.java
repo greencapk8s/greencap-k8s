@@ -124,7 +124,7 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
             }
         });
 
-        applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        applyButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         applyButton.setVisible(false);
         applyButton.addClickListener(e -> openApplyConfirmation());
     }

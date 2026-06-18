@@ -1,6 +1,6 @@
 ---
 title: ImportComposeService — tradução do modelo intermediário para recursos Kubernetes
-status: open
+status: done
 sprint: 83
 ---
 

@@ -143,9 +143,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             refreshGrid();
             notify("User " + user.getUsername() + " deactivated", NotificationVariant.LUMO_SUCCESS);
         });
-        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         dialog.getFooter().add(cancelBtn, confirmBtn);
         dialog.open();
     }
@@ -209,9 +210,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                 notify("Failed to create user: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
         });
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.open();
         usernameField.focus();
@@ -235,9 +237,10 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             refreshGrid();
             notify("Permissions updated for " + user.getUsername(), NotificationVariant.LUMO_SUCCESS);
         });
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.open();
     }

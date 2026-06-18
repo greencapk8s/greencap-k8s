@@ -19,8 +19,14 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.BeforeEnterObserver;
+import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
@@ -35,11 +41,11 @@ import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
+import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,10 +56,12 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class ImportComposeWizard extends VerticalLayout {
+@Route(value = "deploy/compose", layout = MainLayout.class)
+@PageTitle("Deploy from Compose — GreenCap K8s")
+@PermitAll
+public class ImportComposeView extends VerticalLayout implements BeforeEnterObserver {
 
     private static final String NAMESPACE_PATTERN = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
-    // Pods pull from the registry via the registry-proxy hostPort — same convention as DeployApplicationView
     private static final String REGISTRY_PULL_HOST = "localhost:5000";
     private static final String BUILD_NAMESPACE = "greencap-system";
     private static final String KANIKO_CONTAINER = "kaniko";
@@ -68,19 +76,16 @@ public class ImportComposeWizard extends VerticalLayout {
     private final StorageService storageService;
     private final UserService userService;
 
-    // Step 1 fields
     private final TextField gitUrlField = new TextField("Git repository URL");
     private final TextField branchField = new TextField("Branch");
     private final TextField composePathField = new TextField("Path to docker-compose.yml");
     private final TextField namespaceField = new TextField("Target namespace");
 
-    // Review state
     private ComposeDocument parsedDocument;
     private final Map<String, TextField> imageFieldsByService = new LinkedHashMap<>();
     private final Map<String, Map<String, ComboBox<String>>> storageClassFieldsByServiceVolume = new LinkedHashMap<>();
     private final Map<String, Map<String, IntegerField>> storageSizeFieldsByServiceVolume = new LinkedHashMap<>();
 
-    // Execution state
     private final Map<String, String> buildJobsByService = new LinkedHashMap<>();
     private final Map<String, Span> buildStatusBadgeByService = new LinkedHashMap<>();
     private Pre buildLogArea;
@@ -88,7 +93,6 @@ public class ImportComposeWizard extends VerticalLayout {
             Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
 
-    // Wizard navigation
     private int currentStep = 1;
     private final HorizontalLayout stepIndicatorRow = new HorizontalLayout();
     private final Div stepContent = new Div();
@@ -96,13 +100,13 @@ public class ImportComposeWizard extends VerticalLayout {
     private final Button nextButton = new Button("Next", VaadinIcon.ARROW_RIGHT.create());
     private List<String> defaultStorageClasses = List.of();
 
-    public ImportComposeWizard(ClusterContext clusterContext,
-                                ComposeParser composeParser,
-                                ImportComposeService importComposeService,
-                                RegistryService registryService,
-                                ObservabilityService observabilityService,
-                                StorageService storageService,
-                                UserService userService) {
+    public ImportComposeView(ClusterContext clusterContext,
+                              ComposeParser composeParser,
+                              ImportComposeService importComposeService,
+                              RegistryService registryService,
+                              ObservabilityService observabilityService,
+                              StorageService storageService,
+                              UserService userService) {
         this.clusterContext = clusterContext;
         this.composeParser = composeParser;
         this.importComposeService = importComposeService;
@@ -111,19 +115,50 @@ public class ImportComposeWizard extends VerticalLayout {
         this.storageService = storageService;
         this.userService = userService;
 
-        setPadding(false);
+        setPadding(true);
         setSpacing(true);
+        setMaxWidth("820px");
+        setWidthFull();
 
         initFields();
         initNavigation();
-        loadStorageClasses();
 
         stepContent.setWidthFull();
         stepIndicatorRow.setWidthFull();
         stepIndicatorRow.setSpacing(true);
 
-        add(stepIndicatorRow, stepContent, buildNavFooter());
+        Div spacer = new Div();
+        HorizontalLayout footer = new HorizontalLayout(backButton, spacer, nextButton);
+        footer.expand(spacer);
+        footer.setWidthFull();
+        footer.setAlignItems(Alignment.CENTER);
+        footer.addClassNames(LumoUtility.Padding.Vertical.MEDIUM);
+
+        add(buildModeSelector(), stepIndicatorRow, stepContent, footer);
+    }
+
+    @Override
+    public void beforeEnter(BeforeEnterEvent event) {
+        if (!SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
+            event.forwardTo("");
+            return;
+        }
+        loadStorageClasses();
         renderStep(1);
+    }
+
+    private HorizontalLayout buildModeSelector() {
+        Button imageBtn = new Button("Deploy from Image", VaadinIcon.ROCKET.create());
+        Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
+
+        imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+        composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+
+        imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
+
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, composeBtn);
+        selector.setSpacing(true);
+        return selector;
     }
 
     private void initFields() {
@@ -145,23 +180,13 @@ public class ImportComposeWizard extends VerticalLayout {
     }
 
     private void initNavigation() {
-        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         backButton.addClickListener(e -> navigateBack());
         backButton.setVisible(false);
 
         nextButton.setIconAfterText(true);
-        nextButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        nextButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         nextButton.addClickListener(e -> navigateNext());
-    }
-
-    private HorizontalLayout buildNavFooter() {
-        Div spacer = new Div();
-        HorizontalLayout footer = new HorizontalLayout(backButton, spacer, nextButton);
-        footer.expand(spacer);
-        footer.setWidthFull();
-        footer.setAlignItems(Alignment.CENTER);
-        footer.addClassNames(LumoUtility.Padding.Vertical.MEDIUM);
-        return footer;
     }
 
     private void renderStep(int step) {
@@ -171,10 +196,8 @@ public class ImportComposeWizard extends VerticalLayout {
         stepContent.add(buildStepContent(step));
         backButton.setVisible(step == 2);
         nextButton.setVisible(step < 3);
-        nextButton.setText(step == 2 ? "Apply" : "Next");
-        nextButton.setIcon(step == 2
-                ? VaadinIcon.ROCKET.create()
-                : VaadinIcon.ARROW_RIGHT.create());
+        nextButton.setText(step == 2 ? "Deploy" : "Next");
+        nextButton.setIcon(step == 2 ? VaadinIcon.ROCKET.create() : VaadinIcon.ARROW_RIGHT.create());
         nextButton.setIconAfterText(true);
     }
 
@@ -185,7 +208,6 @@ public class ImportComposeWizard extends VerticalLayout {
             int step = i + 1;
             Span badge = new Span(step + ". " + labels[i]);
             badge.getElement().getThemeList().add("badge");
-            badge.getElement().getThemeList().add("small");
             if (step == currentStep) badge.getElement().getThemeList().add("primary");
             else if (step < currentStep) badge.getElement().getThemeList().add("success");
             else badge.getElement().getThemeList().add("contrast");
@@ -202,8 +224,6 @@ public class ImportComposeWizard extends VerticalLayout {
         };
     }
 
-    // --- Step 1: Source & Target ---
-
     private FormLayout buildStep1() {
         FormLayout form = new FormLayout(gitUrlField, branchField, composePathField, namespaceField);
         form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
@@ -216,23 +236,17 @@ public class ImportComposeWizard extends VerticalLayout {
             gitUrlField.setErrorMessage("Git repository URL is required");
             gitUrlField.setInvalid(true);
             valid = false;
-        } else {
-            gitUrlField.setInvalid(false);
-        }
+        } else { gitUrlField.setInvalid(false); }
         if (isBlank(branchField.getValue())) {
             branchField.setErrorMessage("Branch is required");
             branchField.setInvalid(true);
             valid = false;
-        } else {
-            branchField.setInvalid(false);
-        }
+        } else { branchField.setInvalid(false); }
         if (isBlank(composePathField.getValue())) {
             composePathField.setErrorMessage("Path is required");
             composePathField.setInvalid(true);
             valid = false;
-        } else {
-            composePathField.setInvalid(false);
-        }
+        } else { composePathField.setInvalid(false); }
         String ns = namespaceField.getValue();
         if (isBlank(ns)) {
             namespaceField.setErrorMessage("Namespace is required");
@@ -242,13 +256,9 @@ public class ImportComposeWizard extends VerticalLayout {
             namespaceField.setErrorMessage("Lowercase letters, numbers and hyphens only, max 63 chars");
             namespaceField.setInvalid(true);
             valid = false;
-        } else {
-            namespaceField.setInvalid(false);
-        }
+        } else { namespaceField.setInvalid(false); }
         return valid;
     }
-
-    // --- Step 2: Review ---
 
     private VerticalLayout buildStep2Review() {
         VerticalLayout layout = new VerticalLayout();
@@ -262,23 +272,18 @@ public class ImportComposeWizard extends VerticalLayout {
         for (ComposeDocument.ParsedService service : parsedDocument.services()) {
             layout.add(buildServiceReviewPanel(service));
         }
-
         if (!parsedDocument.ignoredDirectives().isEmpty()) {
-            layout.add(buildIgnoredDirectivesWarning());
+            layout.add(buildWarningBox("Ignored directives (no Kubernetes equivalent): "
+                    + String.join(", ", parsedDocument.ignoredDirectives())));
         }
-
-        boolean hasBindMounts = parsedDocument.services().stream()
-                .anyMatch(s -> !s.bindMounts().isEmpty());
-        if (hasBindMounts) {
-            layout.add(buildBindMountWarning());
+        if (parsedDocument.services().stream().anyMatch(s -> !s.bindMounts().isEmpty())) {
+            layout.add(buildWarningBox(
+                    "Bind-mount volumes (e.g. ./local:/path) have no Kubernetes equivalent and were ignored."));
         }
-
-        boolean hasDependsOn = parsedDocument.services().stream()
-                .anyMatch(s -> !s.dependsOn().isEmpty());
-        if (hasDependsOn) {
-            layout.add(buildDependsOnWarning());
+        if (parsedDocument.services().stream().anyMatch(s -> !s.dependsOn().isEmpty())) {
+            layout.add(buildWarningBox(
+                    "depends_on: has no effect in Kubernetes — use readiness probes for startup dependencies."));
         }
-
         return layout;
     }
 
@@ -299,17 +304,12 @@ public class ImportComposeWizard extends VerticalLayout {
             panel.add(buildReviewItem("Service (ClusterIP)",
                     service.name() + " — port " + service.containerPorts().get(0)));
         }
-        if (service.hasNonSensitiveEnv()) {
-            panel.add(buildReviewItem("ConfigMap", service.name() + "-config"));
-        }
-        if (service.hasSensitiveEnv()) {
-            panel.add(buildReviewItem("Secret", service.name() + "-secret"));
-        }
+        if (service.hasNonSensitiveEnv()) panel.add(buildReviewItem("ConfigMap", service.name() + "-config"));
+        if (service.hasSensitiveEnv())    panel.add(buildReviewItem("Secret",    service.name() + "-secret"));
 
         if (service.hasBuild()) {
             String repoAndTag = service.image() != null ? service.image() : service.name() + ":latest";
-            String namespace = namespaceField.getValue().trim();
-            String defaultImage = REGISTRY_PULL_HOST + "/" + namespace + "/" + repoAndTag;
+            String defaultImage = REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + repoAndTag;
             TextField imageField = new TextField("Image name (will be built and pushed to Registry)");
             imageField.setValue(defaultImage);
             imageField.setWidthFull();
@@ -317,18 +317,14 @@ public class ImportComposeWizard extends VerticalLayout {
             panel.add(imageField);
         }
 
-        if (!service.namedVolumes().isEmpty()) {
-            for (ComposeDocument.VolumeEntry volume : service.namedVolumes()) {
-                panel.add(buildVolumeConfigRow(service.name(), volume));
-            }
+        for (ComposeDocument.VolumeEntry volume : service.namedVolumes()) {
+            panel.add(buildVolumeConfigRow(service.name(), volume));
         }
-
         return panel;
     }
 
     private VerticalLayout buildVolumeConfigRow(String serviceName, ComposeDocument.VolumeEntry volume) {
-        String label = "PVC: " + volumeDisplay(volume.name()) + " → " + volume.mountPath();
-        Span pvcLabel = new Span(label);
+        Span pvcLabel = new Span("PVC: " + volumeDisplay(volume.name()) + " → " + volume.mountPath());
         pvcLabel.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
 
         ComboBox<String> scField = new ComboBox<>("Storage class");
@@ -341,12 +337,8 @@ public class ImportComposeWizard extends VerticalLayout {
         sizeField.setMin(1);
         sizeField.setWidthFull();
 
-        storageClassFieldsByServiceVolume
-                .computeIfAbsent(serviceName, k -> new LinkedHashMap<>())
-                .put(volume.name(), scField);
-        storageSizeFieldsByServiceVolume
-                .computeIfAbsent(serviceName, k -> new LinkedHashMap<>())
-                .put(volume.name(), sizeField);
+        storageClassFieldsByServiceVolume.computeIfAbsent(serviceName, k -> new LinkedHashMap<>()).put(volume.name(), scField);
+        storageSizeFieldsByServiceVolume.computeIfAbsent(serviceName, k -> new LinkedHashMap<>()).put(volume.name(), sizeField);
 
         FormLayout form = new FormLayout(scField, sizeField);
         form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 2));
@@ -373,36 +365,15 @@ public class ImportComposeWizard extends VerticalLayout {
         return item;
     }
 
-    private Div buildIgnoredDirectivesWarning() {
-        String directives = String.join(", ", parsedDocument.ignoredDirectives());
-        return buildWarningBox("Ignored directives (no Kubernetes equivalent): " + directives);
-    }
-
-    private Div buildBindMountWarning() {
-        return buildWarningBox(
-                "Bind-mount volumes (e.g. ./local:/path) have no Kubernetes equivalent and were ignored. " +
-                "Use named volumes for persistent storage.");
-    }
-
-    private Div buildDependsOnWarning() {
-        return buildWarningBox(
-                "depends_on: has no effect in Kubernetes — resource creation order does not guarantee " +
-                "Pod readiness. Use readiness probes for startup dependencies.");
-    }
-
     private Div buildWarningBox(String message) {
-        Span icon = new Span("⚠ ");
-        Span text = new Span(message);
-        text.addClassNames(LumoUtility.FontSize.SMALL);
-        Div box = new Div(icon, text);
+        Div box = new Div(new Span("⚠ "), new Span(message));
         box.getStyle()
                 .set("background", "var(--lumo-warning-color-10pct)")
                 .set("border-radius", "var(--lumo-border-radius-m)")
-                .set("padding", "var(--lumo-space-m)");
+                .set("padding", "var(--lumo-space-m)")
+                .set("font-size", "var(--lumo-font-size-s)");
         return box;
     }
-
-    // --- Step 3: Execution ---
 
     private VerticalLayout buildStep3Execution() {
         VerticalLayout layout = new VerticalLayout();
@@ -413,15 +384,13 @@ public class ImportComposeWizard extends VerticalLayout {
         buildStatusBadgeByService.clear();
 
         List<ComposeDocument.ParsedService> buildServices = parsedDocument.services().stream()
-                .filter(ComposeDocument.ParsedService::hasBuild)
-                .toList();
+                .filter(ComposeDocument.ParsedService::hasBuild).toList();
 
         if (!buildServices.isEmpty()) {
             layout.add(buildBuildSection(buildServices));
         } else {
             startProvisioning(layout, UI.getCurrent());
         }
-
         return layout;
     }
 
@@ -434,6 +403,14 @@ public class ImportComposeWizard extends VerticalLayout {
         title.getStyle().set("margin-bottom", "0");
         section.add(title);
 
+        Div statusGrid = new Div();
+        statusGrid.getStyle()
+                .set("display", "grid")
+                .set("grid-template-columns", "1fr auto")
+                .set("gap", "var(--lumo-space-s) var(--lumo-space-m)")
+                .set("align-items", "center")
+                .set("width", "100%");
+
         for (ComposeDocument.ParsedService service : buildServices) {
             Span badge = new Span("Pending");
             badge.getElement().getThemeList().add("badge");
@@ -443,36 +420,29 @@ public class ImportComposeWizard extends VerticalLayout {
             Span nameLabel = new Span(service.name());
             nameLabel.addClassNames(LumoUtility.FontWeight.BOLD);
 
-            HorizontalLayout row = new HorizontalLayout(nameLabel, badge);
-            row.setAlignItems(Alignment.CENTER);
-            row.setSpacing(true);
-            section.add(row);
+            statusGrid.add(nameLabel, badge);
         }
+        section.add(statusGrid);
 
         buildLogArea = new Pre();
         styleLogArea(buildLogArea);
         section.add(buildLogArea);
-
         section.add(new Hr());
 
         UI ui = UI.getCurrent();
         Thread.ofVirtual().start(() -> runBuildsSequentially(buildServices, section, ui));
-
         return section;
     }
 
     private void runBuildsSequentially(List<ComposeDocument.ParsedService> buildServices,
                                         VerticalLayout section, UI ui) {
         Cluster cluster = clusterContext.getCluster();
-        Map<String, Boolean> buildResults = new LinkedHashMap<>();
 
         for (ComposeDocument.ParsedService service : buildServices) {
             String resolvedImage = imageFieldsByService.containsKey(service.name())
                     ? imageFieldsByService.get(service.name()).getValue()
                     : REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + service.name() + ":latest";
 
-            // RegistryService.buildDestination adds the Kaniko-internal registry host itself —
-            // strip the pull-host prefix so we pass only <repo>:<tag> as the repository+tag pair.
             String imageForBuild = resolvedImage.startsWith(REGISTRY_PULL_HOST + "/")
                     ? resolvedImage.substring(REGISTRY_PULL_HOST.length() + 1)
                     : resolvedImage;
@@ -480,10 +450,13 @@ public class ImportComposeWizard extends VerticalLayout {
             String repository = imageParts[0];
             String tag = imageParts.length > 1 ? imageParts[1] : "latest";
 
+            String resolvedContext = resolveRepoBuildContext(
+                    composePathField.getValue().trim(), service.build().context());
+
             BuildRequest buildRequest = new BuildRequest(
                     gitUrlField.getValue().trim(),
                     branchField.getValue().trim(),
-                    service.build().context(),
+                    resolvedContext,
                     service.build().dockerfile(),
                     repository,
                     tag
@@ -494,8 +467,8 @@ public class ImportComposeWizard extends VerticalLayout {
             try {
                 String jobName = registryService.startBuild(cluster, buildRequest);
                 buildJobsByService.put(service.name(), jobName);
-                boolean success = waitForBuild(cluster, service.name(), jobName, ui);
-                buildResults.put(service.name(), success);
+                boolean isComplete = waitForBuild(cluster, service.name(), jobName, ui);
+                if (!isComplete) log.warn("Build incomplete for service {}", service.name());
             } catch (Exception e) {
                 log.error("Build failed for service {}: {}", service.name(), e.getMessage());
                 ui.access(() -> {
@@ -504,7 +477,6 @@ public class ImportComposeWizard extends VerticalLayout {
                         buildLogArea.setText(buildLogArea.getText() + "\nBuild error: " + e.getMessage());
                     }
                 });
-                buildResults.put(service.name(), false);
             }
         }
 
@@ -523,7 +495,10 @@ public class ImportComposeWizard extends VerticalLayout {
                     Optional<String> logs = observabilityService.fetchPodLogs(
                             cluster, BUILD_NAMESPACE, progress.podName(), KANIKO_CONTAINER, BUILD_TAIL_LINES, false);
                     ui.access(() -> {
-                        if (buildLogArea != null) logs.ifPresent(buildLogArea::setText);
+                        if (buildLogArea != null) {
+                            logs.ifPresent(buildLogArea::setText);
+                            buildLogArea.getElement().executeJs("this.scrollTop = this.scrollHeight");
+                        }
                     });
                 }
                 if (!"Running".equals(progress.status())) {
@@ -542,7 +517,6 @@ public class ImportComposeWizard extends VerticalLayout {
             }
         }, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
 
-        // Block virtual thread until build finishes
         while (!finished[0]) {
             try { Thread.sleep(500); } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
@@ -562,9 +536,9 @@ public class ImportComposeWizard extends VerticalLayout {
     }
 
     private void startProvisioning(VerticalLayout section, UI ui) {
-        Span provisioningLabel = new Span("Creating Kubernetes resources...");
-        provisioningLabel.addClassNames(LumoUtility.FontWeight.BOLD);
-        section.add(provisioningLabel);
+        Span label = new Span("Creating Kubernetes resources...");
+        label.addClassNames(LumoUtility.FontWeight.BOLD);
+        section.add(label);
 
         Cluster cluster = clusterContext.getCluster();
         ComposeImportRequest request = buildImportRequest();
@@ -576,67 +550,54 @@ public class ImportComposeWizard extends VerticalLayout {
             } catch (KubernetesOperationException e) {
                 ui.access(() -> {
                     showError(e.getMessage());
-                    section.remove(provisioningLabel);
+                    section.remove(label);
                 });
             }
         });
     }
 
-    private void renderResult(VerticalLayout section, ImportComposeResult result,
-                               String namespace, UI ui) {
+    private void renderResult(VerticalLayout section, ImportComposeResult result, String namespace, UI ui) {
         section.removeAll();
-
-        H4 title = new H4(result.isFullSuccess() ? "All resources created successfully" : "Completed with errors");
-        section.add(title);
+        section.add(new H4(result.isFullSuccess() ? "All resources created successfully" : "Completed with errors"));
 
         for (ImportComposeResult.ServiceResult sr : result.serviceResults()) {
-            VerticalLayout serviceBlock = new VerticalLayout();
-            serviceBlock.setPadding(false);
-            serviceBlock.setSpacing(false);
-
+            VerticalLayout block = new VerticalLayout();
+            block.setPadding(false);
+            block.setSpacing(false);
             Span serviceHeader = new Span(sr.serviceName());
             serviceHeader.addClassNames(LumoUtility.FontWeight.BOLD);
-            serviceBlock.add(serviceHeader);
-
+            block.add(serviceHeader);
             for (String resource : sr.createdResources()) {
                 Span item = new Span("✓ " + resource);
                 item.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SUCCESS);
-                serviceBlock.add(item);
+                block.add(item);
             }
             if (!sr.isSuccess()) {
                 Span failure = new Span("✗ " + sr.failureMessage());
                 failure.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.ERROR);
-                serviceBlock.add(failure);
+                block.add(failure);
             }
-            section.add(serviceBlock);
+            section.add(block);
         }
 
         Button viewTopologyBtn = new Button("View in Topology", VaadinIcon.CLUSTER.create());
-        viewTopologyBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        viewTopologyBtn.addClickListener(e -> {
-            clusterContext.setNamespace(namespace);
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            userService.updateActiveNamespace(username, namespace);
-            ui.navigate(TopologiaView.class);
-        });
+        viewTopologyBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        viewTopologyBtn.addClickListener(e -> navigateToTopology(namespace, ui));
         section.add(viewTopologyBtn);
 
-        if (result.isFullSuccess()) {
-            clusterContext.setNamespace(namespace);
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            userService.updateActiveNamespace(username, namespace);
-            ui.navigate(TopologiaView.class);
-        }
+        if (result.isFullSuccess()) navigateToTopology(namespace, ui);
     }
 
-    // --- Navigation ---
+    private void navigateToTopology(String namespace, UI ui) {
+        clusterContext.setNamespace(namespace);
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.updateActiveNamespace(username, namespace);
+        ui.navigate(TopologiaView.class);
+    }
 
     private void navigateNext() {
-        if (currentStep == 1) {
-            fetchAndParse();
-        } else if (currentStep == 2) {
-            renderStep(3);
-        }
+        if (currentStep == 1) fetchAndParse();
+        else if (currentStep == 2) renderStep(3);
     }
 
     private void navigateBack() {
@@ -647,7 +608,6 @@ public class ImportComposeWizard extends VerticalLayout {
         if (!validateStep1()) return;
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
-
         UI ui = UI.getCurrent();
         Thread.ofVirtual().start(() -> {
             try {
@@ -671,42 +631,33 @@ public class ImportComposeWizard extends VerticalLayout {
         });
     }
 
-    // --- Request building ---
-
     private ComposeImportRequest buildImportRequest() {
-        List<ComposeImportRequest.ServiceConfig> serviceConfigs = new ArrayList<>();
+        List<ComposeImportRequest.ServiceConfig> configs = new ArrayList<>();
         for (ComposeDocument.ParsedService service : parsedDocument.services()) {
-            String image = resolveImage(service);
-            List<ComposeImportRequest.VolumeConfig> volumes = buildVolumeConfigs(service);
-            serviceConfigs.add(new ComposeImportRequest.ServiceConfig(service.name(), image, volumes));
+            String image = imageFieldsByService.containsKey(service.name())
+                    ? imageFieldsByService.get(service.name()).getValue()
+                    : (service.image() != null ? service.image() : service.name() + ":latest");
+            List<ComposeImportRequest.VolumeConfig> volumes = new ArrayList<>();
+            for (ComposeDocument.VolumeEntry volume : service.namedVolumes()) {
+                String sc = Optional.ofNullable(storageClassFieldsByServiceVolume.get(service.name()))
+                        .map(m -> m.get(volume.name())).map(ComboBox::getValue).orElse("");
+                int size = Optional.ofNullable(storageSizeFieldsByServiceVolume.get(service.name()))
+                        .map(m -> m.get(volume.name())).map(IntegerField::getValue).orElse(1);
+                volumes.add(new ComposeImportRequest.VolumeConfig(volume.name(), volume.mountPath(), sc, size));
+            }
+            configs.add(new ComposeImportRequest.ServiceConfig(service.name(), image, volumes));
         }
-        return new ComposeImportRequest(namespaceField.getValue().trim(), serviceConfigs);
+        return new ComposeImportRequest(namespaceField.getValue().trim(), configs);
     }
 
-    private String resolveImage(ComposeDocument.ParsedService service) {
-        if (imageFieldsByService.containsKey(service.name())) {
-            return imageFieldsByService.get(service.name()).getValue();
-        }
-        return service.image() != null ? service.image() : service.name() + ":latest";
+    private String resolveRepoBuildContext(String composePath, String buildContext) {
+        String composeDir = composePath.contains("/")
+                ? composePath.substring(0, composePath.lastIndexOf('/')) : "";
+        String cleaned = buildContext.startsWith("./") ? buildContext.substring(2) : buildContext;
+        while (cleaned.startsWith("/")) cleaned = cleaned.substring(1);
+        if (cleaned.isEmpty() || ".".equals(cleaned)) return composeDir;
+        return composeDir.isEmpty() ? cleaned : composeDir + "/" + cleaned;
     }
-
-    private List<ComposeImportRequest.VolumeConfig> buildVolumeConfigs(ComposeDocument.ParsedService service) {
-        List<ComposeImportRequest.VolumeConfig> result = new ArrayList<>();
-        for (ComposeDocument.VolumeEntry volume : service.namedVolumes()) {
-            String sc = Optional.ofNullable(storageClassFieldsByServiceVolume.get(service.name()))
-                    .map(m -> m.get(volume.name()))
-                    .map(ComboBox::getValue)
-                    .orElse("");
-            int size = Optional.ofNullable(storageSizeFieldsByServiceVolume.get(service.name()))
-                    .map(m -> m.get(volume.name()))
-                    .map(IntegerField::getValue)
-                    .orElse(1);
-            result.add(new ComposeImportRequest.VolumeConfig(volume.name(), volume.mountPath(), sc, size));
-        }
-        return result;
-    }
-
-    // --- Utilities ---
 
     private void loadStorageClasses() {
         Cluster cluster = clusterContext.getCluster();
@@ -730,9 +681,7 @@ public class ImportComposeWizard extends VerticalLayout {
     }
 
     private void stopPolling() {
-        if (pollTask != null && !pollTask.isDone()) {
-            pollTask.cancel(false);
-        }
+        if (pollTask != null && !pollTask.isDone()) pollTask.cancel(false);
     }
 
     @Override
@@ -756,17 +705,14 @@ public class ImportComposeWizard extends VerticalLayout {
                 .set("padding", "var(--lumo-space-m)");
     }
 
-    private String volumeDisplay(String volumeName) {
-        return volumeName.length() > 20 ? volumeName.substring(0, 20) + "…" : volumeName;
+    private String volumeDisplay(String name) {
+        return name.length() > 20 ? name.substring(0, 20) + "…" : name;
     }
 
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
+    private boolean isBlank(String value) { return value == null || value.isBlank(); }
 
     private void showError(String message) {
-        Notification notification = Notification.show(
-                message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
-        notification.addThemeVariants(NotificationVariant.LUMO_ERROR);
+        Notification n = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
+        n.addThemeVariants(NotificationVariant.LUMO_ERROR);
     }
 }

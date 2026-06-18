@@ -675,3 +675,16 @@
 - Problema geral de `nodeAffinity` da StorageClass (afeta qualquer PVC) registrado no backlog como candidato de substituição por `local-path-provisioner`; ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap
 - Validado ponta a ponta no `greencap-demo`: `cluster-provision.sh` roda do zero e idempotente (PVC `unchanged`, patch `no change`); push de imagens de teste via port-forward; após `minikube stop`/`start -p greencap-demo`, pod do registry voltou no mesmo node e os 3 repositories continuaram visíveis
 - Issue: `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`
+
+### Sprint 73 ✅ — Container Registry: Build & push de imagem via Kaniko a partir de Git Repository público
+
+- `docs/adr/0007-build-via-kaniko-job-git-context.md` (novo): Build executado como `Job` Kaniko (`gcr.io/kaniko-project/executor`) criado pelo GreenCap via Fabric8 no Namespace `greencap-system` (criado sob demanda), mesmo padrão de `WorkloadService.triggerCronJob`; contexto de build via suporte nativo do Kaniko a Git (`--context=git://<host>/<owner>/<repo>.git#refs/heads/<branch>`, sem upload/ConfigMap/PVC); push para o Registry interno via DNS do cluster (`registry.kube-system.svc.cluster.local:80`, porta do Service que mapeia para a porta 5000 do container — corrigido durante o aceite, estava `:5000`); Job efêmero (`ttlSecondsAfterFinished=600`), sem histórico persistido; apenas repositórios públicos
+- `CONTEXT.md`: termo `Registry` atualizado; novos termos `Build` e `Git Repository`
+- `kubernetes/dto/BuildRequest`/`BuildProgress` (novos)
+- `RegistryService`: `startBuild` + `getBuildProgress` + helpers cobertos por `RegistryServiceTest`
+- `Permission.GLOBAL_REGISTRY_BUILD` (novo, ADMIN/OPERATOR): `V23__add_registry_build_permission.sql`
+- `RegistryView`: botão "Build Image" abre diálogo com Git Repository URL, Branch, Context path, Dockerfile path, Repository e Tag
+- `BuildLogsView` (nova, rota `registry/build/:jobName`): log ao vivo com polling de 3s, pausar/retomar
+- Fix no aceite: prefixo `git://` no `--context`; `fetchTagInfo` aceita manifesto OCI além de Docker v2
+- Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app`
+- Issue: `.scratch/archive/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`

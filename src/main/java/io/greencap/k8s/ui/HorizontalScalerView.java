@@ -250,13 +250,13 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         maxField.setStepButtonsVisible(true);
 
         Button saveBtn = new Button("Save");
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Edit Limits — " + hpa.name());
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         saveBtn.addClickListener(e -> {
             int min = minField.getValue() != null ? minField.getValue() : 1;

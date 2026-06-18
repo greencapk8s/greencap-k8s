@@ -1,6 +1,6 @@
 ---
 title: Parser de docker-compose.yml a partir de Git Repository
-status: open
+status: done
 sprint: 83
 ---
 

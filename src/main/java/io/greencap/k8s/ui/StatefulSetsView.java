@@ -250,7 +250,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         replicasField.setStepButtonsVisible(true);
 
         Button scaleBtn = new Button("Scale");
-        scaleBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        scaleBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         scaleBtn.setEnabled(false);
         replicasField.addValueChangeListener(e ->
                 scaleBtn.setEnabled(e.getValue() != null && e.getValue() != statefulSet.desired()));
@@ -259,7 +259,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         dialog.setHeaderTitle("Scale — " + statefulSet.name());
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         scaleBtn.addClickListener(e -> {
             dialog.close();
@@ -284,10 +284,10 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         Paragraph message = new Paragraph("Restart " + statefulSet.name() + "? Pods will be replaced one by one, in reverse ordinal order.");
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         Button restartBtn = new Button("Restart");
-        restartBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        restartBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
         restartBtn.addClickListener(e -> {
             dialog.close();
             Cluster cluster = clusterContext.getCluster();
@@ -334,10 +334,10 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         Paragraph message = new Paragraph("Roll back " + statefulSet.name() + " to the previous revision?");
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         Button undoBtn = new Button("Rollback");
-        undoBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        undoBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
         undoBtn.addClickListener(e -> {
             dialog.close();
             Cluster cluster = clusterContext.getCluster();

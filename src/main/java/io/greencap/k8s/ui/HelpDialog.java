@@ -22,7 +22,7 @@ class HelpDialog {
         }
 
         Button closeBtn = new Button("Close", e -> dialog.close());
-        closeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        closeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         dialog.add(content);
         dialog.getFooter().add(closeBtn);

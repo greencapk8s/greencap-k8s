@@ -199,7 +199,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
         dialog.add(form);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         Button createBtn = new Button("Create", e -> {
             String name = nameField.getValue().trim();
@@ -225,7 +225,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
         });
-        createBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        createBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         dialog.getFooter().add(cancelBtn, createBtn);
         dialog.open();
@@ -260,7 +260,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
         dialog.add(content);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
-        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         Button deleteBtn = new Button("Delete", e -> {
             Cluster cluster = clusterContext.getCluster();

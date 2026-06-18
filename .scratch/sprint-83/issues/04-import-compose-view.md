@@ -1,6 +1,6 @@
 ---
 title: ImportComposeView — wizard 3 passos integrado ao DeployApplicationView
-status: open
+status: done
 sprint: 83
 ---
 

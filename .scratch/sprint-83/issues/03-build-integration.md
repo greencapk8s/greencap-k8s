@@ -1,6 +1,6 @@
 ---
 title: Integração com Build Kaniko para serviços com `build:`
-status: open
+status: done
 sprint: 83
 ---
 

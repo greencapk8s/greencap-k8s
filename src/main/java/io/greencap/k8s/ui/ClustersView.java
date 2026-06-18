@@ -176,9 +176,10 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
             refreshGrid();
             notify("Cluster " + cluster.getName() + " removed", NotificationVariant.LUMO_SUCCESS);
         });
-        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR);
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         dialog.getFooter().add(cancelBtn, confirmBtn);
         dialog.open();
@@ -253,7 +254,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         });
 
         Button saveBtn = new Button("Save");
-        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         providerSelect.addValueChangeListener(e -> {
             boolean isOpenShift = e.getValue() == ClusterProvider.OpenShift;
@@ -306,6 +307,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         });
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         dialog.getFooter().add(cancelBtn, saveBtn);
         dialog.open();

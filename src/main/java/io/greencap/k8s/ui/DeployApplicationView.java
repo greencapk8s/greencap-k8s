@@ -8,7 +8,6 @@ import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H4;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
@@ -33,11 +32,8 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.DeployApplicationService;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NetworkingService;
-import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
-import io.greencap.k8s.kubernetes.compose.ComposeParser;
-import io.greencap.k8s.kubernetes.compose.ImportComposeService;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
@@ -65,14 +61,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
     private final RegistryService registryService;
     private final StorageService storageService;
     private final NetworkingService networkingService;
-    private final ObservabilityService observabilityService;
-    private final ComposeParser composeParser;
-    private final ImportComposeService importComposeService;
     private final UserService userService;
-
-    private enum DeployMode { IMAGE, COMPOSE }
-    private DeployMode activeMode = DeployMode.IMAGE;
-    private ImportComposeWizard importComposeWizard;
 
     // Step 1
     private final TextField namespaceField = new TextField("Application name");
@@ -111,18 +100,12 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                                   RegistryService registryService,
                                   StorageService storageService,
                                   NetworkingService networkingService,
-                                  ObservabilityService observabilityService,
-                                  ComposeParser composeParser,
-                                  ImportComposeService importComposeService,
                                   UserService userService) {
         this.clusterContext = clusterContext;
         this.deployApplicationService = deployApplicationService;
         this.registryService = registryService;
         this.storageService = storageService;
         this.networkingService = networkingService;
-        this.observabilityService = observabilityService;
-        this.composeParser = composeParser;
-        this.importComposeService = importComposeService;
         this.userService = userService;
         initLayout();
         initFields();
@@ -141,56 +124,16 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
 
     private HorizontalLayout buildModeSelector() {
         Button imageBtn = new Button("Deploy from image", VaadinIcon.ROCKET.create());
-        Button composeBtn = new Button("Import Compose", VaadinIcon.FILE_CODE.create());
+        Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
 
-        imageBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-        composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        imageBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
-        imageBtn.addClickListener(e -> {
-            if (activeMode == DeployMode.IMAGE) return;
-            activeMode = DeployMode.IMAGE;
-            imageBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            imageBtn.removeThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            composeBtn.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            showImageWizard();
-        });
-
-        composeBtn.addClickListener(e -> {
-            if (activeMode == DeployMode.COMPOSE) return;
-            activeMode = DeployMode.COMPOSE;
-            composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            composeBtn.removeThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-            imageBtn.removeThemeVariants(ButtonVariant.LUMO_PRIMARY);
-            showComposeWizard();
-        });
+        composeBtn.addClickListener(e -> UI.getCurrent().navigate(ImportComposeView.class));
 
         HorizontalLayout selector = new HorizontalLayout(imageBtn, composeBtn);
         selector.setSpacing(true);
         return selector;
-    }
-
-    private void showImageWizard() {
-        stepIndicatorRow.setVisible(true);
-        stepContent.setVisible(true);
-        if (importComposeWizard != null) importComposeWizard.setVisible(false);
-        renderStep(1);
-    }
-
-    private void showComposeWizard() {
-        stepIndicatorRow.setVisible(false);
-        stepContent.setVisible(false);
-        backButton.setVisible(false);
-        nextButton.setVisible(false);
-        deployButton.setVisible(false);
-        if (importComposeWizard == null) {
-            importComposeWizard = new ImportComposeWizard(
-                    clusterContext, composeParser, importComposeService,
-                    registryService, observabilityService, storageService, userService);
-            add(importComposeWizard);
-        }
-        importComposeWizard.setVisible(true);
     }
 
     private void initLayout() {
@@ -199,16 +142,16 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         setMaxWidth("820px");
         setWidthFull();
 
-        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         backButton.addClickListener(e -> navigateBack());
         backButton.setVisible(false);
 
         nextButton.setIconAfterText(true);
-        nextButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        nextButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         nextButton.addClickListener(e -> navigateNext());
 
         deployButton.setIconAfterText(true);
-        deployButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        deployButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         deployButton.addClickListener(e -> onDeploy());
         deployButton.setVisible(false);
 
@@ -223,7 +166,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         stepIndicatorRow.setWidthFull();
         stepIndicatorRow.setSpacing(true);
 
-        add(new H2("Deploy Application"), buildModeSelector(), stepIndicatorRow, stepContent, footer);
+        add(buildModeSelector(), stepIndicatorRow, stepContent, footer);
     }
 
     private void initFields() {
@@ -303,7 +246,6 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
             int step = i + 1;
             Span badge = new Span(step + ". " + STEP_LABELS[i]);
             badge.getElement().getThemeList().add("badge");
-            badge.getElement().getThemeList().add("small");
             if (step == currentStep) {
                 badge.getElement().getThemeList().add("primary");
             } else if (step < currentStep) {

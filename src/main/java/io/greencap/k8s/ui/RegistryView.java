@@ -113,7 +113,7 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
             return List.of();
         }
         Button buildBtn = new Button("Build Image", VaadinIcon.HAMMER.create(), e -> openBuildDialog());
-        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         return List.of(buildBtn);
     }
 
@@ -176,9 +176,10 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
         });
-        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        buildBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
         Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         dialog.getFooter().add(cancelBtn, buildBtn);
         dialog.open();
