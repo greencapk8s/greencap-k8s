@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 76 | Namespaces View — Global: listagem com contagens de recursos, Create e Delete Namespace | ✅ Concluído |
 | 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
 | 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 | 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
+| 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
 
 ---
 
@@ -86,6 +86,13 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
+
+- `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
+- `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
+- `EventsDialog` (events por recurso específico) não alterado — continua sem limite
+- Issue: `.scratch/sprint-86/issues/01-events-view-limit-selector.md`
 
 ### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
 
@@ -180,18 +187,6 @@
 - Fix: `DeployApplicationView.REGISTRY_INTERNAL_HOST` corrigido de `registry.kube-system.svc.cluster.local:80` para `localhost:5000` — DNS de cluster não é resolvível no nível do kubelet/Docker daemon do nó; `registry-proxy` (DaemonSet) expõe o registry em `localhost:5000` via `hostPort` em cada nó
 - `docs/adr/0009-deploy-application-sem-rastreamento.md` (novo)
 - Issues: `.scratch/sprint-75/issues/01-deploy-application-backend.md`, `02-deploy-application-wizard-ui.md`
-
-### Sprint 74 ✅ — Container Registry: Remove Repository e Remove Tags com multi-seleção
-
-- `docs/adr/0008-registry-remove-via-manifest-delete-and-gc.md` (novo): remoção de manifests por digest via `DELETE /v2/<repo>/manifests/<digest>` (idempotente — 404 = sucesso) + `registry garbage-collect /etc/distribution/config.yml --delete-untagged` no Pod do registry via Fabric8 `pods/exec` (primeiro uso de `pods/exec` no GreenCap; `REGISTRY_STORAGE_DELETE_ENABLED=true` já habilitado na imagem `registry:3.0.0`); "Remove Tags" não roda GC
-- `CONTEXT.md`: termos `Registry`, `Repository` e `Tag` atualizados mencionando as novas operações destrutivas e sua irreversibilidade
-- `Permission.GLOBAL_REGISTRY_DELETE` (novo, ADMIN/OPERATOR): `V24__add_registry_delete_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`; `UserManagementView` adiciona "Container Registry (Delete)" à treeview
-- `RegistryMaintenanceService` (novo, `io.greencap.k8s.kubernetes`): `deleteRepository(Cluster, repository)` — lista tags, deleta todos os digests únicos via `DELETE /v2/<repo>/manifests/<digest>`, roda GC via Fabric8 `pods/exec` aguardando exit code (timeout 60s, label `actual-registry=true` em `kube-system`, binário `/bin/registry`, config `/etc/distribution/config.yml`); `deleteTags(Cluster, repository, List<TagInfo>)` — deleta digests únicos sem GC; helper privado `RegistryConnection` (record `AutoCloseable`) encapsula `KubernetesClient` + `LocalPortForward` + `HttpClient` compartilhado entre os dois métodos
-- `UiConstants.buildSectionHeader` (7 args): novo overload que combina `extraLeadingButtons` (ordem: primeiro) + `buildSelectionButtons` — permite que `RegistryView` exiba "Build Image" antes de "Remove Repository" sem duplicar o layout do cabeçalho; overload de 6 args delega para o de 7 com `List.of()`
-- `RegistryView`: injeta `RegistryMaintenanceService` e `GridSelectionMemory`; `SelectionAction.destructive(VaadinIcon.TRASH, "Remove Repository", canDelete, ...)` no header; `openDeleteRepositoryDialog` com `ConfirmDialog` (texto com nome + contagem de tags + aviso de GC irrevogável); após confirmação: remoção otimista de `allItems` + registro em `deletedRepositoryNames` (filtra nos refreshes automáticos seguintes para evitar que o repositório volte durante o lag do GC); `configureSingleSelection` com `GridSelectionMemory` para restaurar a seleção ao voltar da tela de Tags; HELP_TEXT atualizado
-- `RegistryTagsView`: injeta `RegistryMaintenanceService`; `Grid.SelectionMode.MULTI` + botão "Remove Tags" (TRASH, LUMO_ERROR) visíveis apenas com `GLOBAL_REGISTRY_DELETE`; listener de seleção habilita/desabilita o botão; `openDeleteTagsDialog` com `ConfirmDialog` listando os nomes das tags selecionadas; HELP_TEXT atualizado com nota sobre storage liberado apenas no próximo GC
-- Validado ponta a ponta no `greencap-demo`: Remove Repository elimina repositório da listagem após confirmação (remoção otimista imediata, sem reaparecer nos refreshes seguintes); Remove Tags remove as tags selecionadas da grid; usuário VIEWER não vê nem botão Remove Repository nem checkboxes de multi-seleção
-- Issues: `.scratch/sprint-74/issues/01-remove-repository.md`, `02-remove-tags-multi-selection.md`
 
 ---
 

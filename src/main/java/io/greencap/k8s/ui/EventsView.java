@@ -3,9 +3,12 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
+import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.select.Select;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -34,8 +37,12 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
     private final ObservabilityService observabilityService;
     private final ClusterContext clusterContext;
 
+    private static final String LIMIT_ALL = "All";
+    private static final String DEFAULT_LIMIT = "100";
+
     private final Grid<EventInfo> eventGrid = new Grid<>(EventInfo.class, false);
     private final VerticalLayout noClusterMessage;
+    private final Select<String> limitSelect = new Select<>();
 
     private final List<EventInfo> allItems = new ArrayList<>();
     private final ListDataProvider<EventInfo> dataProvider = new ListDataProvider<>(allItems);
@@ -50,7 +57,9 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
         noClusterMessage = UiConstants.buildNoClusterMessage();
         buildEventGrid();
 
-        add(UiConstants.buildSectionHeader("Events", this::loadEvents, HELP_TITLE, HELP_TEXT), noClusterMessage, eventGrid);
+        HorizontalLayout header = UiConstants.buildSectionHeader("Events", this::loadEvents, HELP_TITLE, HELP_TEXT);
+        header.addComponentAtIndex(1, buildLimitControl());
+        add(header, noClusterMessage, eventGrid);
     }
 
     @Override
@@ -115,7 +124,7 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
         if (clusterContext.getCluster() == null) return false;
         try {
             List<EventInfo> items = observabilityService.listEvents(
-                    clusterContext.getCluster(), clusterContext.getNamespace());
+                    clusterContext.getCluster(), clusterContext.getNamespace(), parseLimit());
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();
@@ -126,6 +135,28 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
             dataProvider.refreshAll();
             return false;
         }
+    }
+
+    private HorizontalLayout buildLimitControl() {
+        limitSelect.setItems("50", "100", "200", "500", LIMIT_ALL);
+        limitSelect.setValue(DEFAULT_LIMIT);
+        limitSelect.getElement().getThemeList().add("small");
+        limitSelect.setWidth("90px");
+        limitSelect.addValueChangeListener(e -> loadEvents());
+
+        Span label = new Span("Show:");
+        label.getStyle().set("font-size", "var(--lumo-font-size-s)").set("color", "var(--lumo-secondary-text-color)");
+
+        HorizontalLayout control = new HorizontalLayout(label, limitSelect);
+        control.setAlignItems(FlexComponent.Alignment.CENTER);
+        control.setSpacing(false);
+        control.getStyle().set("gap", "var(--lumo-space-xs)");
+        return control;
+    }
+
+    private int parseLimit() {
+        String value = limitSelect.getValue();
+        return LIMIT_ALL.equals(value) ? 0 : Integer.parseInt(value);
     }
 
     private Span typeBadge(String type) {
@@ -144,7 +175,7 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
         if (clusterContext.getCluster() == null) return;
         try {
             List<EventInfo> items = observabilityService.listEvents(
-                    clusterContext.getCluster(), clusterContext.getNamespace());
+                    clusterContext.getCluster(), clusterContext.getNamespace(), parseLimit());
             allItems.clear();
             allItems.addAll(items);
             dataProvider.refreshAll();

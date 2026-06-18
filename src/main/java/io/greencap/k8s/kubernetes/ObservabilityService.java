@@ -67,7 +67,7 @@ public class ObservabilityService {
         }
     }
 
-    public List<EventInfo> listEvents(Cluster cluster, String namespace) {
+    public List<EventInfo> listEvents(Cluster cluster, String namespace, int limit) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {
 
@@ -77,7 +77,7 @@ public class ObservabilityService {
 
             log.debug("Found {} events in namespace '{}' for cluster '{}'", items.size(), namespace, cluster.getName());
 
-            return items.stream()
+            var stream = items.stream()
                     .sorted(Comparator.comparing(
                             (Event e) -> Optional.ofNullable(e.getLastTimestamp()).orElse(""),
                             Comparator.reverseOrder()))
@@ -90,8 +90,8 @@ public class ObservabilityService {
                             NamespaceService.age(
                                     Optional.ofNullable(e.getLastTimestamp())
                                             .orElse(e.getMetadata().getCreationTimestamp()))
-                    ))
-                    .toList();
+                    ));
+            return (limit > 0 ? stream.limit(limit) : stream).toList();
         } catch (Exception e) {
             log.error("Failed to list events for cluster {}: {}", cluster.getName(), e.getMessage());
             throw new KubernetesOperationException("Failed to list events: " + e.getMessage(), e);
