@@ -25,6 +25,10 @@ PF_PID=""
 cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
+echo ""
+echo -e "${GREEN}${BOLD}  GreenCap K8s — Setup${RESET}"
+echo ""
+
 # ─── Auto-install helpers (Linux only) ────────────────────────────────────────
 SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
