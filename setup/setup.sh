@@ -25,25 +25,86 @@ PF_PID=""
 cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
 trap cleanup EXIT
 
+# ─── Auto-install helpers (Linux only) ────────────────────────────────────────
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+
+install_docker() {
+  echo "    Installing Docker via get.docker.com..."
+  curl -fsSL https://get.docker.com | $SUDO sh
+  $SUDO systemctl enable --now docker
+  $SUDO usermod -aG docker "$USER" || true
+  ok "Docker installed — log out and back in if 'docker' commands fail without sudo"
+}
+
+install_kubectl() {
+  echo "    Installing kubectl..."
+  local version
+  version="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
+  curl -fsSLo /tmp/kubectl "https://dl.k8s.io/release/${version}/bin/linux/amd64/kubectl"
+  $SUDO install -o root -g root -m 0755 /tmp/kubectl /usr/local/bin/kubectl
+  rm -f /tmp/kubectl
+  ok "kubectl ${version} installed"
+}
+
+install_minikube() {
+  echo "    Installing minikube..."
+  curl -fsSLo /tmp/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+  $SUDO install /tmp/minikube /usr/local/bin/minikube
+  rm -f /tmp/minikube
+  ok "minikube installed"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 1: Checking requirements"
+
+MISSING_TOOLS=()
 
 check_cmd() {
   if command -v "$1" &>/dev/null; then
     ok "$1  →  $(command -v "$1")"
   else
-    echo -e "    ${RED}✗${RESET}  $1 not found  —  install: $2"
-    MISSING=true
+    echo -e "    ${RED}✗${RESET}  $1 not found"
+    MISSING_TOOLS+=("$1")
   fi
 }
 
-MISSING=false
-check_cmd docker   "https://docs.docker.com/engine/install/"
-check_cmd minikube "https://minikube.sigs.k8s.io/docs/start/"
-check_cmd kubectl  "https://kubernetes.io/docs/tasks/tools/"
-check_cmd openssl  "package: openssl (apt/brew)"
+check_cmd docker
+check_cmd minikube
+check_cmd kubectl
+check_cmd openssl
 
-[ "$MISSING" = true ] && fail "Install the missing tools above and re-run setup.sh"
+if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
+  echo ""
+  echo -e "    ${YELLOW}Missing: ${MISSING_TOOLS[*]}${RESET}"
+  echo ""
+
+  if [[ "$(uname -s)" != "Linux" ]]; then
+    fail "Auto-install is only supported on Linux. Install the missing tools manually and re-run."
+  fi
+
+  read -rp "    Install missing tools automatically? [y/N]: " AUTO_INSTALL
+  if [[ "${AUTO_INSTALL,,}" != "y" ]]; then
+    fail "Install the missing tools manually and re-run setup.sh"
+  fi
+
+  echo ""
+  for tool in "${MISSING_TOOLS[@]}"; do
+    case "$tool" in
+      docker)    install_docker   ;;
+      kubectl)   install_kubectl  ;;
+      minikube)  install_minikube ;;
+      openssl)   $SUDO apt-get install -y openssl && ok "openssl installed" ;;
+    esac
+  done
+
+  echo ""
+  echo "    Re-checking after install..."
+  for tool in "${MISSING_TOOLS[@]}"; do
+    command -v "$tool" &>/dev/null || fail "$tool installation failed — install manually and re-run"
+    ok "$tool  →  $(command -v "$tool")"
+  done
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 2: Installation profile"
