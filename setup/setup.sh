@@ -38,7 +38,19 @@ install_docker() {
   curl -fsSL https://get.docker.com | $SUDO sh
   $SUDO systemctl enable --now docker
   $SUDO usermod -aG docker "$USER" || true
-  ok "Docker installed — log out and back in if 'docker' commands fail without sudo"
+  ok "Docker installed — restarting setup with docker group active..."
+  exec sg docker -c "bash '$0'"
+}
+
+ensure_docker_accessible() {
+  if ! docker version &>/dev/null 2>&1; then
+    if ! groups | grep -qw docker; then
+      warn "Docker found but user is not in the docker group — adding..."
+      $SUDO usermod -aG docker "$USER"
+    fi
+    warn "Restarting setup with docker group active..."
+    exec sg docker -c "bash '$0'"
+  fi
 }
 
 install_kubectl() {
@@ -109,6 +121,8 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
     ok "$tool  →  $(command -v "$tool")"
   done
 fi
+
+ensure_docker_accessible
 
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 2: Installation profile"
