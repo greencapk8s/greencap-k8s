@@ -1,0 +1,20 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: greencap
+  namespace: greencap-platform
+  labels:
+    app.kubernetes.io/part-of: greencap-platform
+    app.kubernetes.io/component: greencap
+spec:
+  rules:
+    - host: greencap.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: greencap
+                port:
+                  number: 8080

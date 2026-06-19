@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: greencap
+  namespace: greencap-platform
+  labels:
+    app.kubernetes.io/part-of: greencap-platform
+    app.kubernetes.io/component: greencap
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: greencap
+  template:
+    metadata:
+      labels:
+        app: greencap
+        app.kubernetes.io/part-of: greencap-platform
+        app.kubernetes.io/component: greencap
+    spec:
+      containers:
+        - name: greencap
+          image: localhost:5000/greencap-platform/platform:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://greencap-db:5432/greencap
+            - name: SPRING_DATASOURCE_USERNAME
+              value: greencap
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: greencap-secrets
+                  key: DB_PASSWORD
+            - name: GREENCAP_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: greencap-secrets
+                  key: GREENCAP_ENCRYPTION_KEY
+            - name: VAADIN_PRODUCTION
+              value: "true"
+            - name: GREENCAP_SELF_CLUSTER_KUBECONFIG
+              valueFrom:
+                secretKeyRef:
+                  name: greencap-secrets
+                  key: GREENCAP_SELF_CLUSTER_KUBECONFIG
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 18

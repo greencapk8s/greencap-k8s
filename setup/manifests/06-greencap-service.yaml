@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: greencap
+  namespace: greencap-platform
+  labels:
+    app.kubernetes.io/part-of: greencap-platform
+    app.kubernetes.io/component: greencap
+spec:
+  selector:
+    app: greencap
+  ports:
+    - port: 8080
+      targetPort: 8080
