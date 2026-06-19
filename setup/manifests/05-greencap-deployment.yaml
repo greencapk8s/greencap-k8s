@@ -48,6 +48,13 @@ spec:
                 secretKeyRef:
                   name: greencap-secrets
                   key: GREENCAP_SELF_CLUSTER_KUBECONFIG
+          resources:
+            requests:
+              cpu: 256m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
           readinessProbe:
             httpGet:
               path: /actuator/health
