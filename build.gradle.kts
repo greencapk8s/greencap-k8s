@@ -8,7 +8,34 @@ plugins {
 }
 
 group = "io.greencap"
-version = "0.1.76-rc"
+
+fun detectBranch(): String =
+    (System.getenv("GITHUB_REF_NAME") ?: System.getenv("GIT_BRANCH"))
+        ?: runCatching {
+            ProcessBuilder("git", "rev-parse", "--abbrev-ref", "HEAD")
+                .redirectErrorStream(true)
+                .start().inputStream.bufferedReader().readLine()?.trim()
+        }.getOrNull()
+        ?: "unknown"
+
+fun lastGitTag(fallback: String): String = runCatching {
+    ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
+        .redirectErrorStream(true)
+        .start().inputStream.bufferedReader().readLine()
+        ?.trim()
+        ?.removePrefix("v")
+        ?: fallback
+}.getOrElse { fallback }
+
+val baseVersion = project.property("version.base") as String
+val rcIteration = project.property("version.rc") as String
+val branch = detectBranch()
+
+version = when (branch) {
+    "main"    -> lastGitTag(fallback = baseVersion)
+    "staging" -> "$baseVersion-rc.$rcIteration"
+    else      -> "$baseVersion-dev"
+}
 
 java {
     toolchain {
