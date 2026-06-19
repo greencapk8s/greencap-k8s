@@ -208,18 +208,28 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                         preferred = names.isEmpty() ? null : names.get(0);
                     }
 
-                    suppressNavigation = true;
+                    // Push 1: send items so the client populates its item cache
                     namespaceCombo.setItems(names);
                     namespaceCombo.setPlaceholder("Select...");
                     namespaceCombo.setEnabled(true);
                     if (preferred != null) {
-                        namespaceCombo.setValue(preferred);
                         clusterContext.setNamespace(preferred);
                     }
-                    suppressNavigation = false;
-
                     lastLoadedCluster = cluster;
                     setClusterReachable(true);
+
+                    // Push 2: set value in a separate push cycle so items are already
+                    // available on the client when the selection is applied.
+                    // Calling ui.access() from a new thread (not the current session thread)
+                    // guarantees a distinct push batch.
+                    if (preferred != null) {
+                        final String finalPreferred = preferred;
+                        Thread.ofVirtual().start(() -> ui.access(() -> {
+                            suppressNavigation = true;
+                            namespaceCombo.setValue(finalPreferred);
+                            suppressNavigation = false;
+                        }));
+                    }
                 });
             } catch (KubernetesOperationException e) {
                 ui.access(() -> {
@@ -329,7 +339,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         label.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
 
         namespaceCombo.setPlaceholder("Select...");
-        namespaceCombo.setWidth("180px");
+        namespaceCombo.setWidth("220px");
         namespaceCombo.getElement().getThemeList().add("small");
         namespaceCombo.addValueChangeListener(e -> {
             if (e.getValue() != null && !suppressNavigation) {

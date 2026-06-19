@@ -8,7 +8,6 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 77 | Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views | ✅ Concluído |
 | 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
@@ -18,6 +17,7 @@
 | 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 | 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
 | 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
+| 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
 
 ---
 
@@ -86,6 +86,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
+
+- `setup/setup.sh`: script idempotente em 7 etapas — verifica/instala ferramentas ausentes (docker, kubectl, minikube) com `sg docker` para ativar grupo sem logout; menu de perfil (Minimal/Recommended/Custom); inicia minikube com driver docker; habilita addons metrics-server, ingress e registry (PVC 8 Gi + nodeSelector para persistência); build + push da imagem via registry-proxy; cria Secret `greencap-secrets` com `DB_PASSWORD`, `GREENCAP_ENCRYPTION_KEY` e `GREENCAP_SELF_CLUSTER_KUBECONFIG`; aplica manifests e aguarda rollout; adiciona entrada `greencap.local` no `/etc/hosts` automaticamente se ausente
+- `setup/teardown.sh`: exige confirmação `yes` antes de deletar o profile minikube `greencap-platform`
+- `setup/manifests/`: 7 manifests Kubernetes — namespace, PVC Postgres (2 Gi), Deployment Postgres 16, Service ClusterIP `greencap-db`, Deployment GreenCap (imagePullPolicy Always), Service ClusterIP `greencap`, Ingress `greencap.local`
+- `DataInitializer`: auto-registra o cluster `greencap-platform` na primeira inicialização quando `GREENCAP_SELF_CLUSTER_KUBECONFIG` está definido; define como cluster e namespace ativos do admin
+- `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
+- `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
+- Issues: `.scratch/sprint-87/issues/` (2 issues, ambas `done`)
 
 ### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
 
@@ -173,20 +183,6 @@
 - `UserManagementView`: grupo "Namespaces" com as 3 permissões na treeview Global
 - `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace` detalhadas; `Global` atualizado para incluir Namespaces
 - Issue: `.scratch/sprint-76/issues/01-namespaces-view.md`
-
-### Sprint 75 ✅ — Deploy Application: wizard multi-step para criar Namespace + Deployment + Service + PVC + Ingress
-
-- `DeployApplicationService` (novo): cria Namespace → Deployment → Service → PVC → Ingress em sequência best-effort; falha parcial retorna `DeployApplicationResult` com recurso falho sem rollback (ver ADR 0009)
-- `DeployApplicationRequest` / `DeployApplicationResult` (novos DTOs em `kubernetes/dto/`)
-- `Permission.PROJECT_DEPLOY_APPLICATION` (novo, ADMIN/OPERATOR); `V25__add_deploy_application_permission.sql` concede a usuários com `GLOBAL_CLUSTERS_WRITE`
-- `NetworkingService.listIngressClassNames`: lista IngressClasses disponíveis no cluster via Fabric8
-- `DeployApplicationView`: wizard 6 passos (Name → Image & Port → Resources → Volume → External Access → Review); sugestões do Registry interno no `ComboBox` de imagem; StorageClass pré-selecionada com a default do cluster; host sugerido `<namespace>.greencap.local`; após sucesso navega para `TopologiaView` do novo Namespace
-- `DashboardView`: CTA "New Application" quando namespace não tem Deployments (visível apenas com permissão `PROJECT_DEPLOY_APPLICATION`)
-- `MainLayout`: item **"New Application"** com ícone `PLUS_CIRCLE` adicionado acima da seção PROJECT (renomeado de "Deploy Application", extraído para `SideNav` próprio, ícone diferenciado do Workloads/Deployments)
-- Fix: `PodLogsView` — polling para automaticamente ao receber `KubernetesOperationException` (ex: `ImagePullBackOff`, container em espera); exibe `[Polling stopped] <mensagem>` no corpo dos logs em vez de toast infinito a cada intervalo
-- Fix: `DeployApplicationView.REGISTRY_INTERNAL_HOST` corrigido de `registry.kube-system.svc.cluster.local:80` para `localhost:5000` — DNS de cluster não é resolvível no nível do kubelet/Docker daemon do nó; `registry-proxy` (DaemonSet) expõe o registry em `localhost:5000` via `hostPort` em cada nó
-- `docs/adr/0009-deploy-application-sem-rastreamento.md` (novo)
-- Issues: `.scratch/sprint-75/issues/01-deploy-application-backend.md`, `02-deploy-application-wizard-ui.md`
 
 ---
 

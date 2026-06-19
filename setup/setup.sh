@@ -324,6 +324,12 @@ if [ "$GENERATED_KEY" = true ]; then
   echo ""
 fi
 
-echo "    Add to /etc/hosts (run once with sudo):"
-echo "    echo \"$MINIKUBE_IP  greencap.local\" | sudo tee -a /etc/hosts"
+HOSTS_ENTRY="$MINIKUBE_IP  greencap.local  # GreenCap K8s — managed by setup.sh"
+if grep -q "greencap.local" /etc/hosts 2>/dev/null; then
+  ok "/etc/hosts already contains greencap.local — skipping"
+else
+  echo "    Adding greencap.local to /etc/hosts..."
+  echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null
+  ok "greencap.local → $MINIKUBE_IP added to /etc/hosts"
+fi
 echo ""

@@ -705,3 +705,19 @@
 - `DeployApplicationView` (nova, rota `/deploy`): wizard 6 passos (Name, Image & Port, Resources, Volume, External Access, Review); sugestões de StorageClass e IngressClass carregadas do cluster; sugestão de host `<namespace>.greencap.local`; execução assíncrona em thread virtual; em sucesso navega para Topologia
 - `Permission.PROJECT_DEPLOY_APPLICATION` (novo): `V25__add_deploy_application_permission.sql`
 - Issues: `.scratch/archive/sprint-75/issues/`
+
+
+### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
+
+- `NamespaceService`: `listNamespacesWithCounts()`, `createNamespace()`, `deleteNamespace()`; filtra namespaces em fase `Terminating` no combobox da navbar
+- `NamespacesView` (nova, rota `global/namespaces`): grid Name/Status/Pods/Deployments/Services/Age; Create com validação DNS; Delete type-to-confirm; system namespaces bloqueados; chama `MainLayout.refreshClusterState()` após operações
+- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE`; `V26__add_namespace_permissions.sql`
+- Issue: `.scratch/archive/sprint-76/issues/`
+
+### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
+
+- `TopologyService`: listagem de Ingresses via Fabric8; `ingressNode()` com ingressClass/hosts/TLS; `extractBackendServiceNames()`; `resourceViewUrl()` mapeia cada tipo para rota da view com `?name=`
+- `topology-graph.ts`: cor Ingress `#06B6D4`; cor de arestas `#64748B`; fcose separado da inicialização; `fixedNodeConstraint` desabilitado quando compound nodes presentes
+- `TopologyNodeDrawer`: bloco `isIngress` com Hosts, badge TLS, IngressClass; botão "Go to resource" substitui "Ver YAML"
+- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` instância; `beforeEnter` lê `?name=`
+- Issues: `.scratch/archive/sprint-77/issues/`

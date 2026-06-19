@@ -9,4 +9,6 @@ public interface ClusterRepository extends JpaRepository<Cluster, Long> {
     List<Cluster> findAllByOrderByCreatedAtDesc();
 
     List<Cluster> findByConnectionStatus(ConnectionStatus status);
+
+    boolean existsByName(String name);
 }
