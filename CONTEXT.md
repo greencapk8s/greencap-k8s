@@ -174,8 +174,20 @@ UI section within Global grouping cluster-scoped infrastructure resources. Curre
 _Avoid_: Admin, cluster resources, system
 
 **Project**:
-UI section in the sidebar grouping all views and operations scoped to the active Namespace within a Cluster. Contains Topology, Observability (Dashboard, Events, Metrics), Workloads, Networking, Parameters, Auto Scaling, and Storage. Distinct from Global (cluster-scoped, independent of Namespace) and Settings (GreenCap platform/user configuration).
+UI section in the sidebar grouping all views and operations scoped to the active Namespace within a Cluster. Contains Topology, Observability (Dashboard, Events, Metrics), Workloads, Networking, Parameters, Auto Scaling, Storage, and Helm. Distinct from Global (cluster-scoped, independent of Namespace) and Settings (GreenCap platform/user configuration).
 _Avoid_: Namespace view, Workspace
+
+**Helm**:
+UI subsection within Project grouping Helm-related views scoped to the active Namespace. Currently contains Releases. Positioned below Storage in the sidebar. Helm operations are executed via the Helm CLI binary embedded in the GreenCap runtime image, with the active Cluster's Kubeconfig written to a temporary file for each operation and deleted immediately after.
+_Avoid_: Package manager, charts section
+
+**HelmRelease**:
+A Helm release installed in the active Namespace — a named instance of a chart deployed to the cluster. Carries: name, chart name and version, app version, revision number, status, and installation timestamp. In GreenCap, displayed in a grid under Helm → Releases, scoped to the active Namespace. Selecting a release opens a detail drawer with three tabs: Notes (chart's post-install instructions), Values (user-supplied overrides as YAML), and Manifest (rendered Kubernetes resources as YAML). Supports one write operation: Uninstall. Protected by `PROJECT_HELM_VIEW`.
+_Avoid_: Chart, deployment, Helm chart
+
+**Uninstall (Helm)**:
+A write operation on a HelmRelease that removes all Kubernetes resources created by the release from the cluster (`helm uninstall`). Requires the user to type the release name in a confirmation dialog before proceeding — the blast radius is equivalent to deleting all resources the chart provisioned. Does not delete PersistentVolumeClaims by default (Helm's standard behavior). Protected by `PROJECT_HELM_UNINSTALL`.
+_Avoid_: Delete release, remove chart, helm delete
 
 **Observability**:
 UI subsection within Project grouping namespace-scoped monitoring views. Currently contains Dashboard (health overview), Events, and Metrics (PodMetric listing).

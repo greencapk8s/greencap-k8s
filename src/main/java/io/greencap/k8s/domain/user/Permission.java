@@ -7,6 +7,10 @@ public enum Permission {
     // Project — Deploy Application
     PROJECT_DEPLOY_APPLICATION,
 
+    // Project — Helm
+    PROJECT_HELM_VIEW,
+    PROJECT_HELM_UNINSTALL,
+
     // Project — Topology
     TOPOLOGY_VIEW,
 
@@ -114,7 +118,8 @@ public enum Permission {
                 GLOBAL_REGISTRY_VIEW, GLOBAL_REGISTRY_BUILD, GLOBAL_REGISTRY_DELETE,
                 SETTINGS_PLATFORM_VIEW,
                 DEVELOPER_EXPERIENCE_OPERATORS_VIEW, DEVELOPER_EXPERIENCE_OPERATORS_INSTALL,
-                DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL
+                DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL,
+                PROJECT_HELM_VIEW, PROJECT_HELM_UNINSTALL
         );
     }
 
@@ -135,7 +140,8 @@ public enum Permission {
                 GLOBAL_INFRASTRUCTURE_VIEW,
                 GLOBAL_REGISTRY_VIEW,
                 SETTINGS_PLATFORM_VIEW,
-                DEVELOPER_EXPERIENCE_OPERATORS_VIEW
+                DEVELOPER_EXPERIENCE_OPERATORS_VIEW,
+                PROJECT_HELM_VIEW
         );
     }
 }

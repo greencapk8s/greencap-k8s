@@ -71,6 +71,12 @@ install_minikube() {
   ok "minikube installed"
 }
 
+install_helm() {
+  echo "    Installing helm..."
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | $SUDO bash
+  ok "helm installed"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 1: Checking requirements"
 
@@ -88,6 +94,7 @@ check_cmd() {
 check_cmd docker
 check_cmd minikube
 check_cmd kubectl
+check_cmd helm
 check_cmd openssl
 
 if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
@@ -110,6 +117,7 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
       docker)    install_docker   ;;
       kubectl)   install_kubectl  ;;
       minikube)  install_minikube ;;
+      helm)      install_helm     ;;
       openssl)   $SUDO apt-get install -y openssl && ok "openssl installed" ;;
     esac
   done

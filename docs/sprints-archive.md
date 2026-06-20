@@ -735,3 +735,10 @@
 - `ClustersView`: substituído por `UiConstants.buildSectionHeader`; ações "Test Connection" e "Remove" como `SelectionAction`; coluna de ações inline removida; `GridSelectionMemory` com `configureSingleSelection`
 - `UserManagementView`: mesmo padrão; ações "Edit Permissions" e "Deactivate" como `SelectionAction`; proteções via early-exit
 - Issues: `.scratch/archive/sprint-79/issues/`
+
+### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
+
+- `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; `displayName()` retorna "Minikube (Docker)" / "OpenShift"
+- `ClustersView` dialog: aviso inline para OpenShift (não suportado), code block com `kubectl config view --flatten --minify` e botão de cópia
+- `CONTEXT.md`: `ClusterProvider` atualizado com valores reais
+- Issue: `.scratch/archive/sprint-80/issues/`

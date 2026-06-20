@@ -283,6 +283,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             add(bulkActions);
 
             add(buildSection("PROJECT", buildProjectGroups(initial)));
+            add(buildSection("HELM", buildHelmGroups(initial)));
             add(buildSection("GLOBAL", buildGlobalGroups(initial)));
             add(buildSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceGroups(initial)));
             add(buildSection("SETTINGS", buildSettingsGroups(initial)));
@@ -305,6 +306,15 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                 groupNodes.add(group);
             }
             return section;
+        }
+
+        private List<GroupNode> buildHelmGroups(Set<Permission> initial) {
+            List<GroupNode> groups = new ArrayList<>();
+            groups.add(buildGroup("Releases", new LinkedHashMap<>() {{
+                put("Releases (View)", Permission.PROJECT_HELM_VIEW);
+                put("Releases (Uninstall)", Permission.PROJECT_HELM_UNINSTALL);
+            }}, initial));
+            return groups;
         }
 
         private List<GroupNode> buildProjectGroups(Set<Permission> initial) {

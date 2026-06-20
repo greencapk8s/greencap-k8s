@@ -8,17 +8,16 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
 | 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
-| 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
-| 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
-| 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
-| 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
-| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
-| 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
-| 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
-| 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
 | 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
+| 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
+| 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
+| 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
+| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
+| 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
+| 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 
 ---
 
@@ -89,6 +88,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 90 ✅ — Helm Releases: listagem, detalhes e uninstall via Helm CLI
+
+- `HelmService`: executa operações Helm via `ProcessBuilder`; kubeconfig descriptografado gravado em tempfile com permissão `600` e deletado em `finally`; `listReleases` faz parse do `helm list -o json` via Jackson; `getReleaseDetails` executa `helm get notes/values/manifest` e agrega em `HelmReleaseDetails`; `uninstall` executa `helm uninstall`; `HelmOperationException` em falha de processo ou CLI ausente
+- DTOs: `HelmReleaseInfo` (name, namespace, chart, appVersion, revision, status, updated), `HelmReleaseDetails` (notes, values, manifest)
+- `HelmReleasesView` (rota `helm/releases`): grid com filtro embutido no header da coluna Name; badge de status (`deployed` → success, `failed` → error, demais → contrast); botões "Details" e "Uninstall" como `SelectionAction` no section header; dialog de detalhes com abas Notes/Values/Manifest em `Pre` monoespaçado, carregado async; dialog de uninstall type-to-confirm
+- `Dockerfile`: Helm `v4.2.2` baixado no builder stage, binário copiado para `/usr/local/bin/helm` no runtime stage
+- `setup.sh`: verifica e instala `helm` automaticamente junto com demais dependências
+- `Permission`: `PROJECT_HELM_VIEW` + `PROJECT_HELM_UNINSTALL`; `V30__add_helm_permissions.sql`
+- `MainLayout`: seção Helm com sub-item "Releases" abaixo de Storage em Project
+- `UserManagementView`: grupo "Helm" na treeview de permissões
+- `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
+- Issues: `.scratch/sprint-90/issues/` (4 issues, todas `done`)
 
 ### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
 
@@ -166,15 +178,6 @@
 - `ClusterServiceTest` (nova): 3 cenários — kubeconfig encriptado no banco nunca plaintext, `createdBy` populado a partir do `SecurityContext`, `markAsDisconnectedIfConnected` só altera clusters `CONNECTED`
 - `CLAUDE.md`: fluxo de sprint atualizado — compilar a cada mudança relevante; `./gradlew test` somente antes do fechamento da sprint
 - Issues: `.scratch/sprint-81/issues/` (5 issues)
-
-### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
-
-- `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; método `displayName()` retorna `"Minikube (Docker)"` / `"OpenShift"`
-- `V27__rename_provider_kubernetes_to_minikube_docker.sql`: DROP/re-ADD CHECK constraint; UPDATE `'Kubernetes'` → `'MinikubeDocker'` em linhas existentes
-- `ClustersView` grid: coluna Provider usa `displayName()` em vez de `.name()`
-- `ClustersView` dialog: Select usa `ItemLabelGenerator` com `displayName()`; default alterado para `MinikubeDocker`; ao selecionar OpenShift, exibe aviso inline `"OpenShift support is coming in a future release."` e desabilita o botão Save; code block escuro com `kubectl config view --flatten --minify` e botão de cópia via `navigator.clipboard.writeText`
-- `CONTEXT.md`: entrada `ClusterProvider` atualizada com os valores reais (`MinikubeDocker`, `OpenShift`)
-- Issue: `.scratch/sprint-80/issues/01-add-cluster-dialog-ux.md`
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 

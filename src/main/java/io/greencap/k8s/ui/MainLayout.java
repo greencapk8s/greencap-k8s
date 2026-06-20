@@ -505,10 +505,11 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem parameters  = buildConfigNavItem();
         SideNavItem autoScaling = buildAutoScalingNavItem();
         SideNavItem storage     = buildStorageNavItem();
+        SideNavItem helm        = buildHelmNavItem();
 
-        addIfEnabled(topologia, observability, workloads, networking, parameters, autoScaling, storage);
+        addIfEnabled(topologia, observability, workloads, networking, parameters, autoScaling, storage, helm);
 
-        nav.addItem(topologia, observability, workloads, autoScaling, networking, parameters, storage);
+        nav.addItem(topologia, observability, workloads, autoScaling, networking, parameters, storage, helm);
         return nav;
     }
 
@@ -559,6 +560,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem autoScaling = navItem("Auto Scaling", HorizontalScalerView.class, VaadinIcon.SCALE, canHpa);
         autoScaling.addItem(navItem("Horizontal Scaler", HorizontalScalerView.class, VaadinIcon.RESIZE_H, canHpa));
         return autoScaling;
+    }
+
+    private SideNavItem buildHelmNavItem() {
+        boolean canHelm = SecurityUtils.hasPermission(Permission.PROJECT_HELM_VIEW);
+
+        SideNavItem helm = navItem("Helm", HelmReleasesView.class, VaadinIcon.PACKAGE, canHelm);
+        helm.addItem(navItem("Releases", HelmReleasesView.class, VaadinIcon.LIST, canHelm));
+        return helm;
     }
 
     private SideNavItem buildStorageNavItem() {
