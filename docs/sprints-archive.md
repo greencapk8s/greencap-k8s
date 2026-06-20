@@ -742,3 +742,9 @@
 - `ClustersView` dialog: aviso inline para OpenShift (não suportado), code block com `kubectl config view --flatten --minify` e botão de cópia
 - `CONTEXT.md`: `ClusterProvider` atualizado com valores reais
 - Issue: `.scratch/archive/sprint-80/issues/`
+
+### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
+
+- `build.gradle.kts`: dependências TestContainers; H2 removido; `@ServiceConnection` auto-configura datasource
+- `PostgresIntegrationTest`: classe base estática compartilhada; `WorkloadServiceTest`, `NamespaceServiceTest`, `UserServiceTest`, `ClusterServiceTest`
+- Issues: `.scratch/archive/sprint-81/issues/`

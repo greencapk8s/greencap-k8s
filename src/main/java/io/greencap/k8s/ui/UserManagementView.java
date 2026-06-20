@@ -312,6 +312,8 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
             List<GroupNode> groups = new ArrayList<>();
             groups.add(buildGroup("Releases", new LinkedHashMap<>() {{
                 put("Releases (View)", Permission.PROJECT_HELM_VIEW);
+                put("Releases (Install)", Permission.PROJECT_HELM_INSTALL);
+                put("Releases (Upgrade)", Permission.PROJECT_HELM_UPGRADE);
                 put("Releases (Uninstall)", Permission.PROJECT_HELM_UNINSTALL);
             }}, initial));
             return groups;

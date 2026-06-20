@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.helm.HelmRepository;
+import io.greencap.k8s.domain.helm.HelmRepositoryService;
 import io.greencap.k8s.kubernetes.dto.HelmReleaseDetails;
 import io.greencap.k8s.kubernetes.dto.HelmReleaseInfo;
 import lombok.RequiredArgsConstructor;
@@ -26,9 +28,11 @@ public class HelmService {
 
     private static final String HELM_BINARY = "helm";
     private static final int TIMEOUT_SECONDS = 30;
+    private static final int INSTALL_TIMEOUT_SECONDS = 120;
 
     private final EncryptionService encryptionService;
     private final ObjectMapper objectMapper;
+    private final HelmRepositoryService helmRepositoryService;
 
     public List<HelmReleaseInfo> listReleases(Cluster cluster, String namespace) {
         Path kubeconfig = writeKubeconfig(cluster);
@@ -57,6 +61,71 @@ public class HelmService {
         }
     }
 
+    public String install(Cluster cluster, String namespace, String repoName, String chart,
+                          String version, String releaseName, String values) {
+        Path kubeconfig = writeKubeconfig(cluster);
+        Path valuesFile = values != null && !values.isBlank() ? writeValuesFile(values) : null;
+        try {
+            ensureRepos(kubeconfig, helmRepositoryService.listRepositories(cluster));
+
+            List<String> args = new ArrayList<>(List.of(
+                    "install", releaseName, repoName + "/" + chart,
+                    "--namespace", namespace,
+                    "--create-namespace"
+            ));
+            if (version != null && !version.isBlank()) {
+                args.addAll(List.of("--version", version));
+            }
+            if (valuesFile != null) {
+                args.addAll(List.of("-f", valuesFile.toAbsolutePath().toString()));
+            }
+
+            String output = execWithTimeout(kubeconfig, INSTALL_TIMEOUT_SECONDS, args.toArray(String[]::new));
+            log.info("Helm release {} installed in namespace {}", releaseName, namespace);
+            return output;
+        } catch (HelmOperationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to install Helm chart {}/{}: {}", repoName, chart, e.getMessage());
+            throw new HelmOperationException("Failed to install chart: " + e.getMessage(), e);
+        } finally {
+            deleteQuietly(kubeconfig);
+            deleteQuietly(valuesFile);
+        }
+    }
+
+    public void upgrade(Cluster cluster, String namespace, String releaseName, String chart,
+                        String version, String values) {
+        Path kubeconfig = writeKubeconfig(cluster);
+        Path valuesFile = values != null && !values.isBlank() ? writeValuesFile(values) : null;
+        try {
+            ensureRepos(kubeconfig, helmRepositoryService.listRepositories(cluster));
+
+            List<String> args = new ArrayList<>(List.of(
+                    "upgrade", releaseName, chart,
+                    "--namespace", namespace,
+                    "--reuse-values"
+            ));
+            if (version != null && !version.isBlank()) {
+                args.addAll(List.of("--version", version));
+            }
+            if (valuesFile != null) {
+                args.addAll(List.of("-f", valuesFile.toAbsolutePath().toString()));
+            }
+
+            execWithTimeout(kubeconfig, INSTALL_TIMEOUT_SECONDS, args.toArray(String[]::new));
+            log.info("Helm release {} upgraded in namespace {}", releaseName, namespace);
+        } catch (HelmOperationException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Failed to upgrade Helm release {}: {}", releaseName, e.getMessage());
+            throw new HelmOperationException("Failed to upgrade release: " + e.getMessage(), e);
+        } finally {
+            deleteQuietly(kubeconfig);
+            deleteQuietly(valuesFile);
+        }
+    }
+
     public void uninstall(Cluster cluster, String namespace, String name) {
         Path kubeconfig = writeKubeconfig(cluster);
         try {
@@ -69,6 +138,61 @@ public class HelmService {
             throw new HelmOperationException("Failed to uninstall release: " + e.getMessage(), e);
         } finally {
             deleteQuietly(kubeconfig);
+        }
+    }
+
+    private void ensureRepos(Path kubeconfig, List<HelmRepository> repos) {
+        if (repos.isEmpty()) return;
+        for (HelmRepository repo : repos) {
+            try {
+                exec(kubeconfig, "repo", "add", repo.getName(), repo.getUrl(), "--force-update");
+            } catch (HelmOperationException e) {
+                log.warn("Failed to add repo {}: {}", repo.getName(), e.getMessage());
+            }
+        }
+        execQuiet(kubeconfig, "repo", "update");
+    }
+
+    private Path writeValuesFile(String values) {
+        try {
+            Path path = Files.createTempFile("greencap-helm-values-", ".yaml");
+            Files.writeString(path, values);
+            return path;
+        } catch (Exception e) {
+            throw new HelmOperationException("Failed to write values file: " + e.getMessage(), e);
+        }
+    }
+
+    private String execWithTimeout(Path kubeconfig, int timeoutSeconds, String... args) {
+        try {
+            List<String> cmd = buildCommand(kubeconfig, args);
+            Process process = new ProcessBuilder(cmd)
+                    .redirectErrorStream(false)
+                    .start();
+
+            String stdout = new String(process.getInputStream().readAllBytes());
+            String stderr = new String(process.getErrorStream().readAllBytes());
+
+            boolean finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                throw new HelmOperationException("Helm command timed out after " + timeoutSeconds + "s");
+            }
+            if (process.exitValue() != 0) {
+                String message = stderr.isBlank() ? stdout : stderr;
+                throw new HelmOperationException("Helm command failed: " + message.trim());
+            }
+            return stdout;
+        } catch (HelmOperationException e) {
+            throw e;
+        } catch (IOException e) {
+            if (e.getMessage() != null && e.getMessage().contains("No such file")) {
+                throw new HelmOperationException("Helm CLI not found — ensure 'helm' is installed and available in PATH");
+            }
+            throw new HelmOperationException("Failed to execute Helm command: " + e.getMessage(), e);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new HelmOperationException("Helm command interrupted", e);
         }
     }
 

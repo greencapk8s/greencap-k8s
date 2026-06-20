@@ -131,10 +131,14 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
+        Button helmBtn = new Button("Deploy from Helm", VaadinIcon.PACKAGE.create());
+        helmBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
         dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
         composeBtn.addClickListener(e -> UI.getCurrent().navigate(ImportComposeView.class));
+        helmBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromHelmView.class));
 
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn);
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn);
         selector.setSpacing(true);
         return selector;
     }

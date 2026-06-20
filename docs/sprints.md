@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
 | 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
 | 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 | 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
 | 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
-| 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
 
 ---
 
@@ -88,6 +88,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
+
+- `HelmRepository` (entidade JPA, `HelmRepositoryRepository`, `HelmRepositoryService`): repos persistidos por cluster; `V31__create_helm_repositories.sql`
+- `HelmService.install()`: `--create-namespace` para criar namespace se ausente; `ensureRepos()` re-adiciona todos os repos antes de cada operação; `--reuse-values` no `upgrade()`
+- `HelmService.upgrade()`: aceita nova versão e values editados; re-adiciona repos antes da execução
+- `Permission.PROJECT_HELM_INSTALL/UPGRADE`; `V32__add_helm_install_upgrade_permissions.sql`
+- `HelmRepositoriesView` (rota `helm/repositories`): grid Name/URL; botão "Add Repository" no section header; `SelectionAction` Remove com `ConfirmDialog`; sub-item "Repositories" na seção Helm do sidebar
+- `DeployFromHelmView` (rota `deploy/helm`): 4º modo em New Application; wizard 3 passos (Chart → Config → Values & Install); Back como ícone puro; footer com spacer para alinhar Next/Install à direita; após install atualiza namespace ativo via `clusterContext.setNamespace` + `userService.updateActiveNamespace` e navega para `HelmReleasesView`
+- `HelmReleasesView`: `SelectionAction` Upgrade com dialog pré-preenchido com values atuais e campo de nova versão
+- `ObservabilityService.fetchPodLogs()`: guard para pods em fase `Pending` — retorna mensagem informativa imediatamente em vez de bloquear até timeout
+- `gradle.properties`: bump `0.7.1` → `0.7.2`
+- Issues: `.scratch/sprint-91/issues/` (6 issues, todas `done`)
 
 ### Sprint 90 ✅ — Helm Releases: listagem, detalhes e uninstall via Helm CLI
 
@@ -165,19 +178,6 @@
 - `docs/adr/0010-karibu-para-testes-de-views-vaadin.md` (novo): decisão de usar Karibu (in-memory, sem browser) em vez de Selenium/Playwright para cobrir lógica de orquestração de views
 - `CLAUDE.md`: fluxo de sprint atualizado — novo passo 6 (Testes) após o aceite manual, cobrindo as duas frentes: views Karibu e integração com `PostgresIntegrationTest`
 - Issue: `.scratch/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
-
-### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
-
-- `build.gradle.kts`: dependências TestContainers adicionadas (`spring-boot-testcontainers`, `postgresql`, `junit-jupiter`); H2 removido
-- `application-test.yaml`: configuração de datasource/H2/Flyway manual removida; mantida apenas a chave de encriptação — o `@ServiceConnection` do Spring Boot 3 auto-configura o datasource a partir do container
-- `GreenCapApplicationTests`: reescrito com `@Testcontainers` + `@ServiceConnection` + `PostgreSQLContainer("postgres:16")`; valida implicitamente que todas as migrations Flyway executam sem erro no PostgreSQL real
-- `PostgresIntegrationTest` (nova classe base): `@SpringBootTest(webEnvironment = MOCK)` + container estático compartilhado entre subclasses; `MOCK` necessário pois o `SpringBootAutoConfiguration` do Vaadin exige `WebApplicationContext`
-- `WorkloadServiceTest` (nova): 4 cenários com `@EnableKubernetesMockClient(crud = true)` — mapeamento de campos de `PodInfo`/`DeploymentInfo`, filtro por namespace vs. `"all"`, propagação de exceção Fabric8 como `KubernetesOperationException`
-- `NamespaceServiceTest` (nova): 4 cenários — filtro de namespaces em fase `Terminating`, contagens de recursos por namespace, criação de namespace, propagação de exceção
-- `UserServiceTest` (nova): 4 cenários — authorities corretas em `loadUserByUsername`, usuário inativo lança `UsernameNotFoundException`, senha armazenada como hash BCrypt nunca plaintext, usuário inexistente lança `UsernameNotFoundException`
-- `ClusterServiceTest` (nova): 3 cenários — kubeconfig encriptado no banco nunca plaintext, `createdBy` populado a partir do `SecurityContext`, `markAsDisconnectedIfConnected` só altera clusters `CONNECTED`
-- `CLAUDE.md`: fluxo de sprint atualizado — compilar a cada mudança relevante; `./gradlew test` somente antes do fechamento da sprint
-- Issues: `.scratch/sprint-81/issues/` (5 issues)
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 

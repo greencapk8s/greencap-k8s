@@ -48,6 +48,18 @@ public class ObservabilityService {
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {
 
             var podOp = client.pods().inNamespace(namespace).withName(podName);
+
+            // Pods in Pending phase have no running containers — skip the log API call
+            // to avoid blocking on a request that will hang until timeout
+            var pod = podOp.get();
+            if (pod != null) {
+                String phase = Optional.ofNullable(pod.getStatus())
+                        .map(s -> s.getPhase()).orElse("");
+                if ("Pending".equalsIgnoreCase(phase)) {
+                    return Optional.of("Pod is in Pending state — no logs available yet. Waiting for containers to start.");
+                }
+            }
+
             var containerOp = container != null && !container.isBlank()
                     ? podOp.inContainer(container)
                     : podOp;

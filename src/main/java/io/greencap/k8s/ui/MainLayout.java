@@ -567,6 +567,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         SideNavItem helm = navItem("Helm", HelmReleasesView.class, VaadinIcon.PACKAGE, canHelm);
         helm.addItem(navItem("Releases", HelmReleasesView.class, VaadinIcon.LIST, canHelm));
+        helm.addItem(navItem("Repositories", HelmRepositoriesView.class, VaadinIcon.BOOK, canHelm));
         return helm;
     }
 

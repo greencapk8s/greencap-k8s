@@ -178,12 +178,24 @@ UI section in the sidebar grouping all views and operations scoped to the active
 _Avoid_: Namespace view, Workspace
 
 **Helm**:
-UI subsection within Project grouping Helm-related views scoped to the active Namespace. Currently contains Releases. Positioned below Storage in the sidebar. Helm operations are executed via the Helm CLI binary embedded in the GreenCap runtime image, with the active Cluster's Kubeconfig written to a temporary file for each operation and deleted immediately after.
+UI subsection within Project grouping Helm-related views scoped to the active Namespace. Contains Releases and Repositories. Positioned below Storage in the sidebar. Helm operations are executed via the Helm CLI binary embedded in the GreenCap runtime image, with the active Cluster's Kubeconfig written to a temporary file for each operation and deleted immediately after. Before install or upgrade operations, GreenCap re-adds all HelmRepositories configured for the active Cluster to the Helm CLI environment.
 _Avoid_: Package manager, charts section
 
 **HelmRelease**:
-A Helm release installed in the active Namespace — a named instance of a chart deployed to the cluster. Carries: name, chart name and version, app version, revision number, status, and installation timestamp. In GreenCap, displayed in a grid under Helm → Releases, scoped to the active Namespace. Selecting a release opens a detail drawer with three tabs: Notes (chart's post-install instructions), Values (user-supplied overrides as YAML), and Manifest (rendered Kubernetes resources as YAML). Supports one write operation: Uninstall. Protected by `PROJECT_HELM_VIEW`.
+A Helm release installed in the active Namespace — a named instance of a chart deployed to the cluster. Carries: name, chart name and version, app version, revision number, status, and installation timestamp. In GreenCap, displayed in a grid under Helm → Releases, scoped to the active Namespace. Selecting a release opens a detail drawer with three tabs: Notes (chart's post-install instructions), Values (user-supplied overrides as YAML), and Manifest (rendered Kubernetes resources as YAML). Supports two write operations: Uninstall and Upgrade. Protected by `PROJECT_HELM_VIEW`.
 _Avoid_: Chart, deployment, Helm chart
+
+**HelmRepository**:
+A named Helm chart repository configured for a specific Cluster in GreenCap. Carries a name (used as the Helm repo alias, e.g. `bitnami`) and a URL (e.g. `https://charts.bitnami.com/bitnami`). Persisted per Cluster in the GreenCap database. Before any install or upgrade operation, GreenCap re-adds all configured HelmRepositories to the Helm CLI environment (`helm repo add`) and updates them (`helm repo update`). Managed via Helm → Repositories in the sidebar. Supports two operations: Add (registers a new repo) and Remove (deletes it from GreenCap and the Helm CLI environment).
+_Avoid_: Helm repo, chart source, registry
+
+**Deploy from Helm**:
+A wizard-guided write operation that installs a Helm chart as a new HelmRelease in the active Namespace. One of four deploy modes alongside Deploy Application, Import Compose, and Deploy from Dockerfile, accessible via the mode selector in the New Application section. The wizard runs in three steps: (1) Chart — select a configured HelmRepository, enter chart name and optional version (empty = latest); (2) Config — release name (auto-suggested from chart name) and namespace (pre-filled with active Namespace, editable); (3) Values & Install — optional YAML values override textarea, followed by inline output of `helm install` after confirmation. Protected by `PROJECT_HELM_INSTALL`.
+_Avoid_: Helm install, chart deploy
+
+**Upgrade (Helm)**:
+A write operation on a HelmRelease that updates the release with new values and/or a new chart version (`helm upgrade`). Triggered from Helm → Releases via a SelectionAction. Opens a dialog pre-filled with the release's current user-supplied values (from `helm get values`); the user edits the YAML and optionally specifies a new chart version. On confirmation, executes `helm upgrade <release> <chart> -f <values>`. Protected by `PROJECT_HELM_UPGRADE`.
+_Avoid_: Update release, redeploy, helm update
 
 **Uninstall (Helm)**:
 A write operation on a HelmRelease that removes all Kubernetes resources created by the release from the cluster (`helm uninstall`). Requires the user to type the release name in a confirmation dialog before proceeding — the blast radius is equivalent to deleting all resources the chart provisioned. Does not delete PersistentVolumeClaims by default (Helm's standard behavior). Protected by `PROJECT_HELM_UNINSTALL`.

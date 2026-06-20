@@ -14,6 +14,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -27,6 +28,7 @@ import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.HelmOperationException;
 import io.greencap.k8s.kubernetes.HelmService;
+import io.greencap.k8s.kubernetes.dto.HelmReleaseDetails;
 import io.greencap.k8s.kubernetes.dto.HelmReleaseDetails;
 import io.greencap.k8s.kubernetes.dto.HelmReleaseInfo;
 import jakarta.annotation.security.PermitAll;
@@ -75,9 +77,12 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
                 HelmReleaseInfo::name);
 
         boolean canUninstall = SecurityUtils.hasPermission(Permission.PROJECT_HELM_UNINSTALL);
+        boolean canUpgrade   = SecurityUtils.hasPermission(Permission.PROJECT_HELM_UPGRADE);
         List<UiConstants.SelectionAction<HelmReleaseInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.INFO_CIRCLE_O, "Details",
                         this::openDetailsDialog),
+                UiConstants.SelectionAction.of(VaadinIcon.UPLOAD, "Upgrade", canUpgrade,
+                        this::openUpgradeDialog),
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Uninstall", canUninstall,
                         this::openUninstallDialog)
         );
@@ -245,6 +250,75 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
                 });
             } catch (HelmOperationException e) {
                 ui.access(() -> notesContent.setText("Failed to load details: " + e.getMessage()));
+            }
+        }, UiConstants.VIRTUAL_THREADS);
+    }
+
+    private void openUpgradeDialog(HelmReleaseInfo release) {
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Upgrade — " + release.name());
+        dialog.setWidth("600px");
+
+        TextArea valuesArea = new TextArea("Values (YAML)");
+        valuesArea.setWidthFull();
+        valuesArea.setHeight("260px");
+        valuesArea.setValue("# Loading current values...");
+        valuesArea.setReadOnly(true);
+
+        TextField versionField = new TextField("New version (optional)");
+        versionField.setWidthFull();
+        versionField.setPlaceholder("Leave empty to keep current version");
+
+        VerticalLayout content = new VerticalLayout(valuesArea, versionField);
+        content.setPadding(false);
+        dialog.add(content);
+
+        Button confirmBtn = new Button("Upgrade", e -> {
+            Cluster cluster = clusterContext.getCluster();
+            String namespace = clusterContext.getNamespace();
+            if (cluster == null || namespace == null) return;
+            try {
+                helmService.upgrade(cluster, namespace, release.name(), release.chart(),
+                        versionField.getValue().trim().isBlank() ? null : versionField.getValue().trim(),
+                        valuesArea.getValue());
+                dialog.close();
+                loadReleases();
+                Notification.show("Release \"" + release.name() + "\" upgraded.",
+                        3000, Notification.Position.BOTTOM_END);
+            } catch (HelmOperationException ex) {
+                Notification n = Notification.show("Failed to upgrade: " + ex.getMessage(),
+                        UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
+                n.addThemeVariants(NotificationVariant.LUMO_ERROR);
+            }
+        });
+        confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        confirmBtn.setEnabled(false);
+
+        Button cancelBtn = new Button("Cancel", e -> dialog.close());
+        cancelBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+        dialog.getFooter().add(cancelBtn, confirmBtn);
+        dialog.open();
+
+        // Load current values async
+        Cluster cluster = clusterContext.getCluster();
+        String namespace = clusterContext.getNamespace();
+        if (cluster == null || namespace == null) return;
+        UI ui = UI.getCurrent();
+        CompletableFuture.runAsync(() -> {
+            try {
+                HelmReleaseDetails details = helmService.getReleaseDetails(cluster, namespace, release.name());
+                ui.access(() -> {
+                    valuesArea.setValue(details.values().isBlank() ? "# No custom values" : details.values());
+                    valuesArea.setReadOnly(false);
+                    confirmBtn.setEnabled(true);
+                });
+            } catch (HelmOperationException e) {
+                ui.access(() -> {
+                    valuesArea.setValue("# Failed to load values: " + e.getMessage());
+                    valuesArea.setReadOnly(false);
+                    confirmBtn.setEnabled(true);
+                });
             }
         }, UiConstants.VIRTUAL_THREADS);
     }
