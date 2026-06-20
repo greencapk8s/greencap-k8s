@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
@@ -89,6 +90,15 @@
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
 
+### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
+
+- `StorageService.deletePersistentVolume(Cluster, String)`: remove o PV via Fabric8 `client.persistentVolumes().withName(name).delete()`
+- `Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE`: nova permissão concedida a usuários com `GLOBAL_INFRASTRUCTURE_CORDON`; `V29__add_pv_delete_permission.sql`
+- `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
+- `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
+- `gradle.properties`: bump de `0.7.0` → `0.7.1`
+- Issues: `.scratch/sprint-89/issues/` (2 issues, ambas `done`)
+
 ### Sprint 88 ✅ — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
 
 - Seção **Developer Experience** adicionada ao sidebar do `MainLayout` (entre Global e Settings), com badge `beta` em fonte menor no item pai
@@ -165,12 +175,6 @@
 - `ClustersView` dialog: Select usa `ItemLabelGenerator` com `displayName()`; default alterado para `MinikubeDocker`; ao selecionar OpenShift, exibe aviso inline `"OpenShift support is coming in a future release."` e desabilita o botão Save; code block escuro com `kubectl config view --flatten --minify` e botão de cópia via `navigator.clipboard.writeText`
 - `CONTEXT.md`: entrada `ClusterProvider` atualizada com os valores reais (`MinikubeDocker`, `OpenShift`)
 - Issue: `.scratch/sprint-80/issues/01-add-cluster-dialog-ux.md`
-
-### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
-
-- `ClustersView`: `buildToolbar()` com `H2` removido; substituído por `UiConstants.buildSectionHeader` com H3 + botão "Add Cluster" (`LUMO_PRIMARY + LUMO_SMALL`) como extra leading button; ações "Test Connection" (`VaadinIcon.CONNECT`) e "Remove" (`VaadinIcon.TRASH`, destrutivo) movidas para `SelectionAction` no header (habilitadas pela seleção de linha); coluna de ações inline removida do grid; `GridSelectionMemory` injetado com `configureSingleSelection`; `refreshGrid()` retorna `boolean` para uso como `BooleanSupplier`; imports `H2` e `HorizontalLayout` removidos
-- `UserManagementView`: mesmo padrão — botão "Add User" (`LUMO_PRIMARY + LUMO_SMALL`); ações "Edit Permissions" (`VaadinIcon.EDIT`) e "Deactivate" (`VaadinIcon.BAN`, destrutivo) como `SelectionAction`; proteções antes feitas via botão desabilitado por linha passaram para early-exit com toast em `openEditPermissionsDialog` (admin padrão bloqueado) e `confirmDeactivate` (auto-desativação e usuário já inativo bloqueados); imports `H2` e `H4` removidos
-- Issues: `.scratch/sprint-79/issues/01-clusters-view-header-padrao.md`, `02-user-management-view-header-padrao.md`
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 

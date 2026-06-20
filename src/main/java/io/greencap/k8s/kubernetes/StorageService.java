@@ -209,6 +209,17 @@ public class StorageService {
         }
     }
 
+    public void deletePersistentVolume(Cluster cluster, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(
+                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+            client.persistentVolumes().withName(name).delete();
+            log.info("Deleted PersistentVolume {}", name);
+        } catch (Exception e) {
+            log.error("Failed to delete PersistentVolume {}: {}", name, e.getMessage());
+            throw new KubernetesOperationException("Failed to delete PersistentVolume: " + e.getMessage(), e);
+        }
+    }
+
     public void deletePersistentVolumeClaim(Cluster cluster, String namespace, String name) {
         try (KubernetesClient client = clientFactory.buildClient(
                 encryptionService.decrypt(cluster.getKubeconfigContent()))) {

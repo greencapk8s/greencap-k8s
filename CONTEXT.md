@@ -150,8 +150,12 @@ UI section grouping persistent storage resources visible in GreenCap. Currently 
 _Avoid_: Volumes, persistent storage, disks
 
 **PersistentVolume**:
-A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed read-only under Infrastructure in the Global section. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error).
+A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed under Infrastructure in the Global section. Supports one write operation: Delete. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error). Delete is blocked when the PV is `Bound` — the PVC must be deleted first to avoid orphaning it.
 _Avoid_: PV, disk, volume
+
+**Delete PersistentVolume**:
+A write operation that permanently removes a PersistentVolume from the cluster. Only available when the PV status is not `Bound` — attempting to delete a Bound PV is blocked in the UI to prevent orphaning the associated PersistentVolumeClaim. Confirmed via a simple confirmation dialog (no type-to-confirm). Protected by `GLOBAL_INFRASTRUCTURE_PV_DELETE`.
+_Avoid_: Remove PV, drop volume
 
 **StorageClass**:
 A cluster-scoped Kubernetes resource that defines how PersistentVolumes are dynamically provisioned (provisioner, reclaim policy, binding mode, expansion support). Not namespaced. In GreenCap, displayed read-only under Infrastructure in the Global section.

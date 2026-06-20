@@ -729,3 +729,9 @@
 - `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
 - `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
 - Issues: `.scratch/archive/sprint-78/issues/`
+
+### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
+
+- `ClustersView`: substituído por `UiConstants.buildSectionHeader`; ações "Test Connection" e "Remove" como `SelectionAction`; coluna de ações inline removida; `GridSelectionMemory` com `configureSingleSelection`
+- `UserManagementView`: mesmo padrão; ações "Edit Permissions" e "Deactivate" como `SelectionAction`; proteções via early-exit
+- Issues: `.scratch/archive/sprint-79/issues/`
