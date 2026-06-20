@@ -7,7 +7,7 @@ WORKDIR /app
 # Cache Gradle wrapper and dependency resolution separately from source code
 COPY gradlew ./
 COPY gradle ./gradle
-COPY build.gradle.kts settings.gradle.kts ./
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 RUN ./gradlew --no-daemon dependencies
 
 COPY . .
