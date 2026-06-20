@@ -178,8 +178,24 @@ UI subsection within Project grouping namespace-scoped monitoring views. Current
 _Avoid_: Monitoring, Telemetry
 
 **Global**:
-UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Namespaces, Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
+UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Namespaces, Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection), Developer Experience (tooling and learning aids), and Settings (GreenCap platform/user configuration, unrelated to any Cluster).
 _Avoid_: Cluster-wide, Admin
+
+**Developer Experience**:
+Top-level UI section in the sidebar grouping capabilities aimed at developers studying, building, and experimenting with Kubernetes. Peer to Global, Project, and Settings. Currently contains Kubernetes Operators. Planned to also contain Sample Catalog. Distinct from Global (cluster infrastructure resources) and Project (workloads scoped to a Namespace).
+_Avoid_: DevEx, tooling, learning
+
+**Kubernetes Operator**:
+A controller deployed to a Kubernetes cluster that extends the API with custom resources (CRDs) and automates the lifecycle of complex applications — databases, message queues, certificate managers, monitoring stacks, and more. In GreenCap, managed exclusively via OLM (Operator Lifecycle Manager). Displayed in Developer Experience under a dedicated view with two tabs: Installed (lists operators whose `ClusterServiceVersion` is present in the cluster) and Catalog (lists packages available across all `CatalogSource`s for installation). Installation is triggered by creating a `Subscription` via a simple dialog (channel selector, AllNamespaces install mode by default); OLM handles the rest asynchronously. Each installed operator shows a status badge derived from its `ClusterServiceVersion` phase: `Installing`, `Succeeded`, or `Failed`; a `Failed` badge carries a tooltip with the `status.message` from the CSV. If OLM is not installed in the cluster, the view shows an informative empty state. Not to be confused with the `OPERATOR` label used in Flyway migrations to seed legacy user permissions — that is a GreenCap preset, not a Kubernetes resource.
+_Avoid_: Cluster Operator, addon, plugin, extension
+
+**Install Operator**:
+A write operation in the Catalog tab of the Kubernetes Operators view that provisions a Kubernetes Operator in the active Cluster by creating a `Subscription` (and an `OperatorGroup` if absent) in the `operators` namespace. The user selects a channel from the channels available in the operator's `PackageManifest`; install mode is fixed at `AllNamespaces`. Protected by `DEVELOPER_EXPERIENCE_OPERATORS_INSTALL`.
+_Avoid_: Deploy operator, add operator, enable operator
+
+**Uninstall Operator**:
+A write operation in the Installed tab of the Kubernetes Operators view that removes a Kubernetes Operator from the active Cluster by deleting its `Subscription` and `ClusterServiceVersion`. Does not delete the CRDs created by the operator — leaving CRD cleanup to the user avoids accidental data loss from custom resources still present in the cluster. Requires the user to type the operator name in a confirmation dialog before proceeding. Protected by `DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL`.
+_Avoid_: Remove operator, delete operator, disable operator
 
 **Topologia**:
 UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim, Ingress. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`), and backend service references (Ingress→Service via `spec.rules[].http.paths[].backend.service.name` — only when the target Service exists in the namespace). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node opens a detail panel; the "Go to resource" button navigates to the resource's listing view pre-filtered by name. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.

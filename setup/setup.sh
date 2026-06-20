@@ -176,11 +176,18 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-step "Step 4: Enabling addons (metrics-server, ingress, registry)"
+step "Step 4: Enabling addons (metrics-server, ingress, registry, olm)"
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress        -p "$PROFILE"
 minikube addons enable registry       -p "$PROFILE"
+minikube addons enable olm            -p "$PROFILE"
+
+echo ""
+echo "    Waiting for OLM operator..."
+kubectl rollout status deployment/olm-operator \
+  -n olm --timeout=180s
+ok "OLM ready"
 
 echo ""
 echo "    Waiting for ingress-nginx controller..."

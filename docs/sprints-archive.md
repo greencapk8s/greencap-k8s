@@ -721,3 +721,11 @@
 - `TopologyNodeDrawer`: bloco `isIngress` com Hosts, badge TLS, IngressClass; botão "Go to resource" substitui "Ver YAML"
 - `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` instância; `beforeEnter` lê `?name=`
 - Issues: `.scratch/archive/sprint-77/issues/`
+
+### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
+
+- `topology-graph.ts`: `randomize` dinâmico — `true` quando posições salvas ausentes (fix para nós empilhados na primeira renderização), `false` quando presentes (mantém layout salvo); guard `if (node.data('isGroup')) return` no tap handler (fix para painel lateral não abrir ao clicar em group nodes)
+- `TopologyLayoutRepository`: `deleteByUserIdAndClusterIdAndNamespace` (método derivado Spring Data)
+- `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
+- `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
+- Issues: `.scratch/archive/sprint-78/issues/`

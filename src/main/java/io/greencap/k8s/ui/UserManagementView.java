@@ -284,6 +284,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
             add(buildSection("PROJECT", buildProjectGroups(initial)));
             add(buildSection("GLOBAL", buildGlobalGroups(initial)));
+            add(buildSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceGroups(initial)));
             add(buildSection("SETTINGS", buildSettingsGroups(initial)));
         }
 
@@ -369,6 +370,18 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
                 put("Container Registry (View)", Permission.GLOBAL_REGISTRY_VIEW);
                 put("Container Registry (Build)", Permission.GLOBAL_REGISTRY_BUILD);
                 put("Container Registry (Delete)", Permission.GLOBAL_REGISTRY_DELETE);
+            }}, initial));
+
+            return groups;
+        }
+
+        private List<GroupNode> buildDeveloperExperienceGroups(Set<Permission> initial) {
+            List<GroupNode> groups = new ArrayList<>();
+
+            groups.add(buildGroup("Kubernetes Operators", new LinkedHashMap<>() {{
+                put("Operators (View)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_VIEW);
+                put("Operators (Install)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_INSTALL);
+                put("Operators (Uninstall)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL);
             }}, initial));
 
             return groups;

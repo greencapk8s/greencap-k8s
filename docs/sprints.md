@@ -8,7 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
+| 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 | 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
 | 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
 | 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
@@ -26,6 +26,10 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🟡 Média Prioridade
+
+#### 🔌 Developer Experience — follow-ups da Sprint 88
+
+- **Custom Resources** — view genérica na seção Developer Experience que lista os tipos de CRD instalados por operators (filtrados por grupo `*.io` de operators gerenciados pelo OLM), exibe instâncias por namespace e permite criar/editar/deletar via YAML reutilizando o mecanismo de Apply existente. Cobre automaticamente qualquer operator instalado (Grafana, Prometheus, cert-manager, KEDA, etc.) sem precisar de painéis específicos por operator. Posicionamento no sidebar: `DEVELOPER EXPERIENCE → Custom Resources`, abaixo de Operators.
 
 #### ⚡ UX — Carregamento assíncrono nas views restantes
 
@@ -84,6 +88,21 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 88 ✅ — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
+
+- Seção **Developer Experience** adicionada ao sidebar do `MainLayout` (entre Global e Settings), com badge `beta` em fonte menor no item pai
+- `KubernetesOperatorService`: detecta presença do OLM (`isOlmInstalled`), lista operators instalados via `Subscription` + `ClusterServiceVersion`, lista catálogo via `PackageManifest` de todos os `CatalogSource`s, instala via `Subscription` + `OperatorGroup` (AllNamespaces), desinstala removendo Subscription + CSV; status derivado do CSV phase com fallback para `Subscription.status.state` quando CSV ainda não existe (`Failed`/`ResolutionFailed` → badge vermelho com tooltip do reason)
+- DTOs: `OperatorInfo`, `OperatorPackage`, `OperatorChannel`
+- `InstalledOperatorsView` (rota `developer-experience/operators/installed`): grid com filtro embutido no header da coluna Name; botão Uninstall como `SelectionAction` destrutiva no section header; dialog type-to-confirm; OLM missing empty state; badge de fase (`Installing`/`Succeeded`/`Failed`) com tooltip no `Failed`
+- `OperatorCatalogView` (rota `developer-experience/operators/catalog`): carrega catálogo uma vez com `ProgressBar` indeterminate; filtro de nome no header da coluna Name; filtro de CatalogSource no header da coluna Catalog; botão Install como `SelectionAction` no section header; `refresh()` é no-op (evita reload a cada tick do auto-refresh); botão Refresh manual força reload; após install navega para InstalledOperatorsView
+- `Permission`: 3 novas permissões `DEVELOPER_EXPERIENCE_OPERATORS_VIEW/INSTALL/UNINSTALL`; `V28__add_developer_experience_operator_permissions.sql`
+- `DataInitializer`: garante que o admin sempre tenha todas as permissões atuais em qualquer startup (não apenas na criação)
+- `setup/setup.sh` e `samples/greencap-demo/cluster-provision.sh`: addon `olm` habilitado com `kubectl rollout status deployment/olm-operator` de espera
+- `UserManagementView`: grupo "Kubernetes Operators" na treeview de permissões da seção Developer Experience
+- `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
+- `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
+- Issues: `.scratch/sprint-88/issues/` (4 issues, todas `done`)
 
 ### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
 
@@ -152,14 +171,6 @@
 - `ClustersView`: `buildToolbar()` com `H2` removido; substituído por `UiConstants.buildSectionHeader` com H3 + botão "Add Cluster" (`LUMO_PRIMARY + LUMO_SMALL`) como extra leading button; ações "Test Connection" (`VaadinIcon.CONNECT`) e "Remove" (`VaadinIcon.TRASH`, destrutivo) movidas para `SelectionAction` no header (habilitadas pela seleção de linha); coluna de ações inline removida do grid; `GridSelectionMemory` injetado com `configureSingleSelection`; `refreshGrid()` retorna `boolean` para uso como `BooleanSupplier`; imports `H2` e `HorizontalLayout` removidos
 - `UserManagementView`: mesmo padrão — botão "Add User" (`LUMO_PRIMARY + LUMO_SMALL`); ações "Edit Permissions" (`VaadinIcon.EDIT`) e "Deactivate" (`VaadinIcon.BAN`, destrutivo) como `SelectionAction`; proteções antes feitas via botão desabilitado por linha passaram para early-exit com toast em `openEditPermissionsDialog` (admin padrão bloqueado) e `confirmDeactivate` (auto-desativação e usuário já inativo bloqueados); imports `H2` e `H4` removidos
 - Issues: `.scratch/sprint-79/issues/01-clusters-view-header-padrao.md`, `02-user-management-view-header-padrao.md`
-
-### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
-
-- `topology-graph.ts`: `randomize` dinâmico — `true` quando posições salvas ausentes (fix para nós empilhados na primeira renderização), `false` quando presentes (mantém layout salvo); guard `if (node.data('isGroup')) return` no tap handler (fix para painel lateral não abrir ao clicar em group nodes)
-- `TopologyLayoutRepository`: `deleteByUserIdAndClusterIdAndNamespace` (método derivado Spring Data)
-- `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
-- `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
-- Issues: `.scratch/sprint-78/issues/01-fix-randomize-layout.md`, `02-fix-group-node-tap.md`, `03-reset-positions-button.md`
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 

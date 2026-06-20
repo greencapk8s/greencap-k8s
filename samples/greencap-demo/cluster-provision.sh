@@ -18,14 +18,19 @@ minikube start \
   --memory "$MEMORY"
 
 echo ""
-echo "==> Enabling addons (metrics-server, ingress, registry)"
+echo "==> Enabling addons (metrics-server, ingress, registry, olm)"
 echo ""
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress -p "$PROFILE"
 minikube addons enable registry -p "$PROFILE"
+minikube addons enable olm -p "$PROFILE"
 
 kubectl config use-context "$PROFILE"
+
+echo ""
+echo "==> Waiting for OLM operator..."
+kubectl rollout status deployment/olm-operator -n olm --timeout=180s
 
 echo ""
 echo "==> Waiting for ingress-nginx controller to be ready..."

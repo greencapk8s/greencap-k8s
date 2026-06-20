@@ -391,6 +391,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         navContent.add(buildNewApplicationNav());
         navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP));
+        navContent.add(buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
 
         Scroller scroller = new Scroller(navContent);
@@ -596,6 +597,34 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
 
         nav.addItem(clustersItem, namespacesItem, buildInfrastructureNavItem(), buildRegistryNavItem());
+        return nav;
+    }
+
+    private SideNav buildDeveloperExperienceNav() {
+        SideNav nav = new SideNav();
+        nav.setWidthFull();
+
+        boolean canOperators = SecurityUtils.hasPermission(Permission.DEVELOPER_EXPERIENCE_OPERATORS_VIEW);
+
+        SideNavItem operatorsItem = navItem("Operators", InstalledOperatorsView.class, VaadinIcon.GRID_BIG_O, canOperators);
+        if (canOperators) {
+            Span betaBadge = new Span("beta");
+            betaBadge.getStyle()
+                    .set("font-size", "var(--lumo-font-size-xxs)")
+                    .set("color", "var(--lumo-primary-color)")
+                    .set("font-weight", "600")
+                    .set("letter-spacing", "0.05em")
+                    .set("margin-left", "var(--lumo-space-xs)");
+            operatorsItem.setSuffixComponent(betaBadge);
+        }
+        operatorsItem.addItem(navItem("Installed", InstalledOperatorsView.class, VaadinIcon.CHECK_CIRCLE_O, canOperators));
+        operatorsItem.addItem(navItem("Catalog", OperatorCatalogView.class, VaadinIcon.SEARCH, canOperators));
+
+        if (canOperators) {
+            clusterDependentNavItems.add(operatorsItem);
+        }
+
+        nav.addItem(operatorsItem);
         return nav;
     }
 
