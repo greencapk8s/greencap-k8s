@@ -15,7 +15,6 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
@@ -60,7 +59,7 @@ public class DeployFromHelmView extends VerticalLayout implements BeforeEnterObs
     private TextField namespaceField;
 
     // Step 3
-    private TextArea valuesArea;
+    private CodeMirrorEditor valuesArea;
     private Pre outputPre;
 
     private final Div stepContent = new Div();
@@ -154,10 +153,9 @@ public class DeployFromHelmView extends VerticalLayout implements BeforeEnterObs
         });
 
         // Step 3
-        valuesArea = new TextArea("Values (YAML)");
+        valuesArea = new CodeMirrorEditor();
         valuesArea.setWidthFull();
         valuesArea.setHeight("280px");
-        valuesArea.setPlaceholder("# Optional — override chart defaults\n# replicaCount: 2\n# service:\n#   type: ClusterIP");
 
         outputPre = new Pre();
         outputPre.getStyle()

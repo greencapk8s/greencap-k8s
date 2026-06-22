@@ -341,7 +341,15 @@ fi
 
 HOSTS_ENTRY="$MINIKUBE_IP  greencap.local  # GreenCap K8s — managed by setup.sh"
 if grep -q "greencap.local" /etc/hosts 2>/dev/null; then
-  ok "/etc/hosts already contains greencap.local — skipping"
+  EXISTING_IP=$(grep "greencap.local" /etc/hosts | awk '{print $1}' | head -1)
+  if [ "$EXISTING_IP" = "$MINIKUBE_IP" ]; then
+    ok "/etc/hosts already contains greencap.local → $MINIKUBE_IP — skipping"
+  else
+    echo "    Updating greencap.local in /etc/hosts ($EXISTING_IP → $MINIKUBE_IP)..."
+    $SUDO sed -i "/greencap.local/d" /etc/hosts
+    echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null
+    ok "greencap.local updated: $EXISTING_IP → $MINIKUBE_IP"
+  fi
 else
   echo "    Adding greencap.local to /etc/hosts..."
   echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null

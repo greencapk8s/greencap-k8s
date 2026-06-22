@@ -748,3 +748,28 @@
 - `build.gradle.kts`: dependências TestContainers; H2 removido; `@ServiceConnection` auto-configura datasource
 - `PostgresIntegrationTest`: classe base estática compartilhada; `WorkloadServiceTest`, `NamespaceServiceTest`, `UserServiceTest`, `ClusterServiceTest`
 - Issues: `.scratch/archive/sprint-81/issues/`
+
+### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
+
+- `NamespaceInfo`: +campos `podCount`, `deploymentCount`, `serviceCount`
+- `NamespaceService`: `listNamespacesWithCounts()` (4 chamadas Fabric8 agrupadas por namespace), `createNamespace()`, `deleteNamespace()`; `listNamespaceNames()` filtra namespaces em fase `Terminating`
+- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE`; `V26__add_namespace_permissions.sql`
+- `NamespacesView` (rota `global/namespaces`): grid Name/Status/Pods/Deployments/Services/Age; Create dialog com validação DNS; Delete type-to-confirm; system namespaces bloqueados; async load com `CompletableFuture`
+- `MainLayout`: item "Namespaces" na seção Global; `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace`
+- Issue: `.scratch/archive/sprint-76/issues/01-namespaces-view.md`
+
+### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
+
+- `TopologyService`: listagem de Ingresses; `resourceViewUrl()` mapeia tipo → rota com `?name=`; `ingressNode()` com ingressClass/hosts/TLS
+- `topology-graph.ts`: cor Ingress `#06B6D4`; fcose separado do construtor; `fixedNodeConstraint` desabilitado com compound nodes; posições aplicadas manualmente quando grouping ativo
+- `TopologyNodeDrawer`: bloco Ingress com Hosts, badge TLS, IngressClass; botão "Go to resource"
+- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `?name=` pré-filtro via `beforeEnter`
+- Issues: `.scratch/archive/sprint-77/issues/`
+
+### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
+
+- `NamespacesViewTest` (4 cenários): guard de system namespace, estado inicial do dialog, type-to-confirm com nome errado e correto
+- `ClustersViewTest` (1 cenário): confirmação de remoção chama `clusterService.deleteCluster()`
+- `docs/adr/0010-karibu-para-testes-de-views-vaadin.md`: decisão de usar Karibu (in-memory) em vez de Selenium/Playwright
+- `CLAUDE.md`: fluxo de sprint atualizado com passo 6 (Testes) — views Karibu e integração `PostgresIntegrationTest`
+- Issue: `.scratch/archive/sprint-82/issues/01-karibu-destructive-dialog-tests.md`

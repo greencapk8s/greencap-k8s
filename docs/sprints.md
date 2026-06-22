@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
 | 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
 | 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
 | 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
 | 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 | 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
-| 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
 
 ---
 
@@ -26,6 +26,12 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🟡 Média Prioridade
+
+#### 🔗 Registro de Cluster — métodos alternativos ao kubeconfig
+
+- **Token + URL** — segundo método de registro de cluster: o usuário informa apenas o endpoint da API Kubernetes (`https://...`) e um bearer token de service account. Mais acessível para iniciantes que não sabem localizar o kubeconfig, e o fluxo natural para clusters gerenciados (GKE, EKS, AKS) que expõem esses dois valores no console do provedor. Internamente, o Fabric8 constrói o `Config` via `withMasterUrl()` + `withOauthToken()` — sem necessidade de gerar um arquivo kubeconfig. A tela de registro (`ClustersView`) ganha um toggle para escolher o método: _Kubeconfig_ (atual) ou _Token + URL_. Limitação esperada: suporta apenas autenticação por bearer token; certificado de cliente e OIDC não são cobertos por este método.
+
+- **In-cluster** — terceiro método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
 
 #### 🔌 Developer Experience — follow-ups da Sprint 88
 
@@ -88,6 +94,18 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 92 ✅ — Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência
+
+- `CodeMirrorEditor` (componente Vaadin customizado): Lit + `@NpmPackage` (`codemirror`, `@codemirror/lang-yaml`, `@codemirror/theme-one-dark`); syntax highlighting YAML, line numbers, indent 2 espaços, fonte mono; tema sincronizado via `closest('[theme~="dark"]')` + MutationObserver subtree; altura configurável; API: `getValue/setValue/setReadOnly/focus`
+- `ManifestView`: substituído `Pre` + `TextArea` por `CodeMirrorEditor` permanente; `readOnly=true` na visualização, `readOnly=false` no edit; campo `lastLoadedYaml` para restaurar no Cancel sem reload de rede
+- `DeployFromHelmView`, `HelmReleasesView`: `TextArea` de values substituído por `CodeMirrorEditor`; dialog de Upgrade com `setResizable(true)`, tamanho inicial 720×520px e editor flex-grow
+- `helm.svg` em `META-INF/resources/icons/helm.svg`: símbolo ⎈ (leme, 8 raios) com `currentColor`; `MainLayout.buildHelmNavItem()` usa `SvgIcon` em vez de `VaadinIcon.PACKAGE`
+- `MainLayout`: ícone ⓘ como `setSuffixComponent` no item "Repositories" com tooltip "cluster-scoped"
+- `HelmReleasesView`: coluna Updated truncada para `yyyy-MM-dd HH:mm`; `refresh()` com guard `clusterErrorMessage.isVisible()` — para de disparar quando cluster em erro
+- `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
+- `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
+- `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
 
 ### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
 
@@ -168,37 +186,6 @@
 - `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
 - `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
 - Issues: `.scratch/sprint-83/issues/` (4 issues, todas `done`)
-
-### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
-
-- `build.gradle.kts`: dependência `karibu-testing-v24:2.1.2` adicionada
-- `KaribuTest` (nova classe base): `MockVaadin.setup/tearDown()` + helper `loginAs(String... authorities)` para configurar o `SecurityContextHolder` sem Spring; testes de view rodam sem TestContainers, sem banco, em ~1s
-- `NamespacesViewTest` (novo, 4 cenários): guard de system namespace (`kube-system` exibe notificação de erro sem abrir dialog), estado inicial do dialog (botão Delete desabilitado), type-to-confirm com nome errado (permanece desabilitado) e com nome correto (habilita)
-- `ClustersViewTest` (novo, 1 cenário): confirmação de remoção de cluster chama `clusterService.deleteCluster()` com o cluster selecionado
-- `docs/adr/0010-karibu-para-testes-de-views-vaadin.md` (novo): decisão de usar Karibu (in-memory, sem browser) em vez de Selenium/Playwright para cobrir lógica de orquestração de views
-- `CLAUDE.md`: fluxo de sprint atualizado — novo passo 6 (Testes) após o aceite manual, cobrindo as duas frentes: views Karibu e integração com `PostgresIntegrationTest`
-- Issue: `.scratch/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
-
-### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
-
-- `CONTEXT.md`: `Topologia` atualizado — adicionado Ingress aos tipos de nó e ao fluxo de edges (Ingress→Service via `spec.rules[].http.paths[].backend.service.name`, apenas para Services existentes no namespace); comportamento de clique alterado de "navega para o Manifest" para "Go to resource" (navega para a view do recurso pré-filtrada por nome); `TopologyNode` atualizado com tipo Ingress e URL de resource view em vez de link para Manifest
-- `TopologyService`: listagem de Ingresses via Fabric8 `client.network().v1().ingresses()`; `ingressNode()` com ingressClass/hosts/TLS; `extractBackendServiceNames()` extrai backends de `spec.rules[].http.paths[].backend.service` e `spec.defaultBackend.service`; método `manifestUrl()` renomeado para `resourceViewUrl()` mapeando cada tipo para a rota da view com `?name=`; parâmetro `namespace` removido dos métodos `*Node()` que não o utilizavam mais
-- `topology-graph.ts`: cor Ingress `#06B6D4` (ciano) em `NODE_COLORS`; cor das arestas de `#CBD5E1` para `#64748B` (contraste contra fundo dos grupos); fcose separado da inicialização do Cytoscape (`layout: preset` no construtor + `cy.layout(fcose).run()` após); `fixedNodeConstraint` desabilitado quando compound nodes presentes (fcose não suporta o mix); posições salvas aplicadas manualmente após o layout quando grouping ativo
-- `TopologyNodeDrawer`: bloco `isIngress` exibe Hosts, badge TLS (`buildTlsBadgeRow()`), IngressClass; botão "Go to resource" substitui "Ver YAML"; pod groups usam "Go to Pods"
-- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` promovido a instância; `beforeEnter` lê `?name=` e aplica `nameFilter.setValue()` seguindo o padrão `?job=` do `PodsView`
-- `samples/greencap-demo/manifests/`: label `app.kubernetes.io/part-of: greencap-demo` adicionada em todos os 13 manifests (Deployments e CronJob também no pod template); recursos aplicados e Deployments reiniciados para propagação das labels
-- Issues: `.scratch/sprint-77/issues/01-ingress-topology-node.md`, `02-goto-resource-button.md`, `03-prefilter-name-query-param.md`
-
-### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
-
-- `NamespaceInfo`: +campos `podCount`, `deploymentCount`, `serviceCount`
-- `NamespaceService`: `listNamespacesWithCounts()` (4 chamadas Fabric8 — namespaces, pods, deployments, services — agrupadas por namespace em uma única conexão), `createNamespace()`, `deleteNamespace()`; `listNamespaceNames()` passa a filtrar namespaces em fase `Terminating` para que namespaces deletados não reapareçam no combobox da navbar durante a exclusão em cascata
-- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE` (novos): VIEW concedido a todos com `GLOBAL_CLUSTERS_VIEW`; WRITE e DELETE concedidos a usuários com `GLOBAL_CLUSTERS_WRITE`; `V26__add_namespace_permissions.sql`
-- `NamespacesView` (nova, rota `global/namespaces`): grid com Name/Status/Pods/Deployments/Services/Age; botão "Create Namespace" (visível com WRITE) — dialog com campo de nome validado por regex DNS; ação "Delete" (visível com DELETE) — dialog exige digitar o nome do namespace antes de confirmar, com aviso explícito de destruição cascata; system namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) bloqueados para deleção; após create/delete chama `MainLayout.refreshClusterState()` para recarregar o combobox de namespaces; se o namespace deletado era o namespace ativo, o contexto é zerado antes do refresh (seleciona "default" automaticamente); async load com padrão `CompletableFuture` + `UiConstants.VIRTUAL_THREADS`
-- `MainLayout`: item "Namespaces" (ícone `FOLDER_O`) na seção Global, entre Clusters e Infrastructure, adicionado à lista `clusterDependentNavItems`
-- `UserManagementView`: grupo "Namespaces" com as 3 permissões na treeview Global
-- `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace` detalhadas; `Global` atualizado para incluir Namespaces
-- Issue: `.scratch/sprint-76/issues/01-namespaces-view.md`
 
 ---
 

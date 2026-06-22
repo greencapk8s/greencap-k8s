@@ -152,14 +152,18 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Button dockerfileBtn = new Button("Deploy from Dockerfile", VaadinIcon.CODE.create());
         Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
 
+        Button helmBtn = new Button("Deploy from Helm", VaadinIcon.PACKAGE.create());
+
         imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        helmBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
         dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
+        helmBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromHelmView.class));
 
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn);
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn);
         selector.setSpacing(true);
         return selector;
     }

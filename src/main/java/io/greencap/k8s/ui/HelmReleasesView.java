@@ -14,7 +14,6 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.tabs.Tab;
 import com.vaadin.flow.component.tabs.Tabs;
-import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.textfield.TextFieldVariant;
 import com.vaadin.flow.data.provider.ListDataProvider;
@@ -108,7 +107,9 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
 
     @Override
     public void refresh() {
-        if (clusterContext.getCluster() != null) loadReleasesAsync(UI.getCurrent());
+        if (clusterContext.getCluster() == null) return;
+        if (clusterErrorMessage.isVisible()) return;
+        loadReleasesAsync(UI.getCurrent());
     }
 
     private boolean loadReleases() {
@@ -183,7 +184,8 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
                 .setHeader("Revision").setWidth("90px").setResizable(true);
         grid.addComponentColumn(r -> statusBadge(r.status()))
                 .setHeader("Status").setWidth("120px").setResizable(true);
-        grid.addColumn(HelmReleaseInfo::updated)
+        grid.addColumn(r -> r.updated() != null && r.updated().length() >= 16
+                        ? r.updated().substring(0, 16) : r.updated())
                 .setHeader("Updated").setFlexGrow(1).setResizable(true);
 
         grid.setDataProvider(dataProvider);
@@ -257,11 +259,12 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
     private void openUpgradeDialog(HelmReleaseInfo release) {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("Upgrade — " + release.name());
-        dialog.setWidth("600px");
+        dialog.setWidth("720px");
+        dialog.setHeight("520px");
+        dialog.setResizable(true);
 
-        TextArea valuesArea = new TextArea("Values (YAML)");
-        valuesArea.setWidthFull();
-        valuesArea.setHeight("260px");
+        CodeMirrorEditor valuesArea = new CodeMirrorEditor();
+        valuesArea.setSizeFull();
         valuesArea.setValue("# Loading current values...");
         valuesArea.setReadOnly(true);
 
@@ -270,7 +273,9 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
         versionField.setPlaceholder("Leave empty to keep current version");
 
         VerticalLayout content = new VerticalLayout(valuesArea, versionField);
+        content.setSizeFull();
         content.setPadding(false);
+        content.setFlexGrow(1, valuesArea);
         dialog.add(content);
 
         Button confirmBtn = new Button("Upgrade", e -> {

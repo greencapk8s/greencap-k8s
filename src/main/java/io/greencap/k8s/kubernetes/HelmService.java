@@ -28,6 +28,7 @@ public class HelmService {
 
     private static final String HELM_BINARY = "helm";
     private static final int TIMEOUT_SECONDS = 30;
+    private static final int LIST_TIMEOUT_SECONDS = 8;
     private static final int INSTALL_TIMEOUT_SECONDS = 120;
 
     private final EncryptionService encryptionService;
@@ -37,7 +38,7 @@ public class HelmService {
     public List<HelmReleaseInfo> listReleases(Cluster cluster, String namespace) {
         Path kubeconfig = writeKubeconfig(cluster);
         try {
-            String output = exec(kubeconfig, "list", "--namespace", namespace, "--output", "json");
+            String output = execWithTimeout(kubeconfig, LIST_TIMEOUT_SECONDS, "list", "--namespace", namespace, "--output", "json");
             return parseReleases(output);
         } catch (HelmOperationException e) {
             throw e;
@@ -53,7 +54,8 @@ public class HelmService {
         Path kubeconfig = writeKubeconfig(cluster);
         try {
             String notes    = execQuiet(kubeconfig, "get", "notes",    name, "--namespace", namespace);
-            String values   = execQuiet(kubeconfig, "get", "values",   name, "--namespace", namespace);
+            String rawValues = execQuiet(kubeconfig, "get", "values",  name, "--namespace", namespace);
+            String values   = rawValues.replaceFirst("^USER-SUPPLIED VALUES:\\r?\\n?", "");
             String manifest = execQuiet(kubeconfig, "get", "manifest", name, "--namespace", namespace);
             return new HelmReleaseDetails(notes, values, manifest);
         } finally {

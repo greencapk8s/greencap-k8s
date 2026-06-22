@@ -8,6 +8,7 @@ import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.SvgIcon;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
@@ -565,9 +566,25 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private SideNavItem buildHelmNavItem() {
         boolean canHelm = SecurityUtils.hasPermission(Permission.PROJECT_HELM_VIEW);
 
-        SideNavItem helm = navItem("Helm", HelmReleasesView.class, VaadinIcon.PACKAGE, canHelm);
+        SvgIcon helmIcon = new SvgIcon("icons/helm.svg");
+        helmIcon.setSize("var(--lumo-icon-size-m)");
+
+        SideNavItem helm = new SideNavItem("Helm", HelmReleasesView.class, helmIcon);
+        if (!canHelm) {
+            helm.getStyle()
+                    .set("opacity", "0.4")
+                    .set("pointer-events", "none");
+        }
         helm.addItem(navItem("Releases", HelmReleasesView.class, VaadinIcon.LIST, canHelm));
-        helm.addItem(navItem("Repositories", HelmRepositoriesView.class, VaadinIcon.BOOK, canHelm));
+
+        SideNavItem repositories = navItem("Repositories", HelmRepositoriesView.class, VaadinIcon.BOOK, canHelm);
+        Icon repoInfoIcon = VaadinIcon.INFO_CIRCLE_O.create();
+        repoInfoIcon.setSize("var(--lumo-icon-size-s)");
+        repoInfoIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        repoInfoIcon.setTooltipText("Helm Repositories are cluster-scoped — they apply to all namespaces");
+        repositories.setSuffixComponent(repoInfoIcon);
+        helm.addItem(repositories);
+
         return helm;
     }
 

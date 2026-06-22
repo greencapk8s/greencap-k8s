@@ -3,6 +3,8 @@
   "license": "UNLICENSED",
   "type": "module",
   "dependencies": {
+    "@codemirror/lang-yaml": "6.1.1",
+    "@codemirror/theme-one-dark": "6.1.2",
     "@polymer/polymer": "3.5.1",
     "@vaadin/bundles": "24.4.0",
     "@vaadin/common-frontend": "0.0.19",
@@ -14,6 +16,7 @@
     "@vaadin/vaadin-material-styles": "24.4.0",
     "@vaadin/vaadin-themable-mixin": "24.4.0",
     "@vaadin/vaadin-usage-statistics": "2.1.2",
+    "codemirror": "6.0.1",
     "construct-style-sheets-polyfill": "3.1.0",
     "cytoscape": "3.30.2",
     "cytoscape-fcose": "2.2.0",
@@ -46,6 +49,8 @@
   },
   "vaadin": {
     "dependencies": {
+      "@codemirror/lang-yaml": "6.1.1",
+      "@codemirror/theme-one-dark": "6.1.2",
       "@polymer/polymer": "3.5.1",
       "@vaadin/bundles": "24.4.0",
       "@vaadin/common-frontend": "0.0.19",
@@ -57,6 +62,7 @@
       "@vaadin/vaadin-material-styles": "24.4.0",
       "@vaadin/vaadin-themable-mixin": "24.4.0",
       "@vaadin/vaadin-usage-statistics": "2.1.2",
+      "codemirror": "6.0.1",
       "construct-style-sheets-polyfill": "3.1.0",
       "cytoscape": "3.30.2",
       "cytoscape-fcose": "2.2.0",
@@ -87,7 +93,7 @@
       "workbox-core": "7.1.0",
       "workbox-precaching": "7.1.0"
     },
-    "hash": "577942846dc6c6e3974cbe7d351769b1d6adad251720d7c195511cfe48cba6b6"
+    "hash": "29b145eb8eaf6337af445b9838116861743c20a29b8aa20bf3475f5aca7861f8"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -108,6 +114,9 @@
     "@vaadin/vaadin-lumo-styles": "$@vaadin/vaadin-lumo-styles",
     "@vaadin/vaadin-material-styles": "$@vaadin/vaadin-material-styles",
     "cytoscape": "$cytoscape",
-    "cytoscape-fcose": "$cytoscape-fcose"
+    "cytoscape-fcose": "$cytoscape-fcose",
+    "@codemirror/theme-one-dark": "$@codemirror/theme-one-dark",
+    "codemirror": "$codemirror",
+    "@codemirror/lang-yaml": "$@codemirror/lang-yaml"
   }
 }
