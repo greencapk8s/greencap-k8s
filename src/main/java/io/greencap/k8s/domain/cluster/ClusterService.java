@@ -10,6 +10,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 import java.util.List;
 
 @Slf4j
@@ -31,7 +33,6 @@ public class ClusterService {
     public Cluster createCluster(CreateClusterRequest request) {
         Cluster cluster = new Cluster();
         cluster.setName(request.name());
-        cluster.setProvider(request.provider());
         cluster.setConnectionStatus(testWithPlaintext(request.kubeconfigContent()));
         cluster.setKubeconfigContent(encryptionService.encrypt(request.kubeconfigContent()));
 
@@ -66,6 +67,35 @@ public class ClusterService {
     @Transactional
     public void deleteCluster(Cluster cluster) {
         clusterRepository.delete(cluster);
+    }
+
+    public String synthesizeKubeconfig(String apiServerUrl, String bearerToken, String caCertificate) {
+        String clusterEntry;
+        if (caCertificate != null && !caCertificate.isBlank()) {
+            String caData = caCertificate.trim().startsWith("-----BEGIN")
+                    ? Base64.getEncoder().encodeToString(caCertificate.trim().getBytes(StandardCharsets.UTF_8))
+                    : caCertificate.trim().replaceAll("\\s+", "");
+            clusterEntry = "    server: " + apiServerUrl.trim() + "\n" +
+                           "    certificate-authority-data: " + caData;
+        } else {
+            clusterEntry = "    server: " + apiServerUrl.trim() + "\n" +
+                           "    insecure-skip-tls-verify: true";
+        }
+        return "apiVersion: v1\n" +
+               "kind: Config\n" +
+               "clusters:\n" +
+               "- name: cluster\n" +
+               "  cluster:\n" + clusterEntry + "\n" +
+               "users:\n" +
+               "- name: user\n" +
+               "  user:\n" +
+               "    token: " + bearerToken.trim() + "\n" +
+               "contexts:\n" +
+               "- name: ctx\n" +
+               "  context:\n" +
+               "    cluster: cluster\n" +
+               "    user: user\n" +
+               "current-context: ctx\n";
     }
 
     private ConnectionStatus testWithPlaintext(String kubeconfigContent) {

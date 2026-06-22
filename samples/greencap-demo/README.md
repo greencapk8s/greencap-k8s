@@ -11,7 +11,7 @@ Cluster minikube local com uma aplicação de exemplo (frontend + backend + redi
 ## Quick start
 
 ```bash
-./cluster-provision.sh   # cria o cluster minikube (3 nodes, driver docker) e habilita os addons
+./cluster-setup.sh       # cria o cluster minikube (3 nodes, driver docker) e habilita os addons
 ./create-demo.sh         # aplica os manifests do demo
 ./add-hosts.sh           # adiciona "greencap-demo.local" ao /etc/hosts (pede sudo)
 ```
@@ -27,12 +27,12 @@ Para remover os recursos da aplicação (mantendo o cluster):
 Para remover o cluster por completo:
 
 ```bash
-minikube delete -p greencap-demo
+./cluster-teardown.sh
 ```
 
 ## Driver recomendado
 
-`cluster-provision.sh` usa `--driver=docker`. No Linux, é o driver que o minikube já auto-detecta por padrão quando o Docker está instalado.
+`cluster-setup.sh` usa `--driver=docker`. No Linux, é o driver que o minikube já auto-detecta por padrão quando o Docker está instalado.
 
 | | `docker` (recomendado) | `virtualbox` | `kvm2` |
 |---|---|---|---|
@@ -45,7 +45,7 @@ minikube delete -p greencap-demo
 
 ## Container Registry
 
-O addon `registry` do minikube é habilitado pelo `cluster-provision.sh` e persiste as imagens enviadas via uma `PersistentVolumeClaim` (`registry-storage`, 4Gi, `kube-system`), montada em `/var/lib/registry`. Sem essa PVC, o conteúdo do registry é perdido a cada vez que o pod `registry` é recriado.
+O addon `registry` do minikube é habilitado pelo `cluster-setup.sh` e persiste as imagens enviadas via uma `PersistentVolumeClaim` (`registry-storage`, 4Gi, `kube-system`), montada em `/var/lib/registry`. Sem essa PVC, o conteúdo do registry é perdido a cada vez que o pod `registry` é recriado.
 
 O pod do `registry` é fixado (`nodeSelector`) no node control-plane (`greencap-demo`). A `StorageClass` `standard` (hostpath-provisioner do minikube) cria volumes sem `nodeAffinity` — em um cluster multi-node, se o pod fosse reagendado para outro node, ele montaria um diretório local vazio nesse node e "perderia" os dados, mesmo com a PVC permanecendo `Bound`. Fixar o pod em um node estável garante que os dados do hostPath sejam preservados entre recriações do pod.
 

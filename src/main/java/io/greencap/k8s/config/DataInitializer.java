@@ -1,6 +1,5 @@
 package io.greencap.k8s.config;
 
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.domain.cluster.ClusterRepository;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
@@ -46,7 +45,6 @@ public class DataInitializer implements ApplicationRunner {
         if (kubeconfig != null && !kubeconfig.isBlank() && !clusterRepository.existsByName(SELF_CLUSTER_NAME)) {
             var cluster = clusterService.createCluster(new CreateClusterRequest(
                     SELF_CLUSTER_NAME,
-                    ClusterProvider.MinikubeDocker,
                     kubeconfig
             ));
             userService.updateActiveCluster("admin", cluster);

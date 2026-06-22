@@ -10,7 +10,7 @@ _Avoid_: Enterprise platform, cloud provider, cluster provisioner
 ## Language
 
 **Cluster**:
-A registered access point to an external Kubernetes cluster. Stores an encrypted kubeconfig as the single credential needed to connect to it. GreenCap monitors and operates on Clusters but does not own or provision them.
+A registered access point to an external Kubernetes cluster. Internally stores an encrypted kubeconfig as the credential used for all operations. Users may register a Cluster by pasting a kubeconfig directly, or by providing an API server URL and a bearer token (which GreenCap synthesizes into a kubeconfig at registration time). GreenCap monitors and operates on Clusters but does not own or provision them.
 _Avoid_: Connection, server, environment
 
 **ConnectionStatus**:

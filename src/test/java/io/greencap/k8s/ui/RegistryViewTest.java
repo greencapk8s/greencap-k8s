@@ -8,7 +8,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.RegistryMaintenanceService;
@@ -126,7 +125,6 @@ class RegistryViewTest extends KaribuTest {
     private static Cluster buildCluster() {
         Cluster c = new Cluster();
         c.setName("test-cluster");
-        c.setProvider(ClusterProvider.MinikubeDocker);
         c.setConnectionStatus(ConnectionStatus.UNKNOWN);
         return c;
     }

@@ -7,7 +7,6 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.textfield.TextField;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.NamespaceService;
 import io.greencap.k8s.kubernetes.dto.NamespaceInfo;
@@ -42,7 +41,6 @@ class NamespacesViewTest extends KaribuTest {
     void setupView() {
         Cluster cluster = new Cluster();
         cluster.setName("test-cluster");
-        cluster.setProvider(ClusterProvider.MinikubeDocker);
 
         when(clusterContext.getCluster()).thenReturn(cluster);
         when(namespaceService.listNamespacesWithCounts(any())).thenReturn(List.of(KUBE_SYSTEM, MY_NAMESPACE, TERMINATING_NS));

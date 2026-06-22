@@ -38,7 +38,7 @@ class ClusterServiceTest extends PostgresIntegrationTest {
     @Test
     @WithMockUser(username = "admin")
     void createCluster_kubeconfigIsStoredEncrypted() {
-        var request = new CreateClusterRequest("enc-cluster", ClusterProvider.MinikubeDocker, "plaintext-kubeconfig");
+        var request = new CreateClusterRequest("enc-cluster", "plaintext-kubeconfig");
 
         Cluster cluster = clusterService.createCluster(request);
 
@@ -49,7 +49,7 @@ class ClusterServiceTest extends PostgresIntegrationTest {
     @Test
     @WithMockUser(username = "admin")
     void createCluster_setsCreatedByFromSecurityContext() {
-        var request = new CreateClusterRequest("owned-cluster", ClusterProvider.MinikubeDocker, "kc");
+        var request = new CreateClusterRequest("owned-cluster", "kc");
 
         Cluster cluster = clusterService.createCluster(request);
 
@@ -61,11 +61,11 @@ class ClusterServiceTest extends PostgresIntegrationTest {
     @WithMockUser(username = "admin")
     void markAsDisconnectedIfConnected_onlyChangesConnectedClusters() {
         Cluster connected = clusterService.createCluster(
-            new CreateClusterRequest("connected-cluster", ClusterProvider.MinikubeDocker, "kc"));
+            new CreateClusterRequest("connected-cluster", "kc"));
 
         when(clientFactory.buildClient(any())).thenThrow(new RuntimeException("unreachable"));
         Cluster error = clusterService.createCluster(
-            new CreateClusterRequest("error-cluster", ClusterProvider.MinikubeDocker, "kc"));
+            new CreateClusterRequest("error-cluster", "kc"));
 
         clusterService.markAsDisconnectedIfConnected(connected);
         clusterService.markAsDisconnectedIfConnected(error);
