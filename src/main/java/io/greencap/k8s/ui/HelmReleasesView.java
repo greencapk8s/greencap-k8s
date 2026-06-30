@@ -21,9 +21,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.HelmOperationException;
 import io.greencap.k8s.kubernetes.HelmService;
@@ -75,8 +73,8 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(),
                 HelmReleaseInfo::name);
 
-        boolean canUninstall = SecurityUtils.hasPermission(Permission.PROJECT_HELM_UNINSTALL);
-        boolean canUpgrade   = SecurityUtils.hasPermission(Permission.PROJECT_HELM_UPGRADE);
+        boolean canUninstall = true;
+        boolean canUpgrade   = true;
         List<UiConstants.SelectionAction<HelmReleaseInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.INFO_CIRCLE_O, "Details",
                         this::openDetailsDialog),
@@ -94,10 +92,6 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_HELM_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);

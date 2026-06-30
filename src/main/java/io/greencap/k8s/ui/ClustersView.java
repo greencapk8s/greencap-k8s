@@ -30,8 +30,6 @@ import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
 import io.greencap.k8s.domain.user.UserService;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubeconfigValidator;
 import jakarta.annotation.security.PermitAll;
@@ -73,7 +71,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), Cluster::getName);
 
-        boolean canWrite = SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE);
+        boolean canWrite = true;
 
         List<UiConstants.SelectionAction<Cluster>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.CONNECT, "Test Connection", this::testConnection),
@@ -95,10 +93,6 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         refreshGrid();
     }
 

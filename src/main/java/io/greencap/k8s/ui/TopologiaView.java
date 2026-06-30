@@ -20,8 +20,6 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import elemental.json.JsonObject;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.TopologyLayout;
 import io.greencap.k8s.domain.user.TopologyLayoutService;
 import io.greencap.k8s.domain.user.UserRepository;
@@ -126,10 +124,6 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.TOPOLOGY_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         showOnly(noClusterMessage);
 
         if (clusterContext.getCluster() == null) {

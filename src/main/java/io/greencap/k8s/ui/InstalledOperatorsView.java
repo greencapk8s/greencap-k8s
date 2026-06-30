@@ -22,9 +22,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.KubernetesOperatorService;
@@ -71,7 +69,7 @@ public class InstalledOperatorsView extends VerticalLayout implements BeforeEnte
 
         buildGrid();
 
-        boolean canUninstall = SecurityUtils.hasPermission(Permission.DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL);
+        boolean canUninstall = true;
         List<UiConstants.SelectionAction<OperatorInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Uninstall", canUninstall,
                         this::openUninstallDialog)
@@ -87,10 +85,6 @@ public class InstalledOperatorsView extends VerticalLayout implements BeforeEnte
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.DEVELOPER_EXPERIENCE_OPERATORS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);

@@ -3,10 +3,8 @@ package io.greencap.k8s.config;
 import io.greencap.k8s.domain.cluster.ClusterRepository;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserRepository;
 import io.greencap.k8s.domain.user.UserService;
-import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -29,16 +27,8 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (!userRepository.existsByUsername("admin")) {
-            userService.createUser("admin", "admin@greencap.local", "admin", Permission.allPermissions());
+            userService.createUser("admin", "admin@greencap.local", "admin");
             log.info("Admin user created — login: admin / admin");
-        } else {
-            userRepository.findByUsernameWithPermissions("admin").ifPresent(admin -> {
-                Set<Permission> all = Permission.allPermissions();
-                if (!admin.getPermissions().containsAll(all)) {
-                    userService.updatePermissions(admin.getId(), all);
-                    log.info("Admin permissions updated to include all current permissions");
-                }
-            });
         }
 
         String kubeconfig = System.getenv(SELF_CLUSTER_KUBECONFIG_ENV);

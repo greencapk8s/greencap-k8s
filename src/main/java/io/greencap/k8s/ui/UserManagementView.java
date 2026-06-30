@@ -1,18 +1,15 @@
 package io.greencap.k8s.ui;
 
-import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
-import com.vaadin.flow.component.checkbox.Checkbox;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
-import com.vaadin.flow.component.html.Hr;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
-import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.EmailField;
 import com.vaadin.flow.component.textfield.PasswordField;
@@ -22,21 +19,20 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
+import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.user.User;
 import io.greencap.k8s.domain.user.UserService;
+import io.greencap.k8s.kubernetes.UserProvisioningService;
 import jakarta.annotation.security.PermitAll;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
+@Slf4j
 @Route(value = "users", layout = MainLayout.class)
 @PageTitle("Users — GreenCap K8s")
 @PermitAll
@@ -45,16 +41,22 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String DEFAULT_ADMIN_USERNAME = "admin";
     private static final String HELP_TITLE = "Users";
-    private static final String HELP_TEXT = "Users are the accounts that can log into GreenCap K8s. " +
-            "Each user has a set of Permissions that control which views and actions they can access. " +
-            "Select a user and use \"Edit Permissions\" to adjust access, or \"Deactivate\" to revoke login. " +
-            "The default admin account cannot have its permissions modified.";
+    private static final String HELP_TEXT = "Users are the accounts that can log into GreenCap. " +
+            "Each user is backed by a Kubernetes ServiceAccount bound to a ClusterRole in their assigned cluster. " +
+            "Use \"Add User\" to provision a new user and their K8s identity, " +
+            "\"Edit Role\" to change the ClusterRole, or \"Remove\" to permanently delete the user and revoke their K8s identity.";
 
     private final UserService userService;
+    private final ClusterService clusterService;
+    private final UserProvisioningService userProvisioningService;
     private final Grid<User> grid = new Grid<>(User.class, false);
 
-    public UserManagementView(UserService userService, GridSelectionMemory selectionMemory) {
+    public UserManagementView(UserService userService, ClusterService clusterService,
+                              UserProvisioningService userProvisioningService,
+                              GridSelectionMemory selectionMemory) {
         this.userService = userService;
+        this.clusterService = clusterService;
+        this.userProvisioningService = userProvisioningService;
 
         setSizeFull();
         setPadding(true);
@@ -62,20 +64,16 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), User::getUsername);
 
-        boolean canWrite = SecurityUtils.hasPermission(Permission.SETTINGS_USERS_WRITE);
-
         List<UiConstants.SelectionAction<User>> selectionActions = List.of(
-                UiConstants.SelectionAction.of(VaadinIcon.EDIT, "Edit Permissions", canWrite, this::openEditPermissionsDialog),
-                UiConstants.SelectionAction.destructive(VaadinIcon.BAN, "Deactivate", canWrite, this::confirmDeactivate)
+                UiConstants.SelectionAction.of(VaadinIcon.EDIT, "Edit Role", true, this::openEditRoleDialog),
+                UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Remove", true, this::confirmRemove)
         );
 
         List<Button> extraButtons = new ArrayList<>();
-        if (canWrite) {
-            Button addBtn = new Button("Add User", VaadinIcon.PLUS.create());
-            addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
-            addBtn.addClickListener(e -> openAddDialog());
-            extraButtons.add(addBtn);
-        }
+        Button addBtn = new Button("Add User", VaadinIcon.PLUS.create());
+        addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        addBtn.addClickListener(e -> openAddDialog());
+        extraButtons.add(addBtn);
 
         add(UiConstants.buildSectionHeader("Users", this::refreshGrid, HELP_TITLE, HELP_TEXT,
                         grid, selectionActions, extraButtons),
@@ -84,7 +82,7 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.SETTINGS_USERS_VIEW)) {
+        if (!SecurityUtils.isAdmin()) {
             event.forwardTo("");
             return;
         }
@@ -94,54 +92,55 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     private void buildGrid() {
         grid.addColumn(User::getUsername).setHeader("Username").setSortable(true).setFlexGrow(1).setResizable(true);
         grid.addColumn(User::getEmail).setHeader("Email").setFlexGrow(2).setResizable(true);
-        grid.addComponentColumn(this::permissionCountBadge).setHeader("Permissions").setWidth("140px").setResizable(true);
-        grid.addComponentColumn(this::activeBadge).setHeader("Status").setWidth("100px").setResizable(true);
+        grid.addComponentColumn(this::clusterBadge).setHeader("Cluster").setWidth("160px").setResizable(true);
+        grid.addComponentColumn(this::roleBadge).setHeader("Role").setWidth("160px").setResizable(true);
         grid.addColumn(u -> u.getCreatedAt().format(DATE_FORMATTER)).setHeader("Created").setWidth("160px").setResizable(true);
         grid.setSizeFull();
     }
 
-    private Span permissionCountBadge(User user) {
-        int count = user.getPermissions().size();
-        int total = Permission.values().length;
-        Span badge = new Span(count + " / " + total);
+    private Span clusterBadge(User user) {
+        String clusterName = user.getActiveCluster() != null ? user.getActiveCluster().getName() : "—";
+        Span badge = new Span(clusterName);
         badge.getElement().getThemeList().add("badge");
-        if (count == total) {
+        badge.getElement().getThemeList().add("contrast");
+        return badge;
+    }
+
+    private Span roleBadge(User user) {
+        String role = user.getClusterRoleName() != null ? user.getClusterRoleName() : "—";
+        Span badge = new Span(role);
+        badge.getElement().getThemeList().add("badge");
+        if (user.getClusterRoleName() != null) {
             badge.getElement().getThemeList().add("success");
-        } else if (count == 0) {
-            badge.getElement().getThemeList().add("error");
-        } else {
-            badge.getElement().getThemeList().add("contrast");
         }
         return badge;
     }
 
-    private Span activeBadge(User user) {
-        Span badge = new Span(user.isActive() ? "Active" : "Inactive");
-        badge.getElement().getThemeList().add("badge");
-        badge.getElement().getThemeList().add(user.isActive() ? "success" : "contrast");
-        return badge;
-    }
-
-    private void confirmDeactivate(User user) {
+    private void confirmRemove(User user) {
         String currentUsername = SecurityContextHolder.getContext().getAuthentication().getName();
         if (user.getUsername().equals(currentUsername)) {
-            notify("Cannot deactivate your own account", NotificationVariant.LUMO_WARNING);
-            return;
-        }
-        if (!user.isActive()) {
-            notify("User " + user.getUsername() + " is already inactive", NotificationVariant.LUMO_WARNING);
+            notify("Cannot remove your own account", NotificationVariant.LUMO_WARNING);
             return;
         }
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Deactivate user");
+        dialog.setHeaderTitle("Remove user");
         dialog.add(new com.vaadin.flow.component.html.Paragraph(
-                "Deactivate \"" + user.getUsername() + "\"? They will no longer be able to log in."));
+                "Permanently remove \"" + user.getUsername() + "\"? Their ServiceAccount and ClusterRoleBinding will be deleted from the cluster."));
 
-        Button confirmBtn = new Button("Deactivate", e -> {
-            userService.deactivateUser(user.getId());
-            dialog.close();
-            refreshGrid();
-            notify("User " + user.getUsername() + " deactivated", NotificationVariant.LUMO_SUCCESS);
+        Button confirmBtn = new Button("Remove", e -> {
+            try {
+                Cluster cluster = user.getActiveCluster();
+                if (cluster != null) {
+                    userProvisioningService.deprovisionUser(user, cluster);
+                }
+                userService.deleteUser(user.getId());
+                dialog.close();
+                refreshGrid();
+                notify("User " + user.getUsername() + " removed", NotificationVariant.LUMO_SUCCESS);
+            } catch (Exception ex) {
+                log.error("Failed to remove user {}", user.getUsername(), ex);
+                notify("Failed to remove user: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
         });
         confirmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_SMALL);
 
@@ -164,49 +163,64 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         passwordField.setRequired(true);
         passwordField.setWidthFull();
 
-        FormLayout form = new FormLayout(usernameField, emailField, passwordField);
+        ComboBox<Cluster> clusterField = new ComboBox<>("Cluster");
+        clusterField.setItems(clusterService.findAll());
+        clusterField.setItemLabelGenerator(Cluster::getName);
+        clusterField.setRequired(true);
+        clusterField.setWidthFull();
+
+        ComboBox<String> roleField = new ComboBox<>("ClusterRole");
+        roleField.setRequired(true);
+        roleField.setWidthFull();
+        roleField.setEnabled(false);
+
+        clusterField.addValueChangeListener(e -> {
+            Cluster selected = e.getValue();
+            if (selected != null) {
+                try {
+                    List<String> roles = userProvisioningService.listClusterRoles(selected);
+                    roleField.setItems(roles);
+                    roleField.setEnabled(true);
+                } catch (Exception ex) {
+                    notify("Failed to load ClusterRoles: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
+                }
+            } else {
+                roleField.setItems(List.of());
+                roleField.setEnabled(false);
+            }
+        });
+
+        FormLayout form = new FormLayout(usernameField, emailField, passwordField, clusterField, roleField);
         form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-
-        PermissionTreePanel permissionPanel = new PermissionTreePanel(Set.of());
-
-        VerticalLayout content = new VerticalLayout(form, new Hr(), permissionPanel);
-        content.setPadding(false);
-        content.setSpacing(true);
 
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("New User");
-        dialog.setWidth("560px");
-        dialog.add(content);
+        dialog.setWidth("480px");
+        dialog.add(form);
 
         Button saveBtn = new Button("Save", e -> {
             boolean valid = true;
-            if (usernameField.isEmpty()) {
-                usernameField.setErrorMessage("Username is required");
-                usernameField.setInvalid(true);
-                valid = false;
-            }
-            if (emailField.isEmpty()) {
-                emailField.setErrorMessage("Email is required");
-                emailField.setInvalid(true);
-                valid = false;
-            }
-            if (passwordField.isEmpty()) {
-                passwordField.setErrorMessage("Password is required");
-                passwordField.setInvalid(true);
-                valid = false;
-            }
+            if (usernameField.isEmpty()) { usernameField.setInvalid(true); valid = false; }
+            if (emailField.isEmpty())    { emailField.setInvalid(true);    valid = false; }
+            if (passwordField.isEmpty()) { passwordField.setInvalid(true); valid = false; }
+            if (clusterField.isEmpty())  { clusterField.setInvalid(true);  valid = false; }
+            if (roleField.isEmpty())     { roleField.setInvalid(true);     valid = false; }
             if (!valid) return;
+
             try {
-                userService.createUser(
+                User created = userService.createUser(
                         usernameField.getValue().trim(),
                         emailField.getValue().trim(),
-                        passwordField.getValue(),
-                        permissionPanel.getSelectedPermissions()
+                        passwordField.getValue()
                 );
+                Cluster cluster = clusterField.getValue();
+                userService.updateActiveCluster(created.getUsername(), cluster);
+                userProvisioningService.provisionUser(created, cluster, roleField.getValue());
                 dialog.close();
                 refreshGrid();
-                notify("User " + usernameField.getValue().trim() + " created", NotificationVariant.LUMO_SUCCESS);
+                notify("User " + created.getUsername() + " created", NotificationVariant.LUMO_SUCCESS);
             } catch (Exception ex) {
+                log.error("Failed to create user", ex);
                 notify("Failed to create user: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }
         });
@@ -219,23 +233,46 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
         usernameField.focus();
     }
 
-    private void openEditPermissionsDialog(User user) {
+    private void openEditRoleDialog(User user) {
         if (DEFAULT_ADMIN_USERNAME.equals(user.getUsername())) {
-            notify("Default admin permissions are protected", NotificationVariant.LUMO_WARNING);
+            notify("Admin user does not use a ClusterRole — it uses the cluster kubeconfig directly", NotificationVariant.LUMO_WARNING);
             return;
         }
-        PermissionTreePanel permissionPanel = new PermissionTreePanel(user.getPermissions());
+        Cluster cluster = user.getActiveCluster();
+        if (cluster == null) {
+            notify("User has no cluster assigned", NotificationVariant.LUMO_WARNING);
+            return;
+        }
+
+        ComboBox<String> roleField = new ComboBox<>("ClusterRole");
+        roleField.setWidthFull();
+        try {
+            List<String> roles = userProvisioningService.listClusterRoles(cluster);
+            roleField.setItems(roles);
+            if (user.getClusterRoleName() != null) {
+                roleField.setValue(user.getClusterRoleName());
+            }
+        } catch (Exception ex) {
+            notify("Failed to load ClusterRoles: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            return;
+        }
 
         Dialog dialog = new Dialog();
-        dialog.setHeaderTitle("Permissions — " + user.getUsername());
-        dialog.setWidth("560px");
-        dialog.add(permissionPanel);
+        dialog.setHeaderTitle("Edit Role — " + user.getUsername());
+        dialog.setWidth("400px");
+        dialog.add(roleField);
 
         Button saveBtn = new Button("Save", e -> {
-            userService.updatePermissions(user.getId(), permissionPanel.getSelectedPermissions());
-            dialog.close();
-            refreshGrid();
-            notify("Permissions updated for " + user.getUsername(), NotificationVariant.LUMO_SUCCESS);
+            if (roleField.isEmpty()) { roleField.setInvalid(true); return; }
+            try {
+                userProvisioningService.updateClusterRole(user, cluster, roleField.getValue());
+                dialog.close();
+                refreshGrid();
+                notify("Role updated for " + user.getUsername(), NotificationVariant.LUMO_SUCCESS);
+            } catch (Exception ex) {
+                log.error("Failed to update role for user {}", user.getUsername(), ex);
+                notify("Failed to update role: " + ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
         });
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
 
@@ -253,366 +290,5 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     private void notify(String message, NotificationVariant variant) {
         Notification notification = Notification.show(message, UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
         notification.addThemeVariants(variant);
-    }
-
-    // -------------------------------------------------------------------------
-    // Permission tree panel
-    // -------------------------------------------------------------------------
-
-    private static class PermissionTreePanel extends VerticalLayout {
-
-        private final List<PermissionNode> leafNodes = new ArrayList<>();
-        private final List<GroupNode> groupNodes = new ArrayList<>();
-
-        PermissionTreePanel(Set<Permission> initial) {
-            setPadding(false);
-            setSpacing(false);
-
-            Button selectAllBtn = new Button("Select All", e -> selectAll(true));
-            selectAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-            Button deselectAllBtn = new Button("Deselect All", e -> selectAll(false));
-            deselectAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-            Button expandAllBtn = new Button("Expand All", e -> groupNodes.forEach(g -> g.setExpanded(true)));
-            expandAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-            Button collapseAllBtn = new Button("Collapse All", e -> groupNodes.forEach(g -> g.setExpanded(false)));
-            collapseAllBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
-
-            HorizontalLayout bulkActions = new HorizontalLayout(selectAllBtn, deselectAllBtn, expandAllBtn, collapseAllBtn);
-            bulkActions.setSpacing(true);
-            bulkActions.setPadding(false);
-            add(bulkActions);
-
-            add(buildSection("PROJECT", buildProjectGroups(initial)));
-            add(buildSection("HELM", buildHelmGroups(initial)));
-            add(buildSection("GLOBAL", buildGlobalGroups(initial)));
-            add(buildSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceGroups(initial)));
-            add(buildSection("SETTINGS", buildSettingsGroups(initial)));
-        }
-
-        private VerticalLayout buildSection(String label, List<GroupNode> groups) {
-            Span sectionLabel = new Span(label);
-            sectionLabel.getStyle()
-                    .set("font-size", "var(--lumo-font-size-xxs)")
-                    .set("font-weight", "bold")
-                    .set("color", "var(--lumo-secondary-text-color)")
-                    .set("margin-top", "var(--lumo-space-m)")
-                    .set("margin-bottom", "var(--lumo-space-xs)");
-
-            VerticalLayout section = new VerticalLayout(sectionLabel);
-            section.setPadding(false);
-            section.setSpacing(false);
-            for (GroupNode group : groups) {
-                section.add(group);
-                groupNodes.add(group);
-            }
-            return section;
-        }
-
-        private List<GroupNode> buildHelmGroups(Set<Permission> initial) {
-            List<GroupNode> groups = new ArrayList<>();
-            groups.add(buildGroup("Releases", new LinkedHashMap<>() {{
-                put("Releases (View)", Permission.PROJECT_HELM_VIEW);
-                put("Releases (Install)", Permission.PROJECT_HELM_INSTALL);
-                put("Releases (Upgrade)", Permission.PROJECT_HELM_UPGRADE);
-                put("Releases (Uninstall)", Permission.PROJECT_HELM_UNINSTALL);
-            }}, initial));
-            return groups;
-        }
-
-        private List<GroupNode> buildProjectGroups(Set<Permission> initial) {
-            List<GroupNode> groups = new ArrayList<>();
-
-            groups.add(buildGroup("Deploy Application", Map.of(
-                    "Deploy Application", Permission.PROJECT_DEPLOY_APPLICATION
-            ), initial));
-
-            groups.add(buildGroup("Topology", Map.of(
-                    "Topology", Permission.TOPOLOGY_VIEW
-            ), initial));
-
-            groups.add(buildGroup("Observability", new LinkedHashMap<>() {{
-                put("Dashboard", Permission.OBSERVABILITY_DASHBOARD_VIEW);
-                put("Events", Permission.OBSERVABILITY_EVENTS_VIEW);
-                put("Metrics", Permission.OBSERVABILITY_METRICS_VIEW);
-            }}, initial));
-
-            groups.add(buildWorkloadsGroup(initial));
-
-            groups.add(buildGroup("Networking", new LinkedHashMap<>() {{
-                put("Services", Permission.NETWORKING_SERVICES_VIEW);
-                put("Ingresses", Permission.NETWORKING_INGRESS_VIEW);
-            }}, initial));
-
-            groups.add(buildGroup("Parameters", new LinkedHashMap<>() {{
-                put("ConfigMaps", Permission.PARAMETERS_CONFIGMAPS_VIEW);
-                put("Secrets", Permission.PARAMETERS_SECRETS_VIEW);
-            }}, initial));
-
-            groups.add(buildGroup("Auto Scaling", new LinkedHashMap<>() {{
-                put("Horizontal Scaler (View)", Permission.AUTOSCALING_HORIZONTALSCALER_VIEW);
-                put("Horizontal Scaler (Write)", Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
-            }}, initial));
-
-            groups.add(buildGroup("Storage", Map.of(
-                    "Volume Claims (PVC)", Permission.STORAGE_PVC_VIEW
-            ), initial));
-
-            return groups;
-        }
-
-        private List<GroupNode> buildGlobalGroups(Set<Permission> initial) {
-            List<GroupNode> groups = new ArrayList<>();
-
-            groups.add(buildGroup("Clusters", new LinkedHashMap<>() {{
-                put("Clusters (View)", Permission.GLOBAL_CLUSTERS_VIEW);
-                put("Clusters (Write)", Permission.GLOBAL_CLUSTERS_WRITE);
-            }}, initial));
-
-            groups.add(buildGroup("Namespaces", new LinkedHashMap<>() {{
-                put("Namespaces (View)", Permission.GLOBAL_NAMESPACES_VIEW);
-                put("Namespaces (Write)", Permission.GLOBAL_NAMESPACES_WRITE);
-                put("Namespaces (Delete)", Permission.GLOBAL_NAMESPACES_DELETE);
-            }}, initial));
-
-            groups.add(buildGroup("Infrastructure", Map.of(
-                    "Infrastructure", Permission.GLOBAL_INFRASTRUCTURE_VIEW
-            ), initial));
-
-            groups.add(buildGroup("Container Registry", new LinkedHashMap<>() {{
-                put("Container Registry (View)", Permission.GLOBAL_REGISTRY_VIEW);
-                put("Container Registry (Build)", Permission.GLOBAL_REGISTRY_BUILD);
-                put("Container Registry (Delete)", Permission.GLOBAL_REGISTRY_DELETE);
-            }}, initial));
-
-            return groups;
-        }
-
-        private List<GroupNode> buildDeveloperExperienceGroups(Set<Permission> initial) {
-            List<GroupNode> groups = new ArrayList<>();
-
-            groups.add(buildGroup("Kubernetes Operators", new LinkedHashMap<>() {{
-                put("Operators (View)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_VIEW);
-                put("Operators (Install)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_INSTALL);
-                put("Operators (Uninstall)", Permission.DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL);
-            }}, initial));
-
-            return groups;
-        }
-
-        private List<GroupNode> buildSettingsGroups(Set<Permission> initial) {
-            List<GroupNode> groups = new ArrayList<>();
-
-            groups.add(buildGroup("Users", new LinkedHashMap<>() {{
-                put("Users (View)", Permission.SETTINGS_USERS_VIEW);
-                put("Users (Write)", Permission.SETTINGS_USERS_WRITE);
-            }}, initial));
-
-            groups.add(buildGroup("Platform Settings", Map.of(
-                    "Platform Settings", Permission.SETTINGS_PLATFORM_VIEW
-            ), initial));
-
-            return groups;
-        }
-
-        private GroupNode buildGroup(String label, Map<String, Permission> items, Set<Permission> initial) {
-            List<PermissionNode> nodes = items.entrySet().stream()
-                    .map(e -> new PermissionNode(e.getKey(), e.getValue(), initial.contains(e.getValue())))
-                    .toList();
-            leafNodes.addAll(nodes);
-            GroupNode group = new GroupNode(label, nodes, new ArrayList<>(nodes));
-            nodes.forEach(n -> n.getCheckbox().addValueChangeListener(ev -> group.syncState()));
-            return group;
-        }
-
-        private GroupNode buildWorkloadsGroup(Set<Permission> initial) {
-            SubGroupNode deploymentsSubGroup = new SubGroupNode(
-                    "Deployments", Permission.WORKLOADS_DEPLOYMENTS_VIEW,
-                    new LinkedHashMap<>() {{
-                        put("Scale", Permission.WORKLOADS_DEPLOYMENTS_SCALE);
-                        put("Restart", Permission.WORKLOADS_DEPLOYMENTS_RESTART);
-                        put("Rollback", Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
-                    }},
-                    initial
-            );
-
-            SubGroupNode statefulSetsSubGroup = new SubGroupNode(
-                    "StatefulSets", Permission.WORKLOADS_STATEFULSETS_VIEW,
-                    new LinkedHashMap<>() {{
-                        put("Scale", Permission.WORKLOADS_STATEFULSETS_SCALE);
-                        put("Restart", Permission.WORKLOADS_STATEFULSETS_RESTART);
-                        put("Rollback", Permission.WORKLOADS_STATEFULSETS_ROLLBACK);
-                    }},
-                    initial
-            );
-
-            SubGroupNode jobsSubGroup = new SubGroupNode(
-                    "Jobs", Permission.WORKLOADS_JOBS_VIEW,
-                    new LinkedHashMap<>() {{
-                        put("Delete", Permission.WORKLOADS_JOBS_DELETE);
-                    }},
-                    initial
-            );
-
-            SubGroupNode cronJobsSubGroup = new SubGroupNode(
-                    "CronJobs", Permission.WORKLOADS_CRONJOBS_VIEW,
-                    new LinkedHashMap<>() {{
-                        put("Run Now", Permission.WORKLOADS_CRONJOBS_RUN_NOW);
-                        put("Suspend", Permission.WORKLOADS_CRONJOBS_SUSPEND);
-                        put("Delete", Permission.WORKLOADS_CRONJOBS_DELETE);
-                    }},
-                    initial
-            );
-
-            List<PermissionNode> otherNodes = List.of(
-                    new PermissionNode("ReplicaSets", Permission.WORKLOADS_REPLICASETS_VIEW, initial.contains(Permission.WORKLOADS_REPLICASETS_VIEW)),
-                    new PermissionNode("Pods", Permission.WORKLOADS_PODS_VIEW, initial.contains(Permission.WORKLOADS_PODS_VIEW))
-            );
-
-            List<PermissionNode> allLeaves = new ArrayList<>(deploymentsSubGroup.allLeaves());
-            allLeaves.addAll(statefulSetsSubGroup.allLeaves());
-            allLeaves.addAll(jobsSubGroup.allLeaves());
-            allLeaves.addAll(cronJobsSubGroup.allLeaves());
-            allLeaves.addAll(otherNodes);
-            leafNodes.addAll(allLeaves);
-
-            List<Component> displayItems = new ArrayList<>();
-            displayItems.add(deploymentsSubGroup);
-            displayItems.add(statefulSetsSubGroup);
-            displayItems.add(jobsSubGroup);
-            displayItems.add(cronJobsSubGroup);
-            displayItems.addAll(otherNodes);
-
-            GroupNode group = new GroupNode("Workloads", allLeaves, displayItems);
-            allLeaves.forEach(n -> n.getCheckbox().addValueChangeListener(ev -> group.syncState()));
-            return group;
-        }
-
-        private void selectAll(boolean selected) {
-            leafNodes.forEach(n -> n.getCheckbox().setValue(selected));
-        }
-
-        Set<Permission> getSelectedPermissions() {
-            return leafNodes.stream()
-                    .filter(n -> n.getCheckbox().getValue())
-                    .map(PermissionNode::getPermission)
-                    .collect(Collectors.toCollection(() -> EnumSet.noneOf(Permission.class)));
-        }
-    }
-
-    private static class PermissionNode extends HorizontalLayout {
-
-        private final Checkbox checkbox;
-        private final Permission permission;
-
-        PermissionNode(String label, Permission permission, boolean checked) {
-            this.permission = permission;
-            this.checkbox = new Checkbox(label, checked);
-            checkbox.getStyle().set("margin-left", "var(--lumo-space-l)");
-            setPadding(false);
-            setSpacing(false);
-            add(checkbox);
-        }
-
-        Checkbox getCheckbox() { return checkbox; }
-        Permission getPermission() { return permission; }
-    }
-
-    private static class SubGroupNode extends VerticalLayout {
-
-        private final PermissionNode parentNode;
-        private final List<PermissionNode> actionNodes;
-
-        SubGroupNode(String viewLabel, Permission viewPermission,
-                     Map<String, Permission> actions, Set<Permission> initial) {
-            parentNode = new PermissionNode(viewLabel, viewPermission, initial.contains(viewPermission));
-            actionNodes = actions.entrySet().stream()
-                    .map(e -> {
-                        PermissionNode node = new PermissionNode(e.getKey(), e.getValue(), initial.contains(e.getValue()));
-                        node.getCheckbox().getStyle().set("margin-left", "var(--lumo-space-xl)");
-                        return node;
-                    })
-                    .toList();
-
-            // Unchecking view unchecks all actions — actions require view to be meaningful
-            parentNode.getCheckbox().addValueChangeListener(ev -> {
-                if (!ev.getValue()) actionNodes.forEach(a -> a.getCheckbox().setValue(false));
-            });
-
-            setPadding(false);
-            setSpacing(false);
-            add(parentNode);
-            actionNodes.forEach(this::add);
-        }
-
-        List<PermissionNode> allLeaves() {
-            List<PermissionNode> all = new ArrayList<>();
-            all.add(parentNode);
-            all.addAll(actionNodes);
-            return all;
-        }
-    }
-
-    private static class GroupNode extends VerticalLayout {
-
-        private final Checkbox header;
-        private final Button toggleButton;
-        private final VerticalLayout itemsContainer;
-        private final List<PermissionNode> children;
-        private boolean syncing = false;
-
-        GroupNode(String label, List<PermissionNode> leaves, List<Component> displayItems) {
-            this.children = leaves;
-            this.header = new Checkbox(label);
-            header.getStyle().set("font-weight", "500");
-            header.addValueChangeListener(e -> {
-                if (syncing) return;
-                children.forEach(c -> c.getCheckbox().setValue(e.getValue()));
-            });
-
-            itemsContainer = new VerticalLayout();
-            itemsContainer.setPadding(false);
-            itemsContainer.setSpacing(false);
-            itemsContainer.getStyle().set("margin-left", "var(--lumo-size-s)");
-            displayItems.forEach(itemsContainer::add);
-
-            var initialIcon = VaadinIcon.CHEVRON_RIGHT.create();
-            initialIcon.setSize(UiConstants.ICON_SIZE);
-            toggleButton = new Button(initialIcon, e -> setExpanded(!itemsContainer.isVisible()));
-            toggleButton.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
-
-            HorizontalLayout headerRow = new HorizontalLayout(toggleButton, header);
-            headerRow.setSpacing(false);
-            headerRow.setPadding(false);
-            headerRow.setAlignItems(Alignment.CENTER);
-
-            setPadding(false);
-            setSpacing(false);
-            add(headerRow, itemsContainer);
-            syncState();
-            setExpanded(children.stream().anyMatch(c -> c.getCheckbox().getValue()));
-        }
-
-        void setExpanded(boolean expanded) {
-            itemsContainer.setVisible(expanded);
-            var icon = (expanded ? VaadinIcon.CHEVRON_DOWN : VaadinIcon.CHEVRON_RIGHT).create();
-            icon.setSize(UiConstants.ICON_SIZE);
-            toggleButton.setIcon(icon);
-            toggleButton.getElement().setAttribute("title", expanded ? "Collapse" : "Expand");
-        }
-
-        void syncState() {
-            syncing = true;
-            long checked = children.stream().filter(c -> c.getCheckbox().getValue()).count();
-            if (checked == 0) {
-                header.setIndeterminate(false);
-                header.setValue(false);
-            } else if (checked == children.size()) {
-                header.setIndeterminate(false);
-                header.setValue(true);
-            } else {
-                header.setIndeterminate(true);
-            }
-            syncing = false;
-        }
     }
 }

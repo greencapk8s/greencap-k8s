@@ -7,7 +7,6 @@ import io.fabric8.openshift.api.model.operatorhub.v1.OperatorGroupBuilder;
 import io.fabric8.openshift.api.model.operatorhub.v1alpha1.ClusterServiceVersion;
 import io.fabric8.openshift.api.model.operatorhub.v1alpha1.Subscription;
 import io.fabric8.openshift.api.model.operatorhub.v1alpha1.SubscriptionBuilder;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.OperatorChannel;
 import io.greencap.k8s.kubernetes.dto.OperatorInfo;
@@ -32,11 +31,9 @@ public class KubernetesOperatorService {
     private static final String OLM_NAMESPACE = "olm";
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public boolean isOlmInstalled(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.resources(ClusterServiceVersion.class).inNamespace(OPERATORS_NAMESPACE).list();
             return true;
         } catch (Exception e) {
@@ -46,8 +43,7 @@ public class KubernetesOperatorService {
     }
 
     public List<OperatorInfo> listInstalled(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             Map<String, ClusterServiceVersion> csvByName = client.resources(ClusterServiceVersion.class)
                     .inNamespace(OPERATORS_NAMESPACE)
@@ -67,13 +63,12 @@ public class KubernetesOperatorService {
 
         } catch (Exception e) {
             log.error("Failed to list installed operators for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list installed operators: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list installed operators", e);
         }
     }
 
     public List<OperatorPackage> listCatalog(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             return client.resources(PackageManifest.class)
                     .inAnyNamespace()
@@ -86,13 +81,12 @@ public class KubernetesOperatorService {
 
         } catch (Exception e) {
             log.error("Failed to list operator catalog for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list operator catalog: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list operator catalog", e);
         }
     }
 
     public void install(Cluster cluster, String packageName, String channel, String catalogSource) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             ensureOperatorGroup(client);
 
@@ -119,13 +113,12 @@ public class KubernetesOperatorService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to install operator {} in cluster {}: {}", packageName, cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to install operator: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to install operator", e);
         }
     }
 
     public void uninstall(Cluster cluster, String packageName) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             client.resources(Subscription.class)
                     .inNamespace(OPERATORS_NAMESPACE)
@@ -154,7 +147,7 @@ public class KubernetesOperatorService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to uninstall operator {} from cluster {}: {}", packageName, cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to uninstall operator: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to uninstall operator", e);
         }
     }
 

@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -13,8 +14,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u LEFT JOIN FETCH u.activeCluster WHERE u.username = :username")
     Optional<User> findByUsernameWithActiveCluster(@Param("username") String username);
 
-    @Query("SELECT u FROM User u LEFT JOIN FETCH u.permissions WHERE u.username = :username")
-    Optional<User> findByUsernameWithPermissions(@Param("username") String username);
+    @Query("SELECT u FROM User u LEFT JOIN FETCH u.activeCluster ORDER BY u.createdAt ASC")
+    List<User> findAllWithActiveCluster();
 
     Optional<User> findByEmail(String email);
 

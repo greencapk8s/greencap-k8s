@@ -1,6 +1,6 @@
 # GreenCap K8s
 
-A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Permissions granted to each User.
+A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Kubernetes RBAC permissions of the acting User.
 
 ## Purpose & Audience
 
@@ -18,12 +18,20 @@ The result of the last connection attempt to a Cluster. Not a persistent authori
 _Avoid_: Status, health, availability
 
 **User**:
-A person with access to the GreenCap platform. Access is determined by the explicit set of Permissions granted to them — there is no Role field.
+A person with access to the GreenCap platform. Non-admin Users are represented in their assigned Cluster by a UserServiceAccount, and their access to Kubernetes resources is governed entirely by Kubernetes RBAC. Each non-admin User belongs to exactly one Cluster.
 _Avoid_: Account, member, principal
 
-**Permission**:
-A named capability granted explicitly to a User. Persisted as a `Set<Permission>` on the User entity (`@ElementCollection`). Covers two levels: view-level (can the user navigate to a section?) and action-level (can the user perform a write operation within that section?). Examples: `WORKLOADS_DEPLOYMENTS_VIEW`, `WORKLOADS_DEPLOYMENTS_SCALE`, `SETTINGS_USERS_VIEW`. Loaded as Spring Security `GrantedAuthority` objects at login so that `hasAuthority()` checks work at the framework level. ADMIN, OPERATOR and VIEWER are preset labels used only in Flyway migration to seed permissions for existing users — they are not a persistent concept.
-_Avoid_: Role, privilege, group
+**PlatformAdmin**:
+The single administrative User of the GreenCap platform, identified by the fixed username `admin`. Uses the Cluster's kubeconfig directly for all operations, giving full cluster access. The only User who can register Clusters, create/deactivate other Users, and switch between Clusters. Not represented by a UserServiceAccount.
+_Avoid_: Admin user, superuser, root
+
+**UserServiceAccount**:
+A Kubernetes ServiceAccount created in the `greencap-system` namespace of a Cluster when a non-admin User is created. Its bearer token is stored encrypted on the User record and used for all Kubernetes API calls made on that User's behalf. Bound to a ClusterRole via a ClusterRoleBinding. Deleted from the cluster when the User is deactivated.
+_Avoid_: SA, service account, user credentials
+
+**ClusterRole**:
+A Kubernetes ClusterRole assigned to a User's UserServiceAccount via a ClusterRoleBinding, determining the User's access level across all namespaces in the Cluster. Selected by the PlatformAdmin at User creation time and editable afterwards. GreenCap populates the selector from the ClusterRoles available in the target Cluster.
+_Avoid_: Role, permission level, access level
 
 **Namespace**:
 A logical isolation unit within a Cluster that groups Workloads. Cluster-scoped — not itself a Workload. In GreenCap, displayed in the Global section with resource counts (Pods, Deployments, Services) to give a quick overview of what lives inside. Supports two write operations: Create and Delete Namespace. System namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) are protected from deletion in the UI — the Delete action is disabled when one of these is selected.

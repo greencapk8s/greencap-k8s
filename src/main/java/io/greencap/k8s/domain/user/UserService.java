@@ -4,15 +4,13 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
-import java.util.List;
-import java.util.Set;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -25,19 +23,44 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsernameWithPermissions(username)
+        User user = userRepository.findByUsername(username)
                 .filter(User::isActive)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
-
-        var authorities = user.getPermissions().stream()
-                .map(p -> new SimpleGrantedAuthority(p.name()))
-                .toList();
 
         return org.springframework.security.core.userdetails.User
                 .withUsername(user.getUsername())
                 .password(user.getPasswordHash())
-                .authorities(authorities)
+                .authorities(new SimpleGrantedAuthority("ROLE_USER"))
                 .build();
+    }
+
+    @Transactional
+    public User createUser(String username, String email, String rawPassword) {
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(rawPassword));
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public void assignKubernetesIdentity(Long userId, String serviceaccountName, String clusterRoleName, String encryptedToken) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setServiceaccountName(serviceaccountName);
+            user.setClusterRoleName(clusterRoleName);
+            user.setServiceaccountToken(encryptedToken);
+            userRepository.save(user);
+        });
+    }
+
+    @Transactional
+    public void clearKubernetesIdentity(Long userId) {
+        userRepository.findById(userId).ifPresent(user -> {
+            user.setServiceaccountName(null);
+            user.setClusterRoleName(null);
+            user.setServiceaccountToken(null);
+            userRepository.save(user);
+        });
     }
 
     @Transactional
@@ -105,39 +128,16 @@ public class UserService implements UserDetailsService {
         });
     }
 
-    @Transactional
-    public User createUser(String username, String email, String rawPassword, Set<Permission> permissions) {
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPasswordHash(passwordEncoder.encode(rawPassword));
-        user.setPermissions(permissions);
-        return userRepository.save(user);
-    }
-
-    @Transactional
-    public void updatePermissions(Long userId, Set<Permission> permissions) {
-        userRepository.findById(userId).ifPresent(user -> {
-            user.setPermissions(permissions);
-            userRepository.save(user);
-        });
-    }
-
-    public Set<Permission> findPermissions(Long userId) {
-        return userRepository.findById(userId)
-                .map(User::getPermissions)
-                .orElse(Set.of());
-    }
-
     public List<User> findAll() {
-        return userRepository.findAll();
+        return userRepository.findAllWithActiveCluster();
     }
 
     @Transactional
-    public void deactivateUser(Long userId) {
-        userRepository.findById(userId).ifPresent(user -> {
-            user.setActive(false);
-            userRepository.save(user);
-        });
+    public void deleteUser(Long userId) {
+        userRepository.deleteById(userId);
+    }
+
+    public Optional<User> findById(Long userId) {
+        return userRepository.findById(userId);
     }
 }

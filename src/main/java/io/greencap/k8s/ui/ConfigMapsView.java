@@ -23,8 +23,6 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "config/configmaps", layout = MainLayout.class)
 @PageTitle("ConfigMaps — GreenCap K8s")
@@ -56,7 +54,7 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
         buildConfigMapGrid();
         UiConstants.configureSingleSelection(configMapGrid, selectionMemory, getClass().getSimpleName(), ConfigMapInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<ConfigMapInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -68,10 +66,6 @@ public class ConfigMapsView extends VerticalLayout implements BeforeEnterObserve
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         configMapGrid.setVisible(hasCluster);

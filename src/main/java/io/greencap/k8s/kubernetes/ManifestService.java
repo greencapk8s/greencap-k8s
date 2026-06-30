@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.utils.Serialization;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -44,15 +43,13 @@ public class ManifestService {
     private static final YAMLMapper YAML_MAPPER = new YAMLMapper();
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public static boolean isEditable(String resourceType) {
         return EDITABLE_RESOURCE_KINDS.containsKey(resourceType.toLowerCase());
     }
 
     public String fetchYaml(Cluster cluster, String resourceType, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             Object resource = switch (resourceType.toLowerCase()) {
                 case "pod"        -> client.pods().inNamespace(namespace).withName(name).get();
@@ -84,15 +81,14 @@ public class ManifestService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to fetch manifest for {}/{}/{}: {}", resourceType, namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to fetch manifest: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to fetch manifest", e);
         }
     }
 
     public void applyYaml(Cluster cluster, String resourceType, String namespace, String name, String yamlContent) {
         ObjectNode resource = parseAndValidate(resourceType, namespace, name, yamlContent);
 
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             String cleanedYaml = YAML_MAPPER.writeValueAsString(resource);
             client.resource(cleanedYaml).inNamespace(namespace).update();
@@ -101,7 +97,7 @@ public class ManifestService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to apply manifest for {}/{}/{}: {}", resourceType, namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to apply manifest: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to apply manifest", e);
         }
     }
 
@@ -115,7 +111,7 @@ public class ManifestService {
         try {
             resource = (ObjectNode) YAML_MAPPER.readTree(yamlContent);
         } catch (JsonProcessingException e) {
-            throw new KubernetesOperationException("Invalid YAML: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Invalid YAML", e);
         }
 
         if (!expectedKind.equals(textValue(resource, "kind"))) {

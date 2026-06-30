@@ -21,11 +21,9 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.helm.HelmRepository;
 import io.greencap.k8s.domain.helm.HelmRepositoryService;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.HelmOperationException;
@@ -88,10 +86,6 @@ public class DeployFromHelmView extends VerticalLayout implements BeforeEnterObs
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_HELM_INSTALL)) {
-            event.forwardTo("");
-            return;
-        }
         loadRepositories();
         namespaceField.setValue(clusterContext.getNamespace() != null ? clusterContext.getNamespace() : "");
         renderStep(1);

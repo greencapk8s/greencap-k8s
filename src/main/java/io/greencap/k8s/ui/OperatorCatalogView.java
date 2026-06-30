@@ -23,9 +23,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.KubernetesOperatorService;
@@ -80,7 +78,7 @@ public class OperatorCatalogView extends VerticalLayout implements BeforeEnterOb
 
         buildGrid();
 
-        boolean canInstall = SecurityUtils.hasPermission(Permission.DEVELOPER_EXPERIENCE_OPERATORS_INSTALL);
+        boolean canInstall = true;
         List<UiConstants.SelectionAction<OperatorPackage>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.DOWNLOAD, "Install", canInstall,
                         this::openInstallDialog)
@@ -101,10 +99,6 @@ public class OperatorCatalogView extends VerticalLayout implements BeforeEnterOb
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.DEVELOPER_EXPERIENCE_OPERATORS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);

@@ -4,7 +4,7 @@ import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
-import io.greencap.k8s.config.EncryptionService;
+
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.NamespaceInfo;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,12 +28,10 @@ class NamespaceServiceTest {
     @BeforeEach
     void setup() {
         KubernetesClientFactory mockFactory = mock(KubernetesClientFactory.class);
-        EncryptionService mockEncryption = mock(EncryptionService.class);
-        when(mockEncryption.decrypt(any())).thenReturn("irrelevant");
         KubernetesClient spyClient = spy(client);
         doNothing().when(spyClient).close();
         when(mockFactory.buildClient(any())).thenReturn(spyClient);
-        namespaceService = new NamespaceService(mockFactory, mockEncryption);
+        namespaceService = new NamespaceService(mockFactory);
 
         cluster = new Cluster();
         cluster.setName("test-cluster");
@@ -107,10 +105,8 @@ class NamespaceServiceTest {
     @Test
     void listNamespaceNames_whenFabric8Throws_propagatesAsKubernetesOperationException() {
         KubernetesClientFactory failingFactory = mock(KubernetesClientFactory.class);
-        EncryptionService mockEncryption = mock(EncryptionService.class);
-        when(mockEncryption.decrypt(any())).thenReturn("irrelevant");
         when(failingFactory.buildClient(any())).thenThrow(new RuntimeException("connection refused"));
-        NamespaceService failingService = new NamespaceService(failingFactory, mockEncryption);
+        NamespaceService failingService = new NamespaceService(failingFactory);
 
         assertThatThrownBy(() -> failingService.listNamespaceNames(cluster))
             .isInstanceOf(KubernetesOperationException.class);

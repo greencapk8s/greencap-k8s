@@ -19,9 +19,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
@@ -78,7 +76,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         buildPodGrid();
         UiConstants.configureSingleSelection(podGrid, selectionMemory, getClass().getSimpleName(), PodInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<PodInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -93,10 +91,6 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
 
         String jobParam = event.getLocation().getQueryParameters()
                 .getParameters().getOrDefault("job", List.of()).stream().findFirst().orElse("");

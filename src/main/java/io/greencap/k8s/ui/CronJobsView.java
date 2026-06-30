@@ -18,9 +18,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.WorkloadService;
@@ -75,10 +73,6 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
@@ -88,9 +82,9 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
     }
 
     private void buildGrid() {
-        canRunNow = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_RUN_NOW);
-        canSuspend = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_SUSPEND);
-        canDelete  = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_DELETE);
+        canRunNow = true;
+        canSuspend = true;
+        canDelete  = true;
 
         var nameCol = grid.addColumn(CronJobInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
         grid.addColumn(CronJobInfo::schedule).setHeader("Schedule").setWidth("150px").setResizable(true);

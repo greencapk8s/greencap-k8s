@@ -24,8 +24,6 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "storage/pvcs", layout = MainLayout.class)
 @PageTitle("Volume Claims (PVC) — GreenCap K8s")
@@ -59,7 +57,7 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), PersistentVolumeClaimInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.STORAGE_PVC_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<PersistentVolumeClaimInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -71,10 +69,6 @@ public class PersistentVolumeClaimsView extends VerticalLayout implements Before
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.STORAGE_PVC_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

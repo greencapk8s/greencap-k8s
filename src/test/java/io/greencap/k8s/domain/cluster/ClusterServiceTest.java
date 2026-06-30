@@ -33,6 +33,7 @@ class ClusterServiceTest extends PostgresIntegrationTest {
     void setupMocks() {
         KubernetesClient mockClient = mock(KubernetesClient.class, RETURNS_DEEP_STUBS);
         when(clientFactory.buildClient(any())).thenReturn(mockClient);
+        when(clientFactory.buildFromRawKubeconfig(any())).thenReturn(mockClient);
     }
 
     @Test
@@ -63,7 +64,7 @@ class ClusterServiceTest extends PostgresIntegrationTest {
         Cluster connected = clusterService.createCluster(
             new CreateClusterRequest("connected-cluster", "kc"));
 
-        when(clientFactory.buildClient(any())).thenThrow(new RuntimeException("unreachable"));
+        when(clientFactory.buildFromRawKubeconfig(any())).thenThrow(new RuntimeException("unreachable"));
         Cluster error = clusterService.createCluster(
             new CreateClusterRequest("error-cluster", "kc"));
 

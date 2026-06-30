@@ -99,7 +99,7 @@ public class ClusterService {
     }
 
     private ConnectionStatus testWithPlaintext(String kubeconfigContent) {
-        try (KubernetesClient client = clientFactory.buildClient(kubeconfigContent)) {
+        try (KubernetesClient client = clientFactory.buildFromRawKubeconfig(kubeconfigContent)) {
             client.namespaces().list();
             return ConnectionStatus.CONNECTED;
         } catch (Exception e) {

@@ -16,9 +16,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ManifestService;
@@ -70,10 +68,7 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
 
         boolean editable = ManifestService.isEditable(resourceType);
         editButton.setVisible(editable);
-        if (editable && !SecurityUtils.hasPermission(Permission.MANIFEST_EDIT)) {
-            editButton.setEnabled(false);
-            editButton.getElement().setAttribute("title", "You do not have permission to edit this resource");
-        } else {
+        if (editable) {
             editButton.setEnabled(true);
             editButton.getElement().removeAttribute("title");
         }

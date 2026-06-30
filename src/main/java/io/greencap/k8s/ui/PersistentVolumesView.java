@@ -17,9 +17,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
@@ -63,7 +61,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), PersistentVolumeInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE);
+        boolean canDelete = true;
 
         var deleteIcon = VaadinIcon.TRASH.create();
         deleteIcon.setSize(UiConstants.ICON_SIZE);
@@ -91,10 +89,6 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

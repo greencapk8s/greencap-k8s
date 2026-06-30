@@ -16,11 +16,9 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.helm.HelmRepository;
 import io.greencap.k8s.domain.helm.HelmRepositoryService;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
@@ -59,7 +57,7 @@ public class HelmRepositoriesView extends VerticalLayout implements BeforeEnterO
 
         buildGrid();
 
-        boolean canInstall = SecurityUtils.hasPermission(Permission.PROJECT_HELM_INSTALL);
+        boolean canInstall = true;
 
         Button addBtn = new Button("Add Repository", VaadinIcon.PLUS.create());
         addBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
@@ -79,10 +77,6 @@ public class HelmRepositoriesView extends VerticalLayout implements BeforeEnterO
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_HELM_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);

@@ -23,8 +23,6 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "observability/events", layout = MainLayout.class)
 @PageTitle("Events — GreenCap K8s")
@@ -64,10 +62,6 @@ public class EventsView extends VerticalLayout implements BeforeEnterObserver, R
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.OBSERVABILITY_EVENTS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         eventGrid.setVisible(hasCluster);

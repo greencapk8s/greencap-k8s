@@ -26,8 +26,6 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import jakarta.annotation.security.PermitAll;
 
@@ -79,7 +77,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         buildDeployGrid();
         UiConstants.configureSingleSelection(deployGrid, selectionMemory, getClass().getSimpleName(), DeploymentInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<DeploymentInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -94,10 +92,6 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);
@@ -119,9 +113,9 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         deployGrid.addColumn(DeploymentInfo::available).setHeader("Available").setWidth("110px").setResizable(true);
         var nodesCol = deployGrid.addColumn(DeploymentInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         deployGrid.addColumn(DeploymentInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_SCALE);
-        boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_RESTART);
-        boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_ROLLBACK);
+        boolean canScale = true;
+        boolean canRestart = true;
+        boolean canRollback = true;
         UiConstants.addActionsColumn(deployGrid, 3, d -> {
             Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(d));
             scaleBtn.setEnabled(canScale);

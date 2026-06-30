@@ -30,8 +30,6 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Slf4j
 @Route(value = "", layout = MainLayout.class)
@@ -94,10 +92,6 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.OBSERVABILITY_DASHBOARD_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         loadContent();
     }
 
@@ -208,9 +202,6 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void refreshCta(Cluster cluster, String namespace, UI ui) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
-            return;
-        }
         CompletableFuture.runAsync(() -> {
             try {
                 boolean empty = workloadService.listDeployments(cluster, namespace).isEmpty();

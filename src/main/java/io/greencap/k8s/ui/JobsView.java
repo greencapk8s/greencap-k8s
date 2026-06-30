@@ -17,9 +17,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.WorkloadService;
@@ -63,7 +61,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), JobInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<JobInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteJobDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -75,10 +73,6 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
 
         String cronjobParam = event.getLocation().getQueryParameters()
                 .getParameters().getOrDefault("cronjob", List.of()).stream().findFirst().orElse("");
