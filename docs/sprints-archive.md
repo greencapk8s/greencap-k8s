@@ -773,3 +773,26 @@
 - `docs/adr/0010-karibu-para-testes-de-views-vaadin.md`: decisão de usar Karibu (in-memory) em vez de Selenium/Playwright
 - `CLAUDE.md`: fluxo de sprint atualizado com passo 6 (Testes) — views Karibu e integração `PostgresIntegrationTest`
 - Issue: `.scratch/archive/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
+
+### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
+
+- `ComposeParser` (novo, `kubernetes/compose/`): busca o `docker-compose.yml` via HTTP raw do GitHub/GitLab, faz parse com SnakeYAML `SafeConstructor`; classifica variáveis de ambiente com heurística de chave sensível (`PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL` → Secret; restante → ConfigMap); volumes named → PVC, bind-mounts → aviso; `depends_on:` e diretivas não suportadas → lista de avisos consolidada
+- `ComposeDocument` (novo): modelo intermediário do Compose parseado — `ParsedService`, `BuildSpec`, `EnvEntry`, `VolumeEntry`
+- `ImportComposeService` (novo, `kubernetes/compose/`): provisiona Namespace, ConfigMap (`<service>-config`), Secret (`<service>-secret`), PVC (`<service>-pvc`), Deployment e Service ClusterIP para cada serviço; labels `app.kubernetes.io/part-of: <namespace>` + `app.kubernetes.io/component: <service-name>` em todos os recursos para agrupamento em Topologia; tenta todos os serviços antes de reportar falhas (sem rollback)
+- `ImportComposeView` (nova, rota `deploy/compose`): view independente com wizard de 3 passos — (1) Git URL + branch + path + namespace; (2) revisão por serviço com campos editáveis (imagem para `build:` pré-preenchida como `localhost:5000/<namespace>/<service>:latest`, PVC StorageClass/size, warnings de bind-mounts/`depends_on:`/diretivas ignoradas); (3) execução — Builds Kaniko sequenciais com log live + grid de status em 2 colunas + provisionamento K8s + resultado; em sucesso total navega para Topologia do novo Namespace
+- `DeployApplicationView`: seletor de modo "Deploy from Image" / "Deploy from Compose" no topo; botão "Deploy from Compose" navega para `ImportComposeView` (views independentes, sem aninhamento)
+- Fixes encontrados no aceite: imagem para `build:` precisava do prefixo `localhost:5000/` (registry-proxy hostPort); contexto de build (`--context-sub-path`) resolvia relativo à raiz do repo em vez de relativo ao diretório do `docker-compose.yml`; nome do repositório inclui namespace como prefixo (`<namespace>/<service>:tag`)
+- Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
+- `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
+- `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
+- Issues: `.scratch/archive/sprint-83/issues/` (4 issues, todas `done`)
+
+### Sprint 84 ✅ — Bug fixes: Registry remove persistente, Namespace Terminating bloqueado, seleção de linha em View Tags
+
+- Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo. Tema conforme "Status Geral": Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags
+- Sem diretório `.scratch/sprint-84/` — não houve issues formais
+
+### Sprint 85 ✅ — Deploy from Dockerfile: terceiro modo de deploy, wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes
+
+- Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo
+- Issues: `.scratch/archive/sprint-85/issues/` (3 issues)

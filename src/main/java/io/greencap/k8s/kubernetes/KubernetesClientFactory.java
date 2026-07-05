@@ -6,6 +6,7 @@ import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.User;
 import io.greencap.k8s.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -41,14 +42,26 @@ public class KubernetesClientFactory {
         if (SecurityUtils.isAdmin()) {
             return encryptionService.decrypt(cluster.getKubeconfigContent());
         }
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null) {
-            return userRepository.findByUsername(auth.getName())
-                    .filter(u -> u.getServiceaccountToken() != null)
-                    .map(u -> encryptionService.decrypt(u.getServiceaccountToken()))
-                    .orElseGet(() -> encryptionService.decrypt(cluster.getKubeconfigContent()));
+        return resolveKubeconfigForUser(SecurityContextHolder.getContext().getAuthentication());
+    }
+
+    // Package-private: the internal seam tests exercise directly, without mocking SecurityContextHolder.
+    // Fails closed — a non-admin User with no provisioned ServiceAccount token is denied, never handed
+    // the Cluster's admin kubeconfig (see ADR-0013: the Kubernetes API server is the enforcement layer).
+    String resolveKubeconfigForUser(Authentication auth) {
+        if (auth == null) {
+            throw new KubernetesOperationException("Unable to resolve Kubernetes credentials: no authenticated user");
         }
-        return encryptionService.decrypt(cluster.getKubeconfigContent());
+        String username = auth.getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new KubernetesOperationException(
+                        "Unable to resolve Kubernetes credentials: user '" + username + "' not found"));
+        String serviceAccountToken = user.getServiceaccountToken();
+        if (serviceAccountToken == null) {
+            throw new KubernetesOperationException(
+                    "Unable to resolve Kubernetes credentials: ServiceAccount not yet provisioned for user '" + username + "'");
+        }
+        return encryptionService.decrypt(serviceAccountToken);
     }
 
     private KubernetesClient buildFromKubeconfig(String kubeconfigContent) {

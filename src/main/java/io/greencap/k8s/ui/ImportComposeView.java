@@ -41,6 +41,7 @@ import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
@@ -439,7 +440,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         section.add(new Hr());
 
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> runBuildsSequentially(buildServices, section, ui));
+        UiConstants.VIRTUAL_THREADS.execute(() -> runBuildsSequentially(buildServices, section, ui));
         return section;
     }
 
@@ -497,7 +498,9 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         final boolean[] finished = {false};
         final boolean[] success = {false};
 
-        pollTask = pollExecutor.scheduleAtFixedRate(() -> {
+        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
+        // so it's captured here and re-applied on every fixed-rate firing.
+        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> {
             try {
                 var progress = registryService.getBuildProgress(cluster, jobName);
                 if (progress.podName() != null) {
@@ -524,7 +527,8 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                 finished[0] = true;
                 stopPolling();
             }
-        }, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        });
+        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
 
         while (!finished[0]) {
             try { Thread.sleep(500); } catch (InterruptedException ex) {
@@ -552,7 +556,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         ComposeImportRequest request = buildImportRequest();
 
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 ImportComposeResult result = importComposeService.provision(cluster, parsedDocument, request);
                 ui.access(() -> renderResult(section, result, request.namespace(), ui));
@@ -618,7 +622,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 ComposeDocument document = composeParser.fetch(
                         gitUrlField.getValue().trim(),
@@ -672,7 +676,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();

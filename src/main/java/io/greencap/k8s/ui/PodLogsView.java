@@ -25,6 +25,7 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import jakarta.annotation.security.PermitAll;
+import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 
 import java.util.List;
 import java.util.Optional;
@@ -124,9 +125,10 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
         updatePauseResumeButton();
         int intervalSeconds = pollIntervalSelect.getValue() != null ? pollIntervalSelect.getValue() : 3;
         UI ui = UI.getCurrent();
-        pollTask = pollExecutor.scheduleAtFixedRate(
-                () -> ui.access(this::fetchAndRenderLogs),
-                0, intervalSeconds, TimeUnit.SECONDS);
+        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
+        // so it's captured here and re-applied on every fixed-rate firing.
+        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> ui.access(this::fetchAndRenderLogs));
+        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, intervalSeconds, TimeUnit.SECONDS);
     }
 
     private void stopPolling() {

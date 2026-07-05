@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 | 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
 | 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
@@ -17,8 +18,6 @@
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 | 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
 | 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
-| 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
-| 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
 
 ---
 
@@ -33,6 +32,10 @@
 - **Token + URL** — segundo método de registro de cluster: o usuário informa apenas o endpoint da API Kubernetes (`https://...`) e um bearer token de service account. Mais acessível para iniciantes que não sabem localizar o kubeconfig, e o fluxo natural para clusters gerenciados (GKE, EKS, AKS) que expõem esses dois valores no console do provedor. Internamente, o Fabric8 constrói o `Config` via `withMasterUrl()` + `withOauthToken()` — sem necessidade de gerar um arquivo kubeconfig. A tela de registro (`ClustersView`) ganha um toggle para escolher o método: _Kubeconfig_ (atual) ou _Token + URL_. Limitação esperada: suporta apenas autenticação por bearer token; certificado de cliente e OIDC não são cobertos por este método.
 
 - **In-cluster** — terceiro método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
+
+#### 🧵 Consolidar execução assíncrona em virtual threads
+
+- **Executor único com propagação de `SecurityContext`** — a correção de fail-closed do `KubernetesClientFactory` (sprint 94, fix de 2026-06-30/07-02) expôs que o `SecurityContextHolder` (baseado em `ThreadLocal`) não é herdado por virtual threads. Antes da correção, isso era mascarado por um fallback silencioso para o kubeconfig admin do Cluster — ou seja, qualquer chamada Kubernetes rodando em background sem contexto propagado recebia acesso admin, independente do usuário. O fix corrigiu o `KubernetesClientFactory`, mas isso só resolveu o sintoma em cada um dos ~16 pontos que disparavam `Thread.ofVirtual().start(...)`/`ScheduledExecutorService` próprios em vez de reusar o `UiConstants.VIRTUAL_THREADS` já existente — cada view reinventou sua própria forma de rodar em background (`DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`, `BuildLogsView`, `PodLogsView`, `MainLayout`, `DashboardView`, todas com o mesmo bug). Causa raiz real: duplicação — ausência de um único ponto de acesso assíncrono no projeto. Follow-up: extrair um helper compartilhado (ex.: `SecurityAwareVirtualThreads` ou consolidar tudo em `UiConstants.VIRTUAL_THREADS`, já corrigido com `DelegatingSecurityContextExecutor`) e migrar os `ScheduledExecutorService` de polling (`BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`) para reusar a mesma fábrica, eliminando a necessidade de aplicar `DelegatingSecurityContextRunnable` manualmente em cada `scheduleAtFixedRate`.
 
 #### 🔌 Developer Experience — follow-ups da Sprint 88
 
@@ -95,6 +98,20 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
+
+- `KubernetesClientFactory.resolveKubeconfig`: fail-closed — usuário não-admin sem `serviceaccountToken` provisionado lança `KubernetesOperationException` em vez de cair silenciosamente no kubeconfig admin do Cluster (janela de corrida entre `createUser` e `provisionUser`, transações separadas); seam `resolveKubeconfigForUser(Authentication)` extraída para teste sem mockar `SecurityContextHolder`; `KubernetesClientFactoryTest` (4 casos)
+- `Permission.java` e `ClusterProvider.java` removidos — enums órfãos sem nenhum uso real (achado do relatório `/improve-codebase-architecture`)
+- Causa raiz mais profunda descoberta durante o teste de aceite: `SecurityContextHolder` (baseado em `ThreadLocal`) não propaga para virtual threads — todo carregamento assíncrono (namespaces, dashboard, deploy wizards, topologia, logs) rodava sem usuário autenticado, e o comportamento pré-fix mascarava isso caindo direto no kubeconfig admin para qualquer usuário, não só os não provisionados
+- `UiConstants.VIRTUAL_THREADS`: `Executor` envolvido em `DelegatingSecurityContextExecutor` (spring-security-core, já dependência do projeto) — corrige de uma vez as 8 views que já reusavam esse executor compartilhado
+- `DashboardView`: executor privado duplicado removido, passou a reusar `UiConstants.VIRTUAL_THREADS`
+- `MainLayout`: `loadNamespacesForCluster` migrado de `Thread.ofVirtual().start()` para `UiConstants.VIRTUAL_THREADS.execute()`; timer de auto-refresh (`applyRefreshInterval`) envolvido em `DelegatingSecurityContextRunnable`
+- `DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`: `Thread.ofVirtual().start()` migrado para `UiConstants.VIRTUAL_THREADS.execute()` (14 pontos)
+- `BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`: pollers (`ScheduledExecutorService` próprio) envolvidos em `DelegatingSecurityContextRunnable`
+- `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
+- Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
+- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
 
 ### Sprint 94 ✅ — K8s RBAC substituindo sistema de permissões interno
 
@@ -202,18 +219,6 @@
 - `EventsDialog` (events por recurso específico) não alterado — continua sem limite
 - Issue: `.scratch/sprint-86/issues/01-events-view-limit-selector.md`
 
-### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
-
-- `ComposeParser` (novo, `kubernetes/compose/`): busca o `docker-compose.yml` via HTTP raw do GitHub/GitLab, faz parse com SnakeYAML `SafeConstructor`; classifica variáveis de ambiente com heurística de chave sensível (`PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL` → Secret; restante → ConfigMap); volumes named → PVC, bind-mounts → aviso; `depends_on:` e diretivas não suportadas → lista de avisos consolidada
-- `ComposeDocument` (novo): modelo intermediário do Compose parseado — `ParsedService`, `BuildSpec`, `EnvEntry`, `VolumeEntry`
-- `ImportComposeService` (novo, `kubernetes/compose/`): provisiona Namespace, ConfigMap (`<service>-config`), Secret (`<service>-secret`), PVC (`<service>-pvc`), Deployment e Service ClusterIP para cada serviço; labels `app.kubernetes.io/part-of: <namespace>` + `app.kubernetes.io/component: <service-name>` em todos os recursos para agrupamento em Topologia; tenta todos os serviços antes de reportar falhas (sem rollback)
-- `ImportComposeView` (nova, rota `deploy/compose`): view independente com wizard de 3 passos — (1) Git URL + branch + path + namespace; (2) revisão por serviço com campos editáveis (imagem para `build:` pré-preenchida como `localhost:5000/<namespace>/<service>:latest`, PVC StorageClass/size, warnings de bind-mounts/`depends_on:`/diretivas ignoradas); (3) execução — Builds Kaniko sequenciais com log live + grid de status em 2 colunas + provisionamento K8s + resultado; em sucesso total navega para Topologia do novo Namespace
-- `DeployApplicationView`: seletor de modo "Deploy from Image" / "Deploy from Compose" no topo; botão "Deploy from Compose" navega para `ImportComposeView` (views independentes, sem aninhamento)
-- Fixes encontrados no aceite: imagem para `build:` precisava do prefixo `localhost:5000/` (registry-proxy hostPort); contexto de build (`--context-sub-path`) resolvia relativo à raiz do repo em vez de relativo ao diretório do `docker-compose.yml`; nome do repositório inclui namespace como prefixo (`<namespace>/<service>:tag`)
-- Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
-- `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
-- `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
-- Issues: `.scratch/sprint-83/issues/` (4 issues, todas `done`)
 
 ---
 

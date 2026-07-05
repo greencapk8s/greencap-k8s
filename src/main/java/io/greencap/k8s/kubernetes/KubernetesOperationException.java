@@ -4,6 +4,10 @@ import io.fabric8.kubernetes.client.KubernetesClientException;
 
 public class KubernetesOperationException extends RuntimeException {
 
+    public KubernetesOperationException(String message) {
+        super(message);
+    }
+
     public KubernetesOperationException(String message, Throwable cause) {
         super(message, cause);
     }

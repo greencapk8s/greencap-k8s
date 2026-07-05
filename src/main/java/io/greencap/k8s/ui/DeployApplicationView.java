@@ -485,7 +485,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
 
         DeployApplicationRequest request = buildRequest();
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 DeployApplicationResult result = deployApplicationService.deploy(cluster, request);
                 ui.access(() -> {
@@ -545,7 +545,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 List<String> suggestions = registryService.listRepositories(cluster).stream()
                         .map(repo -> REGISTRY_INTERNAL_HOST + "/" + repo.name() + ":latest")
@@ -563,7 +563,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();
@@ -576,7 +576,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                 log.debug("Failed to load StorageClasses: {}", e.getMessage());
             }
         });
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 List<String> ingressClasses = networkingService.listIngressClassNames(cluster);
                 ui.access(() -> {

@@ -19,6 +19,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.data.provider.Query;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,13 @@ final class UiConstants {
 
     static final int NOTIFICATION_DURATION_MS = 6000;
     static final String ICON_SIZE = "28px";
-    static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
+
+    // Virtual threads don't inherit the Spring Security SecurityContext (ThreadLocal-based),
+    // so requests resolving a Kubernetes client on this executor would otherwise see no
+    // authenticated user. DelegatingSecurityContextExecutor captures the submitting thread's
+    // context and applies it for the duration of the task.
+    static final Executor VIRTUAL_THREADS =
+            new DelegatingSecurityContextExecutor(Executors.newVirtualThreadPerTaskExecutor());
 
     private static final int ACTION_BUTTON_WIDTH_PX = 48;
     private static final int ACTIONS_COLUMN_RIGHT_PADDING_PX = 8;

@@ -34,6 +34,7 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NamespaceService;
 import org.springframework.boot.info.BuildProperties;
+import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
@@ -193,7 +194,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         namespaceCombo.setEnabled(false);
 
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 List<String> names = namespaceService.listNamespaceNames(cluster);
                 ui.access(() -> {
@@ -248,13 +249,16 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         stopRefreshTimer();
         if (!interval.isActive()) return;
         UI ui = UI.getCurrent();
-        refreshTask = refreshExecutor.scheduleAtFixedRate(() ->
-                ui.access(() -> {
-                    com.vaadin.flow.component.Component content = getContent();
-                    if (content instanceof Refreshable refreshable) {
-                        refreshable.refresh();
-                    }
-                }),
+        // The scheduled executor's virtual threads don't inherit this request's SecurityContext,
+        // so it's captured here (still on a thread with a valid Authentication) and re-applied
+        // on every fixed-rate firing.
+        Runnable refreshCommand = () -> ui.access(() -> {
+            com.vaadin.flow.component.Component content = getContent();
+            if (content instanceof Refreshable refreshable) {
+                refreshable.refresh();
+            }
+        });
+        refreshTask = refreshExecutor.scheduleAtFixedRate(new DelegatingSecurityContextRunnable(refreshCommand),
                 interval.getSeconds(), interval.getSeconds(), TimeUnit.SECONDS);
     }
 

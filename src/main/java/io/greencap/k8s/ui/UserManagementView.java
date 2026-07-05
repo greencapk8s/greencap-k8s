@@ -1,5 +1,6 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
@@ -83,6 +84,12 @@ public class UserManagementView extends VerticalLayout implements BeforeEnterObs
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         if (!SecurityUtils.isAdmin()) {
+            // Notification.show() during the same beforeEnter() call that forwards away is
+            // silently dropped by Flow — the reroute discards the pending client push before
+            // it's sent. Deferring via UI.access() runs it in its own push cycle, after the
+            // forward has committed.
+            UI ui = UI.getCurrent();
+            ui.access(() -> notify("Access restricted to administrators", NotificationVariant.LUMO_WARNING));
             event.forwardTo("");
             return;
         }

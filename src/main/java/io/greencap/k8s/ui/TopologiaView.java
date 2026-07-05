@@ -150,7 +150,7 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
         graphComponent.setGroupingEnabled(savedGroupingEnabled);
         graphComponent.setSavedPositions(savedPositions);
 
-        Thread.ofVirtual().start(() -> {
+        UiConstants.VIRTUAL_THREADS.execute(() -> {
             try {
                 TopologyGraph graph = topologyService.buildGraph(clusterContext.getCluster(), namespace);
                 String graphJson = objectMapper.writeValueAsString(graph);
