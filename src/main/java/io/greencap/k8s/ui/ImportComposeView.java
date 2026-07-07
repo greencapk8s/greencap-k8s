@@ -41,18 +41,15 @@ import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Route(value = "deploy/compose", layout = MainLayout.class)
@@ -88,8 +85,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final Map<String, String> buildJobsByService = new LinkedHashMap<>();
     private final Map<String, Span> buildStatusBadgeByService = new LinkedHashMap<>();
     private Pre buildLogArea;
-    private final ScheduledExecutorService pollExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
 
     private int currentStep = 1;
@@ -440,7 +435,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         section.add(new Hr());
 
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> runBuildsSequentially(buildServices, section, ui));
+        AsyncTasks.execute(() -> runBuildsSequentially(buildServices, section, ui));
         return section;
     }
 
@@ -498,9 +493,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         final boolean[] finished = {false};
         final boolean[] success = {false};
 
-        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
-        // so it's captured here and re-applied on every fixed-rate firing.
-        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> {
+        Runnable pollCommand = () -> {
             try {
                 var progress = registryService.getBuildProgress(cluster, jobName);
                 if (progress.podName() != null) {
@@ -527,8 +520,8 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                 finished[0] = true;
                 stopPolling();
             }
-        });
-        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        };
+        pollTask = AsyncTasks.schedulePolling(pollCommand, Duration.ZERO, Duration.ofSeconds(POLL_INTERVAL_SECONDS));
 
         while (!finished[0]) {
             try { Thread.sleep(500); } catch (InterruptedException ex) {
@@ -556,7 +549,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         ComposeImportRequest request = buildImportRequest();
 
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 ImportComposeResult result = importComposeService.provision(cluster, parsedDocument, request);
                 ui.access(() -> renderResult(section, result, request.namespace(), ui));
@@ -622,7 +615,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 ComposeDocument document = composeParser.fetch(
                         gitUrlField.getValue().trim(),
@@ -676,7 +669,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();
@@ -700,7 +693,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
-        pollExecutor.shutdown();
         super.onDetach(detachEvent);
     }
 

@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "helm/releases", layout = MainLayout.class)
@@ -132,7 +131,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
         Cluster cluster = clusterContext.getCluster();
         String namespace = clusterContext.getNamespace();
         if (cluster == null || namespace == null) return;
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<HelmReleaseInfo> items = helmService.listReleases(cluster, namespace);
                 ui.access(() -> {
@@ -152,7 +151,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void buildGrid() {
@@ -236,7 +235,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
         if (cluster == null || namespace == null) return;
 
         UI ui = UI.getCurrent();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 HelmReleaseDetails details = helmService.getReleaseDetails(cluster, namespace, release.name());
                 ui.access(() -> {
@@ -247,7 +246,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
             } catch (HelmOperationException e) {
                 ui.access(() -> notesContent.setText("Failed to load details: " + e.getMessage()));
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openUpgradeDialog(HelmReleaseInfo release) {
@@ -304,7 +303,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
         String namespace = clusterContext.getNamespace();
         if (cluster == null || namespace == null) return;
         UI ui = UI.getCurrent();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 HelmReleaseDetails details = helmService.getReleaseDetails(cluster, namespace, release.name());
                 ui.access(() -> {
@@ -319,7 +318,7 @@ public class HelmReleasesView extends VerticalLayout implements BeforeEnterObser
                     confirmBtn.setEnabled(true);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openUninstallDialog(HelmReleaseInfo release) {

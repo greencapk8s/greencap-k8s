@@ -252,7 +252,7 @@ public class DeployFromHelmView extends VerticalLayout implements BeforeEnterObs
         String values          = valuesArea.getValue();
 
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 String output = helmService.install(cluster, namespace, repo.getName(), chart,
                         version.isBlank() ? null : version, releaseName, values);

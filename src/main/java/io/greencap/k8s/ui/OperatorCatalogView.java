@@ -34,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "developer-experience/operators/catalog", layout = MainLayout.class)
@@ -164,7 +163,7 @@ public class OperatorCatalogView extends VerticalLayout implements BeforeEnterOb
             grid.setVisible(false);
         });
 
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<OperatorPackage> items = operatorService.listCatalog(cluster);
                 ui.access(() -> {
@@ -197,7 +196,7 @@ public class OperatorCatalogView extends VerticalLayout implements BeforeEnterOb
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void applyFilters() {

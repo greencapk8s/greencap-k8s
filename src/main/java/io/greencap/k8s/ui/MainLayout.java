@@ -34,15 +34,12 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NamespaceService;
 import org.springframework.boot.info.BuildProperties;
-import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @JsModule("@vaadin/vaadin-lumo-styles/badge-global.js")
 @JsModule("@vaadin/vaadin-lumo-styles/utility-global.js")
@@ -65,8 +62,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final Div clusterWarningBanner = new Div();
     private final List<SideNavItem> clusterDependentNavItems = new ArrayList<>();
 
-    private final ScheduledExecutorService refreshExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> refreshTask;
 
     private Cluster lastLoadedCluster = null;
@@ -98,10 +93,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             userService.findActiveNamespace(username).ifPresent(clusterContext::setNamespace);
         }
 
-        addDetachListener(e -> {
-            stopRefreshTimer();
-            refreshExecutor.shutdown();
-        });
+        addDetachListener(e -> stopRefreshTimer());
     }
 
     @Override
@@ -194,7 +186,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         namespaceCombo.setEnabled(false);
 
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = namespaceService.listNamespaceNames(cluster);
                 ui.access(() -> {
@@ -249,17 +241,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         stopRefreshTimer();
         if (!interval.isActive()) return;
         UI ui = UI.getCurrent();
-        // The scheduled executor's virtual threads don't inherit this request's SecurityContext,
-        // so it's captured here (still on a thread with a valid Authentication) and re-applied
-        // on every fixed-rate firing.
         Runnable refreshCommand = () -> ui.access(() -> {
             com.vaadin.flow.component.Component content = getContent();
             if (content instanceof Refreshable refreshable) {
                 refreshable.refresh();
             }
         });
-        refreshTask = refreshExecutor.scheduleAtFixedRate(new DelegatingSecurityContextRunnable(refreshCommand),
-                interval.getSeconds(), interval.getSeconds(), TimeUnit.SECONDS);
+        Duration period = Duration.ofSeconds(interval.getSeconds());
+        refreshTask = AsyncTasks.schedulePolling(refreshCommand, period, period);
     }
 
     private void stopRefreshTimer() {

@@ -27,7 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "", layout = MainLayout.class)
@@ -145,7 +144,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void fetchCount(Span span, CountSupplier supplier, UI ui) {
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             String value;
             try {
                 value = String.valueOf(supplier.get());
@@ -158,11 +157,11 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                 span.setText(resolved);
                 span.getStyle().remove("color");
             });
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void fetchMetrics(Cluster cluster, String namespace, UI ui) {
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             String cpuValue;
             String memValue;
             boolean unavailable = false;
@@ -194,11 +193,11 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                     memValueText.getStyle().remove("color");
                 }
             });
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void refreshCta(Cluster cluster, String namespace, UI ui) {
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 boolean empty = workloadService.listDeployments(cluster, namespace).isEmpty();
                 ui.access(() -> {
@@ -211,7 +210,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                     }
                 });
             } catch (Exception ignored) {}
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private VerticalLayout buildResourceCountSection(String namespace) {

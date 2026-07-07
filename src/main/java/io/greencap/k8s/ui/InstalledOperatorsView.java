@@ -32,7 +32,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "developer-experience/operators/installed", layout = MainLayout.class)
@@ -129,7 +128,7 @@ public class InstalledOperatorsView extends VerticalLayout implements BeforeEnte
     private void loadAsync(UI ui) {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 if (!operatorService.isOlmInstalled(cluster)) {
                     ui.access(() -> {
@@ -156,7 +155,7 @@ public class InstalledOperatorsView extends VerticalLayout implements BeforeEnte
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openUninstallDialog(OperatorInfo operator) {

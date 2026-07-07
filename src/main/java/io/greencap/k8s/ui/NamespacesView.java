@@ -30,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "global/namespaces", layout = MainLayout.class)
@@ -154,7 +153,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
     private void loadNamespacesAsync(UI ui) {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<NamespaceInfo> items = namespaceService.listNamespacesWithCounts(cluster);
                 ui.access(() -> {
@@ -174,7 +173,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openCreateDialog() {

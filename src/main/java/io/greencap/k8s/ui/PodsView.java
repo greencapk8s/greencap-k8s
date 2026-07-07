@@ -31,7 +31,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "workloads/pods", layout = MainLayout.class)
@@ -221,7 +220,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         String namespace = clusterContext.getNamespace();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<PodInfo> items = workloadService.listPods(cluster, namespace);
                 ui.access(() -> {
@@ -242,7 +241,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
                     podGrid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openDeleteDialog(PodInfo pod) {

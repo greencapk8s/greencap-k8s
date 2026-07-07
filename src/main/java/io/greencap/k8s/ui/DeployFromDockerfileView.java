@@ -41,15 +41,12 @@ import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Route(value = "deploy/dockerfile", layout = MainLayout.class)
@@ -114,8 +111,6 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     private final Button deployButton = new Button("Build & Deploy", VaadinIcon.ROCKET.create());
 
     // Execution state
-    private final ScheduledExecutorService pollExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
     private Span executionStatusBadge;
     private Pre buildLogArea;
@@ -454,7 +449,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             Optional<Integer> exposePort = dockerfileParser.fetchExposePort(
                     gitUrlField.getValue().trim(),
                     branchField.getValue().trim(),
@@ -597,7 +592,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         stepContent.add(executionArea);
 
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> runBuildAndDeploy(executionArea, ui));
+        AsyncTasks.execute(() -> runBuildAndDeploy(executionArea, ui));
     }
 
     private VerticalLayout buildExecutionArea() {
@@ -683,9 +678,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         final boolean[] finished = {false};
         final boolean[] success = {false};
 
-        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
-        // so it's captured here and re-applied on every fixed-rate firing.
-        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> {
+        Runnable pollCommand = () -> {
             try {
                 var progress = registryService.getBuildProgress(cluster, jobName);
                 if (progress.podName() != null) {
@@ -712,8 +705,8 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
                 finished[0] = true;
                 stopPolling();
             }
-        });
-        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        };
+        pollTask = AsyncTasks.schedulePolling(pollCommand, Duration.ZERO, Duration.ofSeconds(POLL_INTERVAL_SECONDS));
 
         while (!finished[0]) {
             try {
@@ -767,7 +760,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();
@@ -780,7 +773,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
                 log.debug("Failed to load StorageClasses: {}", e.getMessage());
             }
         });
-        UiConstants.VIRTUAL_THREADS.execute(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> ingressClasses = networkingService.listIngressClassNames(cluster);
                 ui.access(() -> {
@@ -802,7 +795,6 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
-        pollExecutor.shutdown();
         super.onDetach(detachEvent);
     }
 

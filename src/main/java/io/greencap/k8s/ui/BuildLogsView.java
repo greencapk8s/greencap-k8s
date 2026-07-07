@@ -25,13 +25,10 @@ import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.dto.BuildProgress;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 
+import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Route(value = "registry/build/:jobName", layout = MainLayout.class)
 @PageTitle("Build — GreenCap K8s")
@@ -53,8 +50,6 @@ public class BuildLogsView extends VerticalLayout implements BeforeEnterObserver
     private final Button pauseResumeBtn = new Button();
     private final Pre logContent = new Pre();
 
-    private final ScheduledExecutorService pollExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
 
     private String jobName;
@@ -102,7 +97,6 @@ public class BuildLogsView extends VerticalLayout implements BeforeEnterObserver
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
-        pollExecutor.shutdown();
         super.onDetach(detachEvent);
     }
 
@@ -111,10 +105,8 @@ public class BuildLogsView extends VerticalLayout implements BeforeEnterObserver
         polling = true;
         updatePauseResumeButton();
         UI ui = UI.getCurrent();
-        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
-        // so it's captured here and re-applied on every fixed-rate firing.
-        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> ui.access(this::fetchAndRenderProgress));
-        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        Runnable pollCommand = () -> ui.access(this::fetchAndRenderProgress);
+        pollTask = AsyncTasks.schedulePolling(pollCommand, Duration.ZERO, Duration.ofSeconds(POLL_INTERVAL_SECONDS));
     }
 
     private void stopPolling() {

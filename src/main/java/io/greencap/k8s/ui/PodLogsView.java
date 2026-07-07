@@ -25,14 +25,11 @@ import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import jakarta.annotation.security.PermitAll;
-import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Route(value = "logs/pod/:namespace/:name", layout = MainLayout.class)
 @PageTitle("Pod Logs — GreenCap K8s")
@@ -52,8 +49,6 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
     private final Button pauseResumeBtn = new Button();
     private final Pre logContent = new Pre();
 
-    private final ScheduledExecutorService pollExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
 
     private String namespace;
@@ -99,7 +94,6 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
-        pollExecutor.shutdown();
         super.onDetach(detachEvent);
     }
 
@@ -125,10 +119,8 @@ public class PodLogsView extends VerticalLayout implements BeforeEnterObserver {
         updatePauseResumeButton();
         int intervalSeconds = pollIntervalSelect.getValue() != null ? pollIntervalSelect.getValue() : 3;
         UI ui = UI.getCurrent();
-        // pollExecutor's virtual threads don't inherit this request's SecurityContext,
-        // so it's captured here and re-applied on every fixed-rate firing.
-        Runnable pollCommand = new DelegatingSecurityContextRunnable(() -> ui.access(this::fetchAndRenderLogs));
-        pollTask = pollExecutor.scheduleAtFixedRate(pollCommand, 0, intervalSeconds, TimeUnit.SECONDS);
+        Runnable pollCommand = () -> ui.access(this::fetchAndRenderLogs);
+        pollTask = AsyncTasks.schedulePolling(pollCommand, Duration.ZERO, Duration.ofSeconds(intervalSeconds));
     }
 
     private void stopPolling() {

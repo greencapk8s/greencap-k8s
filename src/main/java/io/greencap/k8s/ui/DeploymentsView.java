@@ -34,7 +34,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "workloads/deployments", layout = MainLayout.class)
@@ -180,7 +179,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         String namespace = clusterContext.getNamespace();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<DeploymentInfo> items = workloadService.listDeployments(cluster, namespace);
                 ui.access(() -> {
@@ -201,7 +200,7 @@ public class DeploymentsView extends VerticalLayout implements BeforeEnterObserv
                     deployGrid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     @Override

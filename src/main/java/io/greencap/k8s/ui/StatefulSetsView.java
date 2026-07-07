@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "workloads/statefulsets", layout = MainLayout.class)
@@ -169,7 +168,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         String namespace = clusterContext.getNamespace();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<StatefulSetInfo> items = workloadService.listStatefulSets(cluster, namespace);
                 ui.access(() -> {
@@ -190,7 +189,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     @Override

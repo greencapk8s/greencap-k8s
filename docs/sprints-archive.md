@@ -796,3 +796,10 @@
 
 - Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo
 - Issues: `.scratch/archive/sprint-85/issues/` (3 issues)
+
+### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
+
+- `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
+- `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
+- `EventsDialog` (events por recurso específico) não alterado — continua sem limite
+- Issue: `.scratch/archive/sprint-86/issues/01-events-view-limit-selector.md`

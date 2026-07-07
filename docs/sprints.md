@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 | 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 | 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
-| 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
 
 ---
 
@@ -32,10 +32,6 @@
 - **Token + URL** — segundo método de registro de cluster: o usuário informa apenas o endpoint da API Kubernetes (`https://...`) e um bearer token de service account. Mais acessível para iniciantes que não sabem localizar o kubeconfig, e o fluxo natural para clusters gerenciados (GKE, EKS, AKS) que expõem esses dois valores no console do provedor. Internamente, o Fabric8 constrói o `Config` via `withMasterUrl()` + `withOauthToken()` — sem necessidade de gerar um arquivo kubeconfig. A tela de registro (`ClustersView`) ganha um toggle para escolher o método: _Kubeconfig_ (atual) ou _Token + URL_. Limitação esperada: suporta apenas autenticação por bearer token; certificado de cliente e OIDC não são cobertos por este método.
 
 - **In-cluster** — terceiro método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
-
-#### 🧵 Consolidar execução assíncrona em virtual threads
-
-- **Executor único com propagação de `SecurityContext`** — a correção de fail-closed do `KubernetesClientFactory` (sprint 94, fix de 2026-06-30/07-02) expôs que o `SecurityContextHolder` (baseado em `ThreadLocal`) não é herdado por virtual threads. Antes da correção, isso era mascarado por um fallback silencioso para o kubeconfig admin do Cluster — ou seja, qualquer chamada Kubernetes rodando em background sem contexto propagado recebia acesso admin, independente do usuário. O fix corrigiu o `KubernetesClientFactory`, mas isso só resolveu o sintoma em cada um dos ~16 pontos que disparavam `Thread.ofVirtual().start(...)`/`ScheduledExecutorService` próprios em vez de reusar o `UiConstants.VIRTUAL_THREADS` já existente — cada view reinventou sua própria forma de rodar em background (`DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`, `BuildLogsView`, `PodLogsView`, `MainLayout`, `DashboardView`, todas com o mesmo bug). Causa raiz real: duplicação — ausência de um único ponto de acesso assíncrono no projeto. Follow-up: extrair um helper compartilhado (ex.: `SecurityAwareVirtualThreads` ou consolidar tudo em `UiConstants.VIRTUAL_THREADS`, já corrigido com `DelegatingSecurityContextExecutor`) e migrar os `ScheduledExecutorService` de polling (`BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`) para reusar a mesma fábrica, eliminando a necessidade de aplicar `DelegatingSecurityContextRunnable` manualmente em cada `scheduleAtFixedRate`.
 
 #### 🔌 Developer Experience — follow-ups da Sprint 88
 
@@ -98,6 +94,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 96 ✅ — Consolidar execução assíncrona em virtual threads
+
+- `AsyncTasks` (novo, `io.greencap.k8s.ui`): ponto único de execução assíncrona do projeto — `execute(Runnable)` para disparo único e `schedulePolling(Runnable, Duration, Duration)` para polling recorrente, ambos com propagação de `SecurityContext` via `DelegatingSecurityContextExecutor`; internamente, o polling usa um único "clock" de thread de plataforma compartilhado que apenas dispara o tick, despachando o trabalho real para o mesmo executor do disparo único — elimina tanto a duplicação de código quanto o custo de criar/destruir um `ScheduledExecutorService` por view visitada
+- `docs/adr/0014-async-tasks-clock-compartilhado.md`: decisão do clock compartilhado em vez de um scheduler por chamador
+- `UiConstants.VIRTUAL_THREADS` removido — a classe volta a conter apenas helpers de construção de UI; 12 views (`DashboardView`, `DeployApplicationView`, `DeployFromHelmView`, `DeploymentsView`, `HelmReleasesView`, `InstalledOperatorsView`, `MainLayout`, `NamespacesView`, `OperatorCatalogView`, `PodsView`, `StatefulSetsView`, `TopologiaView`) migradas para `AsyncTasks.execute(...)`; pontos que usavam `CompletableFuture.runAsync(runnable, VIRTUAL_THREADS)` como fire-and-forget simplificados para chamada direta a `AsyncTasks.execute(...)`
+- `BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`: `ScheduledExecutorService` próprio e `shutdown()` no detach removidos — passam a usar `AsyncTasks.schedulePolling(...)`, sem wrapping manual de `DelegatingSecurityContextRunnable`; comportamento observável (intervalo, pause/resume, cancelamento ao sair da view) inalterado
+- Fora do escopo, por decisão explícita: o `Thread.ofVirtual().start(...)` cru em `MainLayout` usado para forçar um ciclo de push separado do Vaadin — não faz chamada Kubernetes, não tem o bug de propagação de contexto que motivou a sprint
+- `AsyncTasksTest`: cobertura JUnit pura (sem Spring), verificando propagação de `SecurityContext` no disparo único, disparo repetido do polling e efeito do cancelamento
+- Issues: `.scratch/sprint-96/issues/` (3 issues, todas `done`)
 
 ### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
 
@@ -211,13 +217,6 @@
 - `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
 - `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
 - Issues: `.scratch/sprint-87/issues/` (2 issues, ambas `done`)
-
-### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
-
-- `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
-- `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
-- `EventsDialog` (events por recurso específico) não alterado — continua sem limite
-- Issue: `.scratch/sprint-86/issues/01-events-view-limit-selector.md`
 
 
 ---
