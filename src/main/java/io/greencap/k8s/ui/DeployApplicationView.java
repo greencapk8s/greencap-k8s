@@ -24,9 +24,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.DeployApplicationService;
@@ -113,10 +111,6 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
-            event.forwardTo("");
-            return;
-        }
         loadRegistrySuggestions();
         loadClusterResources();
         renderStep(1);
@@ -131,10 +125,14 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
+        Button helmBtn = new Button("Deploy from Helm", VaadinIcon.PACKAGE.create());
+        helmBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
         dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
         composeBtn.addClickListener(e -> UI.getCurrent().navigate(ImportComposeView.class));
+        helmBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromHelmView.class));
 
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn);
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn);
         selector.setSpacing(true);
         return selector;
     }
@@ -487,7 +485,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
 
         DeployApplicationRequest request = buildRequest();
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 DeployApplicationResult result = deployApplicationService.deploy(cluster, request);
                 ui.access(() -> {
@@ -547,7 +545,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> suggestions = registryService.listRepositories(cluster).stream()
                         .map(repo -> REGISTRY_INTERNAL_HOST + "/" + repo.name() + ":latest")
@@ -565,7 +563,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();
@@ -578,7 +576,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                 log.debug("Failed to load StorageClasses: {}", e.getMessage());
             }
         });
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> ingressClasses = networkingService.listIngressClassNames(cluster);
                 ui.access(() -> {

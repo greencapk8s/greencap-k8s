@@ -8,7 +8,6 @@ import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.KubernetesClientFactory;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
@@ -32,13 +31,11 @@ public class ImportComposeService {
     private static final String TOPOLOGY_COMPONENT_LABEL = "app.kubernetes.io/component";
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public ImportComposeResult provision(Cluster cluster,
                                          ComposeDocument document,
                                          ComposeImportRequest request) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             createNamespace(client, request.namespace());
 
@@ -56,7 +53,7 @@ public class ImportComposeService {
 
         } catch (Exception e) {
             log.error("Failed to provision Compose import for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to provision Compose import: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to provision Compose import", e);
         }
     }
 

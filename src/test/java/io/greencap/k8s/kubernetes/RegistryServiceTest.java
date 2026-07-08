@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RegistryServiceTest {
 
-    private final RegistryService registryService = new RegistryService(null, null, null);
+    private final RegistryService registryService = new RegistryService(null, null);
 
     @Test
     void buildGitContextAddsGitSuffixAndDefaultsBranch() {

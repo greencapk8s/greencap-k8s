@@ -8,8 +8,6 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
-import java.util.EnumSet;
-import java.util.Set;
 
 @Entity
 @Table(name = "users")
@@ -30,11 +28,14 @@ public class User {
     @Column(nullable = false)
     private String passwordHash;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_permissions", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "permissions", length = 50)
-    @Enumerated(EnumType.STRING)
-    private Set<Permission> permissions = EnumSet.noneOf(Permission.class);
+    @Column(name = "serviceaccount_name", length = 253)
+    private String serviceaccountName;
+
+    @Column(name = "cluster_role_name", length = 100)
+    private String clusterRoleName;
+
+    @Column(name = "serviceaccount_token", columnDefinition = "TEXT")
+    private String serviceaccountToken;
 
     @Column(nullable = false)
     private boolean active = true;

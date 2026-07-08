@@ -19,8 +19,6 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "observability/metrics", layout = MainLayout.class)
 @PageTitle("Metrics — GreenCap K8s")
@@ -54,10 +52,6 @@ public class MetricsView extends VerticalLayout implements BeforeEnterObserver, 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.OBSERVABILITY_METRICS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         metricsGrid.setVisible(hasCluster);

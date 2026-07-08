@@ -4,23 +4,19 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
-import com.vaadin.flow.component.html.Pre;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ManifestService;
@@ -35,14 +31,14 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
     private final ClusterContext clusterContext;
 
     private final Span titleSpan = new Span();
-    private final Pre yamlContent = new Pre();
-    private final TextArea yamlEditor = new TextArea();
+    private final CodeMirrorEditor yamlEditor = new CodeMirrorEditor();
     private final Button editButton = new Button("Edit", VaadinIcon.EDIT.create());
     private final Button applyButton = new Button("Apply", VaadinIcon.CHECK.create());
 
     private String resourceType = "";
     private String namespace = "";
     private String name = "";
+    private String lastLoadedYaml = "";
 
     public ManifestView(ManifestService manifestService, ClusterContext clusterContext) {
         this.manifestService = manifestService;
@@ -51,28 +47,12 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
         setSizeFull();
         setPadding(true);
 
-        yamlContent.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.Padding.MEDIUM);
-        yamlContent.getStyle().set("font-family", "monospace");
-        yamlContent.getStyle()
-                .set("background", "var(--lumo-contrast-5pct)")
-                .set("border-radius", "var(--lumo-border-radius-m)")
-                .set("overflow", "auto")
-                .set("overflow-x", "hidden")
-                .set("white-space", "pre-wrap")
-                .set("overflow-wrap", "anywhere")
-                .set("width", "100%")
-                .set("flex", "1");
-
         yamlEditor.setSizeFull();
-        yamlEditor.addClassNames(LumoUtility.FontSize.SMALL);
-        yamlEditor.getStyle().set("font-family", "monospace");
-        yamlEditor.getElement().getStyle().set("flex", "1");
-        yamlEditor.setVisible(false);
+        yamlEditor.setReadOnly(true);
 
         configureActionButtons();
 
-        add(buildHeader(), yamlContent, yamlEditor);
-        setFlexGrow(1, yamlContent);
+        add(buildHeader(), yamlEditor);
         setFlexGrow(1, yamlEditor);
     }
 
@@ -88,16 +68,13 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
 
         boolean editable = ManifestService.isEditable(resourceType);
         editButton.setVisible(editable);
-        if (editable && !SecurityUtils.hasPermission(Permission.MANIFEST_EDIT)) {
-            editButton.setEnabled(false);
-            editButton.getElement().setAttribute("title", "You do not have permission to edit this resource");
-        } else {
+        if (editable) {
             editButton.setEnabled(true);
             editButton.getElement().removeAttribute("title");
         }
 
         if (clusterContext.getCluster() == null) {
-            yamlContent.setText("No active cluster.");
+            yamlEditor.setValue("No active cluster.");
             return;
         }
 
@@ -107,17 +84,20 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
     private void loadManifest() {
         try {
             String yaml = manifestService.fetchYaml(clusterContext.getCluster(), resourceType, namespace, name);
-            yamlContent.setText(yaml);
+            lastLoadedYaml = yaml;
+            yamlEditor.setValue(yaml);
         } catch (KubernetesOperationException e) {
             notify(e.getMessage(), NotificationVariant.LUMO_ERROR);
-            yamlContent.setText("Failed to load manifest.");
+            lastLoadedYaml = "";
+            yamlEditor.setValue("Failed to load manifest.");
         }
     }
 
     private void configureActionButtons() {
         editButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         editButton.addClickListener(e -> {
-            if (yamlEditor.isVisible()) {
+            if (applyButton.isVisible()) {
+                yamlEditor.setValue(lastLoadedYaml);
                 exitEditMode();
             } else {
                 enterEditMode();
@@ -130,9 +110,7 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private void enterEditMode() {
-        yamlEditor.setValue(yamlContent.getText());
-        yamlContent.setVisible(false);
-        yamlEditor.setVisible(true);
+        yamlEditor.setReadOnly(false);
         applyButton.setVisible(true);
         editButton.setText("Cancel");
         editButton.setIcon(VaadinIcon.CLOSE_SMALL.create());
@@ -140,8 +118,7 @@ public class ManifestView extends VerticalLayout implements BeforeEnterObserver 
     }
 
     private void exitEditMode() {
-        yamlEditor.setVisible(false);
-        yamlContent.setVisible(true);
+        yamlEditor.setReadOnly(true);
         applyButton.setVisible(false);
         editButton.setText("Edit");
         editButton.setIcon(VaadinIcon.EDIT.create());

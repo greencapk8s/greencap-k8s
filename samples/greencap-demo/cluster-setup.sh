@@ -18,14 +18,19 @@ minikube start \
   --memory "$MEMORY"
 
 echo ""
-echo "==> Enabling addons (metrics-server, ingress, registry)"
+echo "==> Enabling addons (metrics-server, ingress, registry, olm)"
 echo ""
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress -p "$PROFILE"
 minikube addons enable registry -p "$PROFILE"
+minikube addons enable olm -p "$PROFILE"
 
 kubectl config use-context "$PROFILE"
+
+echo ""
+echo "==> Waiting for OLM operator..."
+kubectl rollout status deployment/olm-operator -n olm --timeout=180s
 
 echo ""
 echo "==> Waiting for ingress-nginx controller to be ready..."
@@ -80,11 +85,26 @@ EOF
 
 kubectl rollout status deployment/registry -n kube-system --timeout=120s
 
+# Create a cluster-admin service account for GreenCap Token+URL registration
+SA_NAME="greencap-admin"
+SA_NS="kube-system"
+if ! kubectl get serviceaccount "$SA_NAME" -n "$SA_NS" &>/dev/null; then
+  kubectl create serviceaccount "$SA_NAME" -n "$SA_NS"
+  kubectl create clusterrolebinding "$SA_NAME" \
+    --clusterrole=cluster-admin \
+    --serviceaccount="$SA_NS:$SA_NAME"
+fi
+GREENCAP_TOKEN=$(kubectl create token "$SA_NAME" -n "$SA_NS" --duration=8760h)
+
 echo ""
 echo "==> Cluster '$PROFILE' is ready!"
 echo ""
 echo "    Nodes:"
 minikube node list -p "$PROFILE"
+echo ""
+echo "    GreenCap — Token + URL registration:"
+echo "    API Server URL : $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+echo "    Bearer Token   : $GREENCAP_TOKEN"
 echo ""
 echo "    Next step — deploy the demo workloads:"
 echo "    bash $(dirname "$0")/create-demo.sh"

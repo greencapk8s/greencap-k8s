@@ -1,7 +1,6 @@
 package io.greencap.k8s.kubernetes;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.ConfigMapInfo;
 import io.greencap.k8s.kubernetes.dto.SecretInfo;
@@ -18,11 +17,9 @@ import java.util.Optional;
 public class ConfigurationService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<ConfigMapInfo> listConfigMaps(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.configMaps().inAnyNamespace().list().getItems()
                     : client.configMaps().inNamespace(namespace).list().getItems();
@@ -37,13 +34,12 @@ public class ConfigurationService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list configmaps for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list configmaps: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list configmaps", e);
         }
     }
 
     public List<SecretInfo> listSecrets(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.secrets().inAnyNamespace().list().getItems()
                     : client.secrets().inNamespace(namespace).list().getItems();
@@ -59,29 +55,27 @@ public class ConfigurationService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list secrets for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list secrets: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list secrets", e);
         }
     }
 
     public void deleteConfigMap(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.configMaps().inNamespace(namespace).withName(name).delete();
             log.info("Deleted configmap {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete configmap {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete ConfigMap: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete ConfigMap", e);
         }
     }
 
     public void deleteSecret(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.secrets().inNamespace(namespace).withName(name).delete();
             log.info("Deleted secret {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete secret {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Secret: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Secret", e);
         }
     }
 

@@ -33,3 +33,6 @@ logs/
 # Env / secrets
 .env
 *.env
+
+# Vagrant
+.dev/vagrant/.vagrant/

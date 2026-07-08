@@ -2,11 +2,11 @@ package io.greencap.k8s.ui;
 
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.details.Details;
 import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Div;
-import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -14,7 +14,8 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.select.Select;
+import com.vaadin.flow.component.tabs.Tab;
+import com.vaadin.flow.component.tabs.TabSheet;
 import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.component.upload.Upload;
@@ -25,13 +26,10 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
 import io.greencap.k8s.domain.user.UserService;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubeconfigValidator;
 import jakarta.annotation.security.PermitAll;
@@ -73,7 +71,7 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), Cluster::getName);
 
-        boolean canWrite = SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_WRITE);
+        boolean canWrite = true;
 
         List<UiConstants.SelectionAction<Cluster>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.CONNECT, "Test Connection", this::testConnection),
@@ -95,17 +93,12 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         refreshGrid();
     }
 
     private void buildGrid() {
         grid.addComponentColumn(this::buildRadioCell).setHeader("Active").setWidth("90px").setFlexGrow(0).setResizable(true);
         grid.addColumn(Cluster::getName).setHeader("Name").setSortable(true).setFlexGrow(1).setResizable(true);
-        grid.addColumn(c -> c.getProvider().displayName()).setHeader("Provider").setWidth("140px").setResizable(true);
         grid.addComponentColumn(c -> statusBadge(c.getConnectionStatus()))
                 .setHeader("Status").setWidth("140px").setResizable(true);
         grid.setSizeFull();
@@ -166,12 +159,21 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
                 "Are you sure you want to remove \"" + cluster.getName() + "\"? This action cannot be undone."));
 
         Button confirmBtn = new Button("Remove", e -> {
-            if (isActiveCluster(cluster)) {
-                clusterContext.setCluster(null);
-                clusterContext.setNamespace("default");
-                persistActiveCluster(null);
-            }
+            boolean wasActive = isActiveCluster(cluster);
             clusterService.deleteCluster(cluster);
+            if (wasActive) {
+                clusterService.findAll().stream()
+                        .findFirst()
+                        .ifPresentOrElse(
+                                this::activateCluster,
+                                () -> {
+                                    clusterContext.setCluster(null);
+                                    clusterContext.setNamespace("default");
+                                    persistActiveCluster(null);
+                                    getMainLayout().ifPresent(MainLayout::refreshClusterState);
+                                }
+                        );
+            }
             dialog.close();
             refreshGrid();
             notify("Cluster " + cluster.getName() + " removed", NotificationVariant.LUMO_SUCCESS);
@@ -207,26 +209,15 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
     private void openAddDialog() {
         Dialog dialog = new Dialog();
         dialog.setHeaderTitle("New Cluster");
-        dialog.setWidth("560px");
+        dialog.setWidth("580px");
+        dialog.setHeight("520px");
+        dialog.setResizable(true);
 
         TextField nameField = new TextField("Name");
         nameField.setRequired(true);
         nameField.setWidthFull();
 
-        Select<ClusterProvider> providerSelect = new Select<>();
-        providerSelect.setLabel("Provider");
-        providerSelect.setItems(ClusterProvider.values());
-        providerSelect.setItemLabelGenerator(ClusterProvider::displayName);
-        providerSelect.setValue(ClusterProvider.MinikubeDocker);
-        providerSelect.setWidthFull();
-
-        Paragraph openShiftWarning = new Paragraph("OpenShift support is coming in a future release.");
-        openShiftWarning.getStyle()
-                .set("color", "var(--lumo-secondary-text-color)")
-                .set("font-size", "var(--lumo-font-size-s)")
-                .set("margin", "0");
-        openShiftWarning.setVisible(false);
-
+        // --- Kubeconfig tab ---
         TextArea kubeconfigArea = new TextArea("Kubeconfig YAML");
         kubeconfigArea.setWidthFull();
         kubeconfigArea.setMinHeight("200px");
@@ -253,22 +244,50 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
             }
         });
 
+        VerticalLayout kubeconfigContent = new VerticalLayout(commandBlock, upload, kubeconfigArea);
+        kubeconfigContent.setPadding(false);
+        kubeconfigContent.setSpacing(true);
+
+        // --- Token + URL tab ---
+        TextField apiUrlField = new TextField("API Server URL");
+        apiUrlField.setWidthFull();
+        apiUrlField.setPlaceholder("https://192.168.49.2:8443");
+        apiUrlField.setRequired(true);
+
+        TextArea tokenArea = new TextArea("Bearer Token");
+        tokenArea.setWidthFull();
+        tokenArea.setMinHeight("80px");
+        tokenArea.setPlaceholder("eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...");
+        tokenArea.setRequired(true);
+
+        TextArea caCertArea = new TextArea("CA Certificate (PEM or base64)");
+        caCertArea.setWidthFull();
+        caCertArea.setMinHeight("80px");
+        caCertArea.setPlaceholder("-----BEGIN CERTIFICATE-----\n...");
+
+        Details caDetails = new Details("CA Certificate (optional)", caCertArea);
+        caDetails.setWidthFull();
+
+        FormLayout tokenForm = new FormLayout(apiUrlField, tokenArea);
+        tokenForm.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+
+        VerticalLayout tokenContent = new VerticalLayout(tokenForm, caDetails);
+        tokenContent.setPadding(false);
+        tokenContent.setSpacing(true);
+
+        // --- TabSheet ---
+        TabSheet tabs = new TabSheet();
+        tabs.setWidthFull();
+        Tab tokenUrlTab   = tabs.add("Token + URL", tokenContent);
+        Tab kubeconfigTab = tabs.add("Kubeconfig", kubeconfigContent);
+
+        VerticalLayout dialogContent = new VerticalLayout(nameField, tabs);
+        dialogContent.setPadding(false);
+        dialogContent.setSpacing(true);
+        dialog.add(dialogContent);
+
         Button saveBtn = new Button("Save");
         saveBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
-
-        providerSelect.addValueChangeListener(e -> {
-            boolean isOpenShift = e.getValue() == ClusterProvider.OpenShift;
-            openShiftWarning.setVisible(isOpenShift);
-            saveBtn.setEnabled(!isOpenShift);
-        });
-
-        FormLayout form = new FormLayout(nameField, providerSelect);
-        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-
-        VerticalLayout content = new VerticalLayout(form, openShiftWarning, commandBlock, upload, kubeconfigArea);
-        content.setPadding(false);
-        content.setSpacing(true);
-        dialog.add(content);
 
         saveBtn.addClickListener(e -> {
             if (nameField.isEmpty()) {
@@ -276,30 +295,54 @@ public class ClustersView extends VerticalLayout implements BeforeEnterObserver 
                 nameField.setInvalid(true);
                 return;
             }
-            if (kubeconfigArea.isEmpty()) {
-                notify("Kubeconfig is required", NotificationVariant.LUMO_ERROR);
-                return;
-            }
 
-            var certWarning = kubeconfigValidator.findPathReferencedCertificates(kubeconfigArea.getValue());
-            if (certWarning.isPresent()) {
-                kubeconfigArea.setErrorMessage(certWarning.get());
-                kubeconfigArea.setInvalid(true);
-                return;
+            String kubeconfigToSave;
+
+            if (tabs.getSelectedTab() == tokenUrlTab) {
+                if (apiUrlField.isEmpty()) {
+                    apiUrlField.setErrorMessage("API Server URL is required");
+                    apiUrlField.setInvalid(true);
+                    return;
+                }
+                if (tokenArea.isEmpty()) {
+                    tokenArea.setErrorMessage("Bearer Token is required");
+                    tokenArea.setInvalid(true);
+                    return;
+                }
+                kubeconfigToSave = clusterService.synthesizeKubeconfig(
+                        apiUrlField.getValue(),
+                        tokenArea.getValue(),
+                        caCertArea.getValue()
+                );
+            } else {
+                if (kubeconfigArea.isEmpty()) {
+                    notify("Kubeconfig is required", NotificationVariant.LUMO_ERROR);
+                    return;
+                }
+                var certWarning = kubeconfigValidator.findPathReferencedCertificates(kubeconfigArea.getValue());
+                if (certWarning.isPresent()) {
+                    kubeconfigArea.setErrorMessage(certWarning.get());
+                    kubeconfigArea.setInvalid(true);
+                    return;
+                }
+                kubeconfigToSave = kubeconfigArea.getValue();
             }
 
             Cluster saved = clusterService.createCluster(new CreateClusterRequest(
                     nameField.getValue().trim(),
-                    providerSelect.getValue(),
-                    kubeconfigArea.getValue()
+                    kubeconfigToSave
             ));
+
+            if (clusterContext.getCluster() == null) {
+                activateCluster(saved);
+            }
 
             dialog.close();
             refreshGrid();
 
             String statusMsg = saved.getConnectionStatus() == ConnectionStatus.CONNECTED
                     ? "connected successfully"
-                    : "added (no connection — check the kubeconfig)";
+                    : "added (no connection — check the credentials)";
             notify("Cluster " + saved.getName() + " " + statusMsg,
                     saved.getConnectionStatus() == ConnectionStatus.CONNECTED
                             ? NotificationVariant.LUMO_SUCCESS

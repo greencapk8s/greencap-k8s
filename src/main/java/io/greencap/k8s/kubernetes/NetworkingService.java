@@ -2,7 +2,6 @@ package io.greencap.k8s.kubernetes;
 
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.IngressInfo;
 import io.greencap.k8s.kubernetes.dto.ServiceInfo;
@@ -20,11 +19,9 @@ import java.util.stream.Collectors;
 public class NetworkingService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<ServiceInfo> listServices(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.services().inAnyNamespace().list().getItems()
                     : client.services().inNamespace(namespace).list().getItems();
@@ -58,7 +55,7 @@ public class NetworkingService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list services for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list services: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list services", e);
         }
     }
 
@@ -73,8 +70,7 @@ public class NetworkingService {
     }
 
     public List<IngressInfo> listIngresses(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.network().v1().ingresses().inAnyNamespace().list().getItems()
                     : client.network().v1().ingresses().inNamespace(namespace).list().getItems();
@@ -124,42 +120,39 @@ public class NetworkingService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list ingresses for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list ingresses: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list ingresses", e);
         }
     }
 
     public List<String> listIngressClassNames(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.network().v1().ingressClasses().list().getItems().stream()
                     .map(ic -> ic.getMetadata().getName())
                     .sorted()
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list IngressClasses for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list IngressClasses: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list IngressClasses", e);
         }
     }
 
     public void deleteService(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.services().inNamespace(namespace).withName(name).delete();
             log.info("Deleted service {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete service {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Service: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Service", e);
         }
     }
 
     public void deleteIngress(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.network().v1().ingresses().inNamespace(namespace).withName(name).delete();
             log.info("Deleted ingress {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete ingress {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Ingress: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Ingress", e);
         }
     }
 

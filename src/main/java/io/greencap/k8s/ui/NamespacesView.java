@@ -19,9 +19,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NamespaceService;
@@ -32,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "global/namespaces", layout = MainLayout.class)
@@ -75,8 +72,8 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), NamespaceInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_DELETE);
-        boolean canWrite  = SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_WRITE);
+        boolean canDelete = true;
+        boolean canWrite  = true;
 
         List<UiConstants.SelectionAction<NamespaceInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog)
@@ -97,10 +94,6 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
 
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
@@ -160,7 +153,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
     private void loadNamespacesAsync(UI ui) {
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<NamespaceInfo> items = namespaceService.listNamespacesWithCounts(cluster);
                 ui.access(() -> {
@@ -180,7 +173,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     private void openCreateDialog() {

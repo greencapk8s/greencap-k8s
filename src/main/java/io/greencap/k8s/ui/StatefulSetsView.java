@@ -25,8 +25,6 @@ import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.WorkloadService;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.dto.StatefulSetInfo;
 import jakarta.annotation.security.PermitAll;
 
@@ -35,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Route(value = "workloads/statefulsets", layout = MainLayout.class)
@@ -73,7 +70,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), StatefulSetInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<StatefulSetInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -86,10 +83,6 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         clusterErrorMessage.setVisible(false);
@@ -108,9 +101,9 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         var nodesCol = grid.addColumn(StatefulSetInfo::nodes).setHeader("Nodes").setFlexGrow(1).setResizable(true);
         grid.addColumn(StatefulSetInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
 
-        boolean canScale = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_SCALE);
-        boolean canRestart = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_RESTART);
-        boolean canRollback = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_ROLLBACK);
+        boolean canScale = true;
+        boolean canRestart = true;
+        boolean canRollback = true;
         UiConstants.addActionsColumn(grid, 3, sts -> {
             Button scaleBtn = buildActionButton(VaadinIcon.EXPAND, "Scale", e -> openScaleDialog(sts));
             scaleBtn.setEnabled(canScale);
@@ -175,7 +168,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         String namespace = clusterContext.getNamespace();
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<StatefulSetInfo> items = workloadService.listStatefulSets(cluster, namespace);
                 ui.access(() -> {
@@ -196,7 +189,7 @@ public class StatefulSetsView extends VerticalLayout implements BeforeEnterObser
                     grid.setVisible(false);
                 });
             }
-        }, UiConstants.VIRTUAL_THREADS);
+        });
     }
 
     @Override

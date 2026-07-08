@@ -8,7 +8,6 @@ import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.BuildProgress;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
@@ -51,12 +50,10 @@ public class RegistryService {
     private static final String DEFAULT_DOCKERFILE_PATH = "Dockerfile";
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
     private final ObjectMapper objectMapper;
 
     public List<RepositoryInfo> listRepositories(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()));
+        try (KubernetesClient client = clientFactory.buildClient(cluster);
              LocalPortForward portForward = client.services()
                      .inNamespace(REGISTRY_NAMESPACE)
                      .withName(REGISTRY_SERVICE_NAME)
@@ -77,8 +74,7 @@ public class RegistryService {
     }
 
     public List<TagInfo> listTags(Cluster cluster, String repository) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()));
+        try (KubernetesClient client = clientFactory.buildClient(cluster);
              LocalPortForward portForward = client.services()
                      .inNamespace(REGISTRY_NAMESPACE)
                      .withName(REGISTRY_SERVICE_NAME)
@@ -97,8 +93,7 @@ public class RegistryService {
     }
 
     public String startBuild(Cluster cluster, BuildRequest request) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             ensureBuildNamespaceExists(client);
 
@@ -147,13 +142,12 @@ public class RegistryService {
             return jobName;
         } catch (Exception e) {
             log.error("Failed to start build for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to start Build: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to start Build", e);
         }
     }
 
     public BuildProgress getBuildProgress(Cluster cluster, String jobName) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             Job job = client.batch().v1().jobs().inNamespace(BUILD_NAMESPACE).withName(jobName).get();
             if (job == null) {
@@ -172,7 +166,7 @@ public class RegistryService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to get build progress for job {}: {}", jobName, e.getMessage());
-            throw new KubernetesOperationException("Failed to get Build progress: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to get Build progress", e);
         }
     }
 

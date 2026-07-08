@@ -8,6 +8,7 @@ import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.Icon;
+import com.vaadin.flow.component.icon.SvgIcon;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Image;
 import com.vaadin.flow.component.html.Span;
@@ -25,9 +26,7 @@ import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.user.UserService;
@@ -37,12 +36,10 @@ import io.greencap.k8s.kubernetes.NamespaceService;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @JsModule("@vaadin/vaadin-lumo-styles/badge-global.js")
 @JsModule("@vaadin/vaadin-lumo-styles/utility-global.js")
@@ -65,8 +62,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final Div clusterWarningBanner = new Div();
     private final List<SideNavItem> clusterDependentNavItems = new ArrayList<>();
 
-    private final ScheduledExecutorService refreshExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> refreshTask;
 
     private Cluster lastLoadedCluster = null;
@@ -98,10 +93,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
             userService.findActiveNamespace(username).ifPresent(clusterContext::setNamespace);
         }
 
-        addDetachListener(e -> {
-            stopRefreshTimer();
-            refreshExecutor.shutdown();
-        });
+        addDetachListener(e -> stopRefreshTimer());
     }
 
     @Override
@@ -194,7 +186,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         namespaceCombo.setEnabled(false);
 
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = namespaceService.listNamespaceNames(cluster);
                 ui.access(() -> {
@@ -249,14 +241,14 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         stopRefreshTimer();
         if (!interval.isActive()) return;
         UI ui = UI.getCurrent();
-        refreshTask = refreshExecutor.scheduleAtFixedRate(() ->
-                ui.access(() -> {
-                    com.vaadin.flow.component.Component content = getContent();
-                    if (content instanceof Refreshable refreshable) {
-                        refreshable.refresh();
-                    }
-                }),
-                interval.getSeconds(), interval.getSeconds(), TimeUnit.SECONDS);
+        Runnable refreshCommand = () -> ui.access(() -> {
+            com.vaadin.flow.component.Component content = getContent();
+            if (content instanceof Refreshable refreshable) {
+                refreshable.refresh();
+            }
+        });
+        Duration period = Duration.ofSeconds(interval.getSeconds());
+        refreshTask = AsyncTasks.schedulePolling(refreshCommand, period, period);
     }
 
     private void stopRefreshTimer() {
@@ -391,6 +383,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         navContent.add(buildNewApplicationNav());
         navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP));
+        navContent.add(buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
 
         Scroller scroller = new Scroller(navContent);
@@ -480,7 +473,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNav nav = new SideNav();
         nav.setWidthFull();
 
-        boolean canDeployApp = SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION);
+        boolean canDeployApp = true;
         SideNavItem newApp = navItem("New Application", DeployApplicationView.class, VaadinIcon.PLUS_CIRCLE, canDeployApp);
 
         if (canDeployApp) {
@@ -495,7 +488,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNav nav = new SideNav();
         nav.setWidthFull();
 
-        boolean canTopology   = SecurityUtils.hasPermission(Permission.TOPOLOGY_VIEW);
+        boolean canTopology   = true;
         SideNavItem topologia = navItem("Topology", TopologiaView.class, VaadinIcon.CLUSTER, canTopology);
 
         SideNavItem observability = buildObservabilidadeNavItem();
@@ -504,20 +497,21 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         SideNavItem parameters  = buildConfigNavItem();
         SideNavItem autoScaling = buildAutoScalingNavItem();
         SideNavItem storage     = buildStorageNavItem();
+        SideNavItem helm        = buildHelmNavItem();
 
-        addIfEnabled(topologia, observability, workloads, networking, parameters, autoScaling, storage);
+        addIfEnabled(topologia, observability, workloads, networking, parameters, autoScaling, storage, helm);
 
-        nav.addItem(topologia, observability, workloads, autoScaling, networking, parameters, storage);
+        nav.addItem(topologia, observability, workloads, autoScaling, networking, parameters, storage, helm);
         return nav;
     }
 
     private SideNavItem buildWorkloadsNavItem() {
-        boolean canDeploy     = SecurityUtils.hasPermission(Permission.WORKLOADS_DEPLOYMENTS_VIEW);
-        boolean canStatefulSet = SecurityUtils.hasPermission(Permission.WORKLOADS_STATEFULSETS_VIEW);
-        boolean canReplica    = SecurityUtils.hasPermission(Permission.WORKLOADS_REPLICASETS_VIEW);
-        boolean canPods       = SecurityUtils.hasPermission(Permission.WORKLOADS_PODS_VIEW);
-        boolean canJobs       = SecurityUtils.hasPermission(Permission.WORKLOADS_JOBS_VIEW);
-        boolean canCronJobs   = SecurityUtils.hasPermission(Permission.WORKLOADS_CRONJOBS_VIEW);
+        boolean canDeploy     = true;
+        boolean canStatefulSet = true;
+        boolean canReplica    = true;
+        boolean canPods       = true;
+        boolean canJobs       = true;
+        boolean canCronJobs   = true;
         boolean anyChild      = canDeploy || canStatefulSet || canReplica || canPods || canJobs || canCronJobs;
 
         SideNavItem workloads = navItem("Workloads", DeploymentsView.class, VaadinIcon.CUBES, anyChild);
@@ -531,8 +525,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildRedeNavItem() {
-        boolean canServices  = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_VIEW);
-        boolean canIngresses = SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_VIEW);
+        boolean canServices  = true;
+        boolean canIngresses = true;
         boolean anyChild     = canServices || canIngresses;
 
         SideNavItem networking = navItem("Networking", ServicesView.class, VaadinIcon.CONNECT, anyChild);
@@ -542,8 +536,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildConfigNavItem() {
-        boolean canConfigMaps = SecurityUtils.hasPermission(Permission.PARAMETERS_CONFIGMAPS_VIEW);
-        boolean canSecrets    = SecurityUtils.hasPermission(Permission.PARAMETERS_SECRETS_VIEW);
+        boolean canConfigMaps = true;
+        boolean canSecrets    = true;
         boolean anyChild      = canConfigMaps || canSecrets;
 
         SideNavItem parameters = navItem("Parameters", ConfigMapsView.class, VaadinIcon.SLIDERS, anyChild);
@@ -553,15 +547,40 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildAutoScalingNavItem() {
-        boolean canHpa = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_VIEW);
+        boolean canHpa = true;
 
         SideNavItem autoScaling = navItem("Auto Scaling", HorizontalScalerView.class, VaadinIcon.SCALE, canHpa);
         autoScaling.addItem(navItem("Horizontal Scaler", HorizontalScalerView.class, VaadinIcon.RESIZE_H, canHpa));
         return autoScaling;
     }
 
+    private SideNavItem buildHelmNavItem() {
+        boolean canHelm = true;
+
+        SvgIcon helmIcon = new SvgIcon("icons/helm.svg");
+        helmIcon.setSize("var(--lumo-icon-size-m)");
+
+        SideNavItem helm = new SideNavItem("Helm", HelmReleasesView.class, helmIcon);
+        if (!canHelm) {
+            helm.getStyle()
+                    .set("opacity", "0.4")
+                    .set("pointer-events", "none");
+        }
+        helm.addItem(navItem("Releases", HelmReleasesView.class, VaadinIcon.LIST, canHelm));
+
+        SideNavItem repositories = navItem("Repositories", HelmRepositoriesView.class, VaadinIcon.BOOK, canHelm);
+        Icon repoInfoIcon = VaadinIcon.INFO_CIRCLE_O.create();
+        repoInfoIcon.setSize("var(--lumo-icon-size-s)");
+        repoInfoIcon.getStyle().set("color", "var(--lumo-secondary-text-color)");
+        repoInfoIcon.setTooltipText("Helm Repositories are cluster-scoped — they apply to all namespaces");
+        repositories.setSuffixComponent(repoInfoIcon);
+        helm.addItem(repositories);
+
+        return helm;
+    }
+
     private SideNavItem buildStorageNavItem() {
-        boolean canPvc = SecurityUtils.hasPermission(Permission.STORAGE_PVC_VIEW);
+        boolean canPvc = true;
 
         SideNavItem storage = navItem("Storage", PersistentVolumeClaimsView.class, VaadinIcon.STORAGE, canPvc);
         storage.addItem(navItem("Volume Claims (PVC)", PersistentVolumeClaimsView.class, VaadinIcon.DATABASE, canPvc));
@@ -569,9 +588,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildObservabilidadeNavItem() {
-        boolean canDashboard = SecurityUtils.hasPermission(Permission.OBSERVABILITY_DASHBOARD_VIEW);
-        boolean canEvents    = SecurityUtils.hasPermission(Permission.OBSERVABILITY_EVENTS_VIEW);
-        boolean canMetrics   = SecurityUtils.hasPermission(Permission.OBSERVABILITY_METRICS_VIEW);
+        boolean canDashboard = true;
+        boolean canEvents    = true;
+        boolean canMetrics   = true;
         boolean anyChild     = canDashboard || canEvents || canMetrics;
 
         SideNavItem observability = navItem("Observability", DashboardView.class, VaadinIcon.EYE, anyChild);
@@ -586,16 +605,42 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         nav.setWidthFull();
 
         SideNavItem clustersItem = navItem("Clusters", ClustersView.class, VaadinIcon.SERVER,
-                SecurityUtils.hasPermission(Permission.GLOBAL_CLUSTERS_VIEW));
+                true);
 
         SideNavItem namespacesItem = navItem("Namespaces", NamespacesView.class, VaadinIcon.FOLDER_O,
-                SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_VIEW));
+                true);
 
-        if (SecurityUtils.hasPermission(Permission.GLOBAL_NAMESPACES_VIEW)) {
-            clusterDependentNavItems.add(namespacesItem);
-        }
+        clusterDependentNavItems.add(namespacesItem);
 
         nav.addItem(clustersItem, namespacesItem, buildInfrastructureNavItem(), buildRegistryNavItem());
+        return nav;
+    }
+
+    private SideNav buildDeveloperExperienceNav() {
+        SideNav nav = new SideNav();
+        nav.setWidthFull();
+
+        boolean canOperators = true;
+
+        SideNavItem operatorsItem = navItem("Operators", InstalledOperatorsView.class, VaadinIcon.GRID_BIG_O, canOperators);
+        if (canOperators) {
+            Span betaBadge = new Span("beta");
+            betaBadge.getStyle()
+                    .set("font-size", "var(--lumo-font-size-xxs)")
+                    .set("color", "var(--lumo-primary-color)")
+                    .set("font-weight", "600")
+                    .set("letter-spacing", "0.05em")
+                    .set("margin-left", "var(--lumo-space-xs)");
+            operatorsItem.setSuffixComponent(betaBadge);
+        }
+        operatorsItem.addItem(navItem("Installed", InstalledOperatorsView.class, VaadinIcon.CHECK_CIRCLE_O, canOperators));
+        operatorsItem.addItem(navItem("Catalog", OperatorCatalogView.class, VaadinIcon.SEARCH, canOperators));
+
+        if (canOperators) {
+            clusterDependentNavItems.add(operatorsItem);
+        }
+
+        nav.addItem(operatorsItem);
         return nav;
     }
 
@@ -604,16 +649,16 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         nav.setWidthFull();
 
         SideNavItem usersItem = navItem("Users", UserManagementView.class, VaadinIcon.USERS,
-                SecurityUtils.hasPermission(Permission.SETTINGS_USERS_VIEW));
+                true);
         SideNavItem settingsItem = navItem("Settings", PlatformSettingsView.class, VaadinIcon.COG,
-                SecurityUtils.hasPermission(Permission.SETTINGS_PLATFORM_VIEW));
+                true);
 
         nav.addItem(usersItem, settingsItem);
         return nav;
     }
 
     private SideNavItem buildInfrastructureNavItem() {
-        boolean canInfra = SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_VIEW);
+        boolean canInfra = true;
 
         SideNavItem infrastructure = navItem("Infrastructure", PersistentVolumesView.class, VaadinIcon.CLOUD, canInfra);
         infrastructure.addItem(navItem("Persistent Volumes (PV)", PersistentVolumesView.class, VaadinIcon.HARDDRIVE, canInfra));
@@ -627,7 +672,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private SideNavItem buildRegistryNavItem() {
-        boolean canRegistry = SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_VIEW);
+        boolean canRegistry = true;
 
         SideNavItem registry = navItem("Container Registry", RegistryView.class, VaadinIcon.ARCHIVE, canRegistry);
 

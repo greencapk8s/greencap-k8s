@@ -23,10 +23,6 @@ public class Cluster {
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private ClusterProvider provider;
-
     // stored encrypted — see EncryptionService (Sprint 2)
     @Column(columnDefinition = "TEXT")
     private String kubeconfigContent;

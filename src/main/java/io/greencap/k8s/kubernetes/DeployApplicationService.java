@@ -11,7 +11,6 @@ import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
@@ -29,12 +28,10 @@ import java.util.Map;
 public class DeployApplicationService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public DeployApplicationResult deploy(Cluster cluster, DeployApplicationRequest request) {
         List<String> created = new ArrayList<>();
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             createNamespace(client, request.namespace());
             created.add("Namespace: " + request.namespace());
@@ -76,7 +73,7 @@ public class DeployApplicationService {
 
         } catch (Exception e) {
             log.error("Failed to deploy application {} on cluster {}: {}", request.namespace(), cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to deploy application: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to deploy application", e);
         }
     }
 

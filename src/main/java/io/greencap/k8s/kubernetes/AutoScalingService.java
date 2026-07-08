@@ -3,7 +3,6 @@ package io.greencap.k8s.kubernetes;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.HorizontalPodAutoscaler;
 import io.fabric8.kubernetes.api.model.autoscaling.v2.MetricStatus;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.HorizontalScalerInfo;
 import lombok.RequiredArgsConstructor;
@@ -19,11 +18,9 @@ import java.util.Optional;
 public class AutoScalingService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<HorizontalScalerInfo> listHorizontalScalers(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             var items = isAllNamespaces(namespace)
                     ? client.autoscaling().v2().horizontalPodAutoscalers().inAnyNamespace().list().getItems()
@@ -42,7 +39,7 @@ public class AutoScalingService {
 
         } catch (Exception e) {
             log.error("Failed to list horizontal scalers for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list horizontal scalers: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list horizontal scalers", e);
         }
     }
 
@@ -126,8 +123,7 @@ public class AutoScalingService {
     }
 
     public Optional<HorizontalScalerInfo> findHorizontalScalerForTarget(Cluster cluster, String namespace, String targetName) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.autoscaling().v2().horizontalPodAutoscalers()
                     .inNamespace(namespace)
                     .list().getItems().stream()
@@ -139,13 +135,12 @@ public class AutoScalingService {
                     .map(hpa -> toInfo(hpa, java.util.Set.of(targetName)));
         } catch (Exception e) {
             log.error("Failed to find HPA for target {}/{}: {}", namespace, targetName, e.getMessage());
-            throw new KubernetesOperationException("Failed to find HPA: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to find HPA", e);
         }
     }
 
     public void updateHorizontalScaler(Cluster cluster, String namespace, String name, int minReplicas, int maxReplicas) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.autoscaling().v2().horizontalPodAutoscalers()
                     .inNamespace(namespace)
                     .withName(name)
@@ -157,18 +152,17 @@ public class AutoScalingService {
             log.info("Updated HPA {}/{}: min={}, max={}", namespace, name, minReplicas, maxReplicas);
         } catch (Exception e) {
             log.error("Failed to update HPA {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to update HPA: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to update HPA", e);
         }
     }
 
     public void deleteHorizontalScaler(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.autoscaling().v2().horizontalPodAutoscalers().inNamespace(namespace).withName(name).delete();
             log.info("Deleted HPA {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete HPA {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete HorizontalPodAutoscaler: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete HorizontalPodAutoscaler", e);
         }
     }
 

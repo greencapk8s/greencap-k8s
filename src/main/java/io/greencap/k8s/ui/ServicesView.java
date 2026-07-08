@@ -25,8 +25,6 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "networking/services", layout = MainLayout.class)
 @PageTitle("Services — GreenCap K8s")
@@ -60,7 +58,7 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
         buildServiceGrid();
         UiConstants.configureSingleSelection(serviceGrid, selectionMemory, getClass().getSimpleName(), ServiceInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<ServiceInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -72,10 +70,6 @@ public class ServicesView extends VerticalLayout implements BeforeEnterObserver,
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.NETWORKING_SERVICES_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         serviceGrid.setVisible(hasCluster);

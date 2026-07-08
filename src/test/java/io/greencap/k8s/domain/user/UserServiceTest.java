@@ -9,8 +9,6 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Set;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -27,30 +25,29 @@ class UserServiceTest extends PostgresIntegrationTest {
     private PasswordEncoder passwordEncoder;
 
     @Test
-    void loadUserByUsername_returnsUserDetailsWithCorrectAuthorities() {
-        userService.createUser("auth-user", "auth@test.com", "pass",
-            Set.of(Permission.GLOBAL_CLUSTERS_VIEW, Permission.WORKLOADS_PODS_VIEW));
+    void loadUserByUsername_returnsUserDetailsWithRoleUser() {
+        userService.createUser("auth-user", "auth@test.com", "pass");
 
         UserDetails details = userService.loadUserByUsername("auth-user");
 
         assertThat(details.getAuthorities())
             .extracting(GrantedAuthority::getAuthority)
-            .containsExactlyInAnyOrder("GLOBAL_CLUSTERS_VIEW", "WORKLOADS_PODS_VIEW");
+            .containsExactly("ROLE_USER");
     }
 
     @Test
-    void loadUserByUsername_withInactiveUser_throwsUsernameNotFoundException() {
-        userService.createUser("inactive-user", "inactive@test.com", "pass", Set.of());
-        Long userId = userRepository.findByUsername("inactive-user").orElseThrow().getId();
-        userService.deactivateUser(userId);
+    void loadUserByUsername_withDeletedUser_throwsUsernameNotFoundException() {
+        userService.createUser("deleted-user", "deleted@test.com", "pass");
+        Long userId = userRepository.findByUsername("deleted-user").orElseThrow().getId();
+        userService.deleteUser(userId);
 
-        assertThatThrownBy(() -> userService.loadUserByUsername("inactive-user"))
+        assertThatThrownBy(() -> userService.loadUserByUsername("deleted-user"))
             .isInstanceOf(UsernameNotFoundException.class);
     }
 
     @Test
     void createUser_passwordIsStoredAsHash() {
-        userService.createUser("hash-user", "hash@test.com", "plainpassword", Set.of());
+        userService.createUser("hash-user", "hash@test.com", "plainpassword");
 
         UserDetails details = userService.loadUserByUsername("hash-user");
 

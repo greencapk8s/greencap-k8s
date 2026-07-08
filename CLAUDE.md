@@ -46,12 +46,28 @@ ui/          # Views Vaadin e MainLayout
 - `GREENCAP_ENCRYPTION_KEY` sempre via variável de ambiente em produção
 - Kubeconfig sempre encriptado antes de persistir (`EncryptionService`)
 
+## Branches
+
+| Branch | Versão | Papel |
+|--------|--------|-------|
+| `develop` | `X.Y.Z-dev` | Desenvolvimento ativo — branch padrão de trabalho |
+| `staging` | `X.Y.Z-rc.N` | Release candidate — merge de `develop` quando pronto para validação |
+| `main` | `X.Y.Z` (git tag) | Estável — somente via PR de `staging`; nunca commitar direto |
+
+### Versionamento
+
+- Versão base em `gradle.properties` → `version.base`; sufixo aplicado automaticamente por branch em `build.gradle.kts`
+- `main` lê a versão do último git tag (`vX.Y.Z`)
+- Fluxo de release: `develop` → PR para `staging` → ajustar `version.rc` se necessário → PR para `main` → tagear `vX.Y.Z`
+- Após merge para `main`: bump `version.base` no `develop` para o próximo release alvo
+
 ## Commits
 - Formato: `tipo: descrição em português`
 - Tipos: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - Exemplo: `feat: adiciona visualização de logs em tempo real`
 - Co-autor: `Programado em par com: Claude IA`
 - Antes de cada commit: atualizar `docs/sprints.md` refletindo o que foi entregue e incluir as alterações no mesmo commit
+- Todos os commits de sprint vão para o branch `develop`
 
 ## Comentários
 - Todos os comentários criados no código devem está em inglês

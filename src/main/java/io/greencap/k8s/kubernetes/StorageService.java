@@ -1,7 +1,6 @@
 package io.greencap.k8s.kubernetes;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.NodeInfo;
 import io.greencap.k8s.kubernetes.dto.PersistentVolumeClaimInfo;
@@ -20,11 +19,9 @@ import java.util.Optional;
 public class StorageService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<PersistentVolumeClaimInfo> listPersistentVolumeClaims(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.persistentVolumeClaims().inAnyNamespace().list().getItems()
                     : client.persistentVolumeClaims().inNamespace(namespace).list().getItems();
@@ -55,13 +52,12 @@ public class StorageService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list PVCs for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list PersistentVolumeClaims: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list PersistentVolumeClaims", e);
         }
     }
 
     public List<PersistentVolumeInfo> listPersistentVolumes(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.persistentVolumes().list().getItems().stream()
                     .map(pv -> new PersistentVolumeInfo(
                             pv.getMetadata().getName(),
@@ -93,13 +89,12 @@ public class StorageService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list PVs for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list PersistentVolumes: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list PersistentVolumes", e);
         }
     }
 
     public List<StorageClassInfo> listStorageClasses(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.storage().v1().storageClasses().list().getItems().stream()
                     .map(sc -> new StorageClassInfo(
                             sc.getMetadata().getName(),
@@ -112,13 +107,12 @@ public class StorageService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list StorageClasses for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list StorageClasses: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list StorageClasses", e);
         }
     }
 
     public Optional<String> findDefaultStorageClassName(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.storage().v1().storageClasses().list().getItems().stream()
                     .filter(sc -> "true".equals(
                             Optional.ofNullable(sc.getMetadata().getAnnotations())
@@ -133,8 +127,7 @@ public class StorageService {
     }
 
     public List<NodeInfo> listNodes(Cluster cluster) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             return client.nodes().list().getItems().stream()
                     .map(node -> {
                         var conditions = Optional.ofNullable(node.getStatus())
@@ -191,13 +184,12 @@ public class StorageService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list nodes for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list Nodes: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list Nodes", e);
         }
     }
 
     public void cordonNode(Cluster cluster, String nodeName, boolean cordon) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.nodes().withName(nodeName).edit(node -> {
                 node.getSpec().setUnschedulable(cordon);
                 return node;
@@ -205,18 +197,27 @@ public class StorageService {
             log.info("{} node {}", cordon ? "Cordoned" : "Uncordoned", nodeName);
         } catch (Exception e) {
             log.error("Failed to {} node {}: {}", cordon ? "cordon" : "uncordon", nodeName, e.getMessage());
-            throw new KubernetesOperationException("Failed to " + (cordon ? "cordon" : "uncordon") + " Node: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to " + (cordon ? "cordon" : "uncordon") + " Node", e);
+        }
+    }
+
+    public void deletePersistentVolume(Cluster cluster, String name) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
+            client.persistentVolumes().withName(name).delete();
+            log.info("Deleted PersistentVolume {}", name);
+        } catch (Exception e) {
+            log.error("Failed to delete PersistentVolume {}: {}", name, e.getMessage());
+            throw KubernetesOperationException.from("Failed to delete PersistentVolume", e);
         }
     }
 
     public void deletePersistentVolumeClaim(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.persistentVolumeClaims().inNamespace(namespace).withName(name).delete();
             log.info("Deleted PVC {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete PVC {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete PersistentVolumeClaim: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete PersistentVolumeClaim", e);
         }
     }
 

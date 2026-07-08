@@ -24,9 +24,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
@@ -45,15 +43,13 @@ import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Route(value = "deploy/compose", layout = MainLayout.class)
@@ -89,8 +85,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final Map<String, String> buildJobsByService = new LinkedHashMap<>();
     private final Map<String, Span> buildStatusBadgeByService = new LinkedHashMap<>();
     private Pre buildLogArea;
-    private final ScheduledExecutorService pollExecutor =
-            Executors.newSingleThreadScheduledExecutor(Thread.ofVirtual().factory());
     private ScheduledFuture<?> pollTask;
 
     private int currentStep = 1;
@@ -139,10 +133,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
-            event.forwardTo("");
-            return;
-        }
         loadStorageClasses();
         renderStep(1);
     }
@@ -152,14 +142,18 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Button dockerfileBtn = new Button("Deploy from Dockerfile", VaadinIcon.CODE.create());
         Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
 
+        Button helmBtn = new Button("Deploy from Helm", VaadinIcon.PACKAGE.create());
+
         imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
         composeBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+        helmBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
 
         imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
         dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
+        helmBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromHelmView.class));
 
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn);
+        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn);
         selector.setSpacing(true);
         return selector;
     }
@@ -441,7 +435,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         section.add(new Hr());
 
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> runBuildsSequentially(buildServices, section, ui));
+        AsyncTasks.execute(() -> runBuildsSequentially(buildServices, section, ui));
         return section;
     }
 
@@ -499,7 +493,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         final boolean[] finished = {false};
         final boolean[] success = {false};
 
-        pollTask = pollExecutor.scheduleAtFixedRate(() -> {
+        Runnable pollCommand = () -> {
             try {
                 var progress = registryService.getBuildProgress(cluster, jobName);
                 if (progress.podName() != null) {
@@ -526,7 +520,8 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                 finished[0] = true;
                 stopPolling();
             }
-        }, 0, POLL_INTERVAL_SECONDS, TimeUnit.SECONDS);
+        };
+        pollTask = AsyncTasks.schedulePolling(pollCommand, Duration.ZERO, Duration.ofSeconds(POLL_INTERVAL_SECONDS));
 
         while (!finished[0]) {
             try { Thread.sleep(500); } catch (InterruptedException ex) {
@@ -554,7 +549,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         ComposeImportRequest request = buildImportRequest();
 
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 ImportComposeResult result = importComposeService.provision(cluster, parsedDocument, request);
                 ui.access(() -> renderResult(section, result, request.namespace(), ui));
@@ -620,7 +615,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 ComposeDocument document = composeParser.fetch(
                         gitUrlField.getValue().trim(),
@@ -674,7 +669,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         Cluster cluster = clusterContext.getCluster();
         if (cluster == null) return;
         UI ui = UI.getCurrent();
-        Thread.ofVirtual().start(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 List<String> names = storageService.listStorageClasses(cluster).stream()
                         .map(StorageClassInfo::name).toList();
@@ -698,7 +693,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
-        pollExecutor.shutdown();
         super.onDetach(detachEvent);
     }
 

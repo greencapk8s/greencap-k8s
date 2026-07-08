@@ -4,7 +4,6 @@ import io.fabric8.kubernetes.api.model.Event;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.metrics.v1beta1.PodMetrics;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.EventInfo;
 import io.greencap.k8s.kubernetes.dto.PodMetricInfo;
@@ -24,11 +23,9 @@ import java.util.stream.Collectors;
 public class ObservabilityService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<String> listContainersForPod(Cluster cluster, String namespace, String podName) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             var pod = client.pods().inNamespace(namespace).withName(podName).get();
             if (pod == null || pod.getSpec() == null) return List.of();
@@ -38,16 +35,27 @@ public class ObservabilityService {
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.error("Failed to list containers for pod {}/{}: {}", namespace, podName, e.getMessage());
-            throw new KubernetesOperationException("Failed to list containers: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list containers", e);
         }
     }
 
     public Optional<String> fetchPodLogs(Cluster cluster, String namespace, String podName,
                                          String container, int tailLines, boolean previous) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             var podOp = client.pods().inNamespace(namespace).withName(podName);
+
+            // Pods in Pending phase have no running containers — skip the log API call
+            // to avoid blocking on a request that will hang until timeout
+            var pod = podOp.get();
+            if (pod != null) {
+                String phase = Optional.ofNullable(pod.getStatus())
+                        .map(s -> s.getPhase()).orElse("");
+                if ("Pending".equalsIgnoreCase(phase)) {
+                    return Optional.of("Pod is in Pending state — no logs available yet. Waiting for containers to start.");
+                }
+            }
+
             var containerOp = container != null && !container.isBlank()
                     ? podOp.inContainer(container)
                     : podOp;
@@ -63,13 +71,12 @@ public class ObservabilityService {
                 return Optional.empty();
             }
             log.error("Failed to fetch logs for pod {}/{}: {}", namespace, podName, e.getMessage());
-            throw new KubernetesOperationException("Failed to fetch pod logs: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to fetch pod logs", e);
         }
     }
 
     public List<EventInfo> listEvents(Cluster cluster, String namespace, int limit) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             var items = isAllNamespaces(namespace)
                     ? client.v1().events().inAnyNamespace().list().getItems()
@@ -94,13 +101,12 @@ public class ObservabilityService {
             return (limit > 0 ? stream.limit(limit) : stream).toList();
         } catch (Exception e) {
             log.error("Failed to list events for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list events: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list events", e);
         }
     }
 
     public List<EventInfo> listEventsForResource(Cluster cluster, String namespace, String kind, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             var items = client.v1().events()
                     .inNamespace(namespace)
@@ -129,13 +135,12 @@ public class ObservabilityService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list events for {}/{} on cluster {}: {}", kind, name, cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list events for " + kind + "/" + name + ": " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list events for " + kind + "/" + name, e);
         }
     }
 
     public List<PodMetricInfo> listPodMetrics(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             List<PodMetrics> items = isAllNamespaces(namespace)
                     ? client.top().pods().metrics("").getItems()
@@ -160,7 +165,7 @@ public class ObservabilityService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list pod metrics for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list metrics: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list metrics", e);
         }
     }
 
