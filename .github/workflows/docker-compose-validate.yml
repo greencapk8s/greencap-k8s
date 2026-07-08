@@ -2,7 +2,7 @@ name: Docker Compose Validate
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, staging, develop]
     paths: &watched-paths
       - "docker-compose.yml"
       - "docker/**"
@@ -14,7 +14,7 @@ on:
       - "src/**"
       - ".github/workflows/*.yml"
   push:
-    branches: [main]
+    branches: [main, staging, develop]
     paths: *watched-paths
 
 jobs:

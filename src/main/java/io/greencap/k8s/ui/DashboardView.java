@@ -27,19 +27,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Slf4j
 @Route(value = "", layout = MainLayout.class)
 @PageTitle("Dashboard — GreenCap K8s")
 @PermitAll
 public class DashboardView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
-
-    private static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ClusterContext clusterContext;
     private final WorkloadService workloadService;
@@ -94,10 +87,6 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.OBSERVABILITY_DASHBOARD_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         loadContent();
     }
 
@@ -155,7 +144,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
     }
 
     private void fetchCount(Span span, CountSupplier supplier, UI ui) {
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             String value;
             try {
                 value = String.valueOf(supplier.get());
@@ -168,11 +157,11 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                 span.setText(resolved);
                 span.getStyle().remove("color");
             });
-        }, VIRTUAL_THREADS);
+        });
     }
 
     private void fetchMetrics(Cluster cluster, String namespace, UI ui) {
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             String cpuValue;
             String memValue;
             boolean unavailable = false;
@@ -204,14 +193,11 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                     memValueText.getStyle().remove("color");
                 }
             });
-        }, VIRTUAL_THREADS);
+        });
     }
 
     private void refreshCta(Cluster cluster, String namespace, UI ui) {
-        if (!SecurityUtils.hasPermission(Permission.PROJECT_DEPLOY_APPLICATION)) {
-            return;
-        }
-        CompletableFuture.runAsync(() -> {
+        AsyncTasks.execute(() -> {
             try {
                 boolean empty = workloadService.listDeployments(cluster, namespace).isEmpty();
                 ui.access(() -> {
@@ -224,7 +210,7 @@ public class DashboardView extends VerticalLayout implements BeforeEnterObserver
                     }
                 });
             } catch (Exception ignored) {}
-        }, VIRTUAL_THREADS);
+        });
     }
 
     private VerticalLayout buildResourceCountSection(String namespace) {

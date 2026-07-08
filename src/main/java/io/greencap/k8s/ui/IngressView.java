@@ -15,9 +15,7 @@ import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NetworkingService;
@@ -59,7 +57,7 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
         buildIngressGrid();
         UiConstants.configureSingleSelection(ingressGrid, selectionMemory, getClass().getSimpleName(), IngressInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<IngressInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -71,10 +69,6 @@ public class IngressView extends VerticalLayout implements BeforeEnterObserver, 
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.NETWORKING_INGRESS_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         ingressGrid.setVisible(hasCluster);

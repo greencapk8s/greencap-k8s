@@ -4,10 +4,15 @@
 FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
+# Download Helm CLI binary
+ARG HELM_VERSION=v4.2.2
+RUN curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz \
+    | tar -xz --strip-components=1 -C /usr/local/bin linux-amd64/helm
+
 # Cache Gradle wrapper and dependency resolution separately from source code
 COPY gradlew ./
 COPY gradle ./gradle
-COPY build.gradle.kts settings.gradle.kts ./
+COPY build.gradle.kts settings.gradle.kts gradle.properties ./
 RUN ./gradlew --no-daemon dependencies
 
 COPY . .
@@ -21,6 +26,8 @@ WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/bin/helm /usr/local/bin/helm
 
 COPY --from=builder /app/build/libs/*.jar app.jar
 

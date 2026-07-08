@@ -1,6 +1,6 @@
 # ADR 0004 — Permission-based access control replacing Role
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0013
 
 ## Context
 

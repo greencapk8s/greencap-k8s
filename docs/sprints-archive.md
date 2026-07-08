@@ -721,3 +721,85 @@
 - `TopologyNodeDrawer`: bloco `isIngress` com Hosts, badge TLS, IngressClass; botão "Go to resource" substitui "Ver YAML"
 - `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` instância; `beforeEnter` lê `?name=`
 - Issues: `.scratch/archive/sprint-77/issues/`
+
+### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
+
+- `topology-graph.ts`: `randomize` dinâmico — `true` quando posições salvas ausentes (fix para nós empilhados na primeira renderização), `false` quando presentes (mantém layout salvo); guard `if (node.data('isGroup')) return` no tap handler (fix para painel lateral não abrir ao clicar em group nodes)
+- `TopologyLayoutRepository`: `deleteByUserIdAndClusterIdAndNamespace` (método derivado Spring Data)
+- `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
+- `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
+- Issues: `.scratch/archive/sprint-78/issues/`
+
+### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
+
+- `ClustersView`: substituído por `UiConstants.buildSectionHeader`; ações "Test Connection" e "Remove" como `SelectionAction`; coluna de ações inline removida; `GridSelectionMemory` com `configureSingleSelection`
+- `UserManagementView`: mesmo padrão; ações "Edit Permissions" e "Deactivate" como `SelectionAction`; proteções via early-exit
+- Issues: `.scratch/archive/sprint-79/issues/`
+
+### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
+
+- `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; `displayName()` retorna "Minikube (Docker)" / "OpenShift"
+- `ClustersView` dialog: aviso inline para OpenShift (não suportado), code block com `kubectl config view --flatten --minify` e botão de cópia
+- `CONTEXT.md`: `ClusterProvider` atualizado com valores reais
+- Issue: `.scratch/archive/sprint-80/issues/`
+
+### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
+
+- `build.gradle.kts`: dependências TestContainers; H2 removido; `@ServiceConnection` auto-configura datasource
+- `PostgresIntegrationTest`: classe base estática compartilhada; `WorkloadServiceTest`, `NamespaceServiceTest`, `UserServiceTest`, `ClusterServiceTest`
+- Issues: `.scratch/archive/sprint-81/issues/`
+
+### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
+
+- `NamespaceInfo`: +campos `podCount`, `deploymentCount`, `serviceCount`
+- `NamespaceService`: `listNamespacesWithCounts()` (4 chamadas Fabric8 agrupadas por namespace), `createNamespace()`, `deleteNamespace()`; `listNamespaceNames()` filtra namespaces em fase `Terminating`
+- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE`; `V26__add_namespace_permissions.sql`
+- `NamespacesView` (rota `global/namespaces`): grid Name/Status/Pods/Deployments/Services/Age; Create dialog com validação DNS; Delete type-to-confirm; system namespaces bloqueados; async load com `CompletableFuture`
+- `MainLayout`: item "Namespaces" na seção Global; `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace`
+- Issue: `.scratch/archive/sprint-76/issues/01-namespaces-view.md`
+
+### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
+
+- `TopologyService`: listagem de Ingresses; `resourceViewUrl()` mapeia tipo → rota com `?name=`; `ingressNode()` com ingressClass/hosts/TLS
+- `topology-graph.ts`: cor Ingress `#06B6D4`; fcose separado do construtor; `fixedNodeConstraint` desabilitado com compound nodes; posições aplicadas manualmente quando grouping ativo
+- `TopologyNodeDrawer`: bloco Ingress com Hosts, badge TLS, IngressClass; botão "Go to resource"
+- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `?name=` pré-filtro via `beforeEnter`
+- Issues: `.scratch/archive/sprint-77/issues/`
+
+### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
+
+- `NamespacesViewTest` (4 cenários): guard de system namespace, estado inicial do dialog, type-to-confirm com nome errado e correto
+- `ClustersViewTest` (1 cenário): confirmação de remoção chama `clusterService.deleteCluster()`
+- `docs/adr/0010-karibu-para-testes-de-views-vaadin.md`: decisão de usar Karibu (in-memory) em vez de Selenium/Playwright
+- `CLAUDE.md`: fluxo de sprint atualizado com passo 6 (Testes) — views Karibu e integração `PostgresIntegrationTest`
+- Issue: `.scratch/archive/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
+
+### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
+
+- `ComposeParser` (novo, `kubernetes/compose/`): busca o `docker-compose.yml` via HTTP raw do GitHub/GitLab, faz parse com SnakeYAML `SafeConstructor`; classifica variáveis de ambiente com heurística de chave sensível (`PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL` → Secret; restante → ConfigMap); volumes named → PVC, bind-mounts → aviso; `depends_on:` e diretivas não suportadas → lista de avisos consolidada
+- `ComposeDocument` (novo): modelo intermediário do Compose parseado — `ParsedService`, `BuildSpec`, `EnvEntry`, `VolumeEntry`
+- `ImportComposeService` (novo, `kubernetes/compose/`): provisiona Namespace, ConfigMap (`<service>-config`), Secret (`<service>-secret`), PVC (`<service>-pvc`), Deployment e Service ClusterIP para cada serviço; labels `app.kubernetes.io/part-of: <namespace>` + `app.kubernetes.io/component: <service-name>` em todos os recursos para agrupamento em Topologia; tenta todos os serviços antes de reportar falhas (sem rollback)
+- `ImportComposeView` (nova, rota `deploy/compose`): view independente com wizard de 3 passos — (1) Git URL + branch + path + namespace; (2) revisão por serviço com campos editáveis (imagem para `build:` pré-preenchida como `localhost:5000/<namespace>/<service>:latest`, PVC StorageClass/size, warnings de bind-mounts/`depends_on:`/diretivas ignoradas); (3) execução — Builds Kaniko sequenciais com log live + grid de status em 2 colunas + provisionamento K8s + resultado; em sucesso total navega para Topologia do novo Namespace
+- `DeployApplicationView`: seletor de modo "Deploy from Image" / "Deploy from Compose" no topo; botão "Deploy from Compose" navega para `ImportComposeView` (views independentes, sem aninhamento)
+- Fixes encontrados no aceite: imagem para `build:` precisava do prefixo `localhost:5000/` (registry-proxy hostPort); contexto de build (`--context-sub-path`) resolvia relativo à raiz do repo em vez de relativo ao diretório do `docker-compose.yml`; nome do repositório inclui namespace como prefixo (`<namespace>/<service>:tag`)
+- Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
+- `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
+- `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
+- Issues: `.scratch/archive/sprint-83/issues/` (4 issues, todas `done`)
+
+### Sprint 84 ✅ — Bug fixes: Registry remove persistente, Namespace Terminating bloqueado, seleção de linha em View Tags
+
+- Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo. Tema conforme "Status Geral": Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags
+- Sem diretório `.scratch/sprint-84/` — não houve issues formais
+
+### Sprint 85 ✅ — Deploy from Dockerfile: terceiro modo de deploy, wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes
+
+- Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo
+- Issues: `.scratch/archive/sprint-85/issues/` (3 issues)
+
+### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
+
+- `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
+- `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
+- `EventsDialog` (events por recurso específico) não alterado — continua sem limite
+- Issue: `.scratch/archive/sprint-86/issues/01-events-view-limit-selector.md`

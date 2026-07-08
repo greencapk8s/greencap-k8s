@@ -20,9 +20,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.RegistryMaintenanceService;
@@ -70,7 +68,7 @@ public class RegistryTagsView extends VerticalLayout implements BeforeEnterObser
         noClusterMessage = UiConstants.buildNoClusterMessage();
         emptyTagsMessage = buildEmptyTagsMessage();
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_DELETE);
+        boolean canDelete = true;
         buildGrid(canDelete);
 
         add(buildHeader(canDelete), noClusterMessage, emptyTagsMessage, grid);
@@ -78,10 +76,6 @@ public class RegistryTagsView extends VerticalLayout implements BeforeEnterObser
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
 
         RouteParameters params = event.getRouteParameters();
         repository = params.get("repository").orElse("");

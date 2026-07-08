@@ -8,7 +8,6 @@ import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.TopologyEdge;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
@@ -33,11 +32,9 @@ public class TopologyService {
     private static final String LABEL_COMPONENT = "app.kubernetes.io/component";
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public TopologyGraph buildGraph(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
 
             List<Deployment> deployments = client.apps().deployments().inNamespace(namespace).list().getItems();
             List<ReplicaSet> replicaSets = client.apps().replicaSets().inNamespace(namespace).list().getItems()
@@ -147,7 +144,7 @@ public class TopologyService {
 
         } catch (Exception e) {
             log.error("Failed to build topology graph for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to build topology graph: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to build topology graph", e);
         }
     }
 

@@ -22,9 +22,7 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
-import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.RegistryMaintenanceService;
@@ -83,7 +81,7 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, "registry", RepositoryInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<RepositoryInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Remove Repository", canDelete, this::openDeleteRepositoryDialog)
         );
@@ -95,10 +93,6 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
@@ -109,7 +103,7 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
     }
 
     private List<Button> buildHeaderButtons() {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_REGISTRY_BUILD)) {
+        if (!true) {
             return List.of();
         }
         Button buildBtn = new Button("Build Image", VaadinIcon.HAMMER.create(), e -> openBuildDialog());

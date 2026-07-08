@@ -2,7 +2,6 @@ package io.greencap.k8s.kubernetes;
 
 import io.fabric8.kubernetes.api.model.LabelSelector;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.CronJobInfo;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
@@ -28,11 +27,9 @@ import java.util.Optional;
 public class WorkloadService {
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
 
     public List<PodInfo> listPods(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.pods().inAnyNamespace().list().getItems()
                     : client.pods().inNamespace(namespace).list().getItems();
@@ -57,13 +54,12 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list pods for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list pods: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list pods", e);
         }
     }
 
     public List<DeploymentInfo> listDeployments(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.apps().deployments().inAnyNamespace().list().getItems()
                     : client.apps().deployments().inNamespace(namespace).list().getItems();
@@ -86,13 +82,12 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list deployments for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list deployments: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list deployments", e);
         }
     }
 
     public List<ReplicaSetInfo> listReplicaSets(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.apps().replicaSets().inAnyNamespace().list().getItems()
                     : client.apps().replicaSets().inNamespace(namespace).list().getItems();
@@ -143,46 +138,42 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list replicasets for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list replicasets: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list replicasets", e);
         }
     }
 
     public void scaleDeployment(Cluster cluster, String namespace, String name, int replicas) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().deployments().inNamespace(namespace).withName(name).scale(replicas);
             log.info("Scaled deployment {}/{} to {} replicas", namespace, name, replicas);
         } catch (Exception e) {
             log.error("Failed to scale deployment {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to scale deployment: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to scale deployment", e);
         }
     }
 
     public void restartDeployment(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().deployments().inNamespace(namespace).withName(name).rolling().restart();
             log.info("Restarted deployment {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to restart deployment {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to restart deployment: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to restart deployment", e);
         }
     }
 
     public void rolloutUndoDeployment(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().deployments().inNamespace(namespace).withName(name).rolling().undo();
             log.info("Rolled back deployment {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to roll back deployment {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to roll back deployment: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to roll back deployment", e);
         }
     }
 
     public List<StatefulSetInfo> listStatefulSets(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.apps().statefulSets().inAnyNamespace().list().getItems()
                     : client.apps().statefulSets().inNamespace(namespace).list().getItems();
@@ -206,57 +197,52 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list statefulsets for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list statefulsets: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list statefulsets", e);
         }
     }
 
     public void scaleStatefulSet(Cluster cluster, String namespace, String name, int replicas) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().statefulSets().inNamespace(namespace).withName(name).scale(replicas);
             log.info("Scaled statefulset {}/{} to {} replicas", namespace, name, replicas);
         } catch (Exception e) {
             log.error("Failed to scale statefulset {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to scale statefulset: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to scale statefulset", e);
         }
     }
 
     public void restartStatefulSet(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().statefulSets().inNamespace(namespace).withName(name).rolling().restart();
             log.info("Restarted statefulset {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to restart statefulset {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to restart statefulset: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to restart statefulset", e);
         }
     }
 
     public void rolloutUndoStatefulSet(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().statefulSets().inNamespace(namespace).withName(name).rolling().undo();
             log.info("Rolled back statefulset {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to roll back statefulset {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to roll back statefulset: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to roll back statefulset", e);
         }
     }
 
     public void deleteStatefulSet(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().statefulSets().inNamespace(namespace).withName(name).delete();
             log.info("Deleted statefulset {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete statefulset {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete StatefulSet: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete StatefulSet", e);
         }
     }
 
     public List<JobInfo> listJobs(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.batch().v1().jobs().inAnyNamespace().list().getItems()
                     : client.batch().v1().jobs().inNamespace(namespace).list().getItems();
@@ -300,13 +286,12 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list jobs for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list jobs: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list jobs", e);
         }
     }
 
     public List<CronJobInfo> listCronJobs(Cluster cluster, String namespace) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var items = isAllNamespaces(namespace)
                     ? client.batch().v1().cronjobs().inAnyNamespace().list().getItems()
                     : client.batch().v1().cronjobs().inNamespace(namespace).list().getItems();
@@ -335,13 +320,12 @@ public class WorkloadService {
                     .toList();
         } catch (Exception e) {
             log.error("Failed to list cronjobs for cluster {}: {}", cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to list cronjobs: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to list cronjobs", e);
         }
     }
 
     public String triggerCronJob(Cluster cluster, String namespace, String cronJobName) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             var cronJob = client.batch().v1().cronjobs().inNamespace(namespace).withName(cronJobName).get();
             if (cronJob == null) {
                 throw new KubernetesOperationException("CronJob not found: " + cronJobName, null);
@@ -371,13 +355,12 @@ public class WorkloadService {
             throw e;
         } catch (Exception e) {
             log.error("Failed to trigger cronjob {}/{}: {}", namespace, cronJobName, e.getMessage());
-            throw new KubernetesOperationException("Failed to trigger CronJob: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to trigger CronJob", e);
         }
     }
 
     public void suspendCronJob(Cluster cluster, String namespace, String name, boolean suspend) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.batch().v1().cronjobs().inNamespace(namespace).withName(name)
                     .edit(cj -> {
                         cj.getSpec().setSuspend(suspend);
@@ -386,62 +369,57 @@ public class WorkloadService {
             log.info("{} cronjob {}/{}", suspend ? "Suspended" : "Resumed", namespace, name);
         } catch (Exception e) {
             log.error("Failed to {} cronjob {}/{}: {}", suspend ? "suspend" : "resume", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to " + (suspend ? "suspend" : "resume") + " CronJob: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to " + (suspend ? "suspend" : "resume") + " CronJob", e);
         }
     }
 
     public void deleteJob(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.batch().v1().jobs().inNamespace(namespace).withName(name).delete();
             log.info("Deleted job {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete job {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Job: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Job", e);
         }
     }
 
     public void deleteCronJob(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.batch().v1().cronjobs().inNamespace(namespace).withName(name).delete();
             log.info("Deleted cronjob {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete cronjob {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete CronJob: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete CronJob", e);
         }
     }
 
     public void deleteDeployment(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().deployments().inNamespace(namespace).withName(name).delete();
             log.info("Deleted deployment {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete deployment {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Deployment: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Deployment", e);
         }
     }
 
     public void deleteReplicaSet(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.apps().replicaSets().inNamespace(namespace).withName(name).delete();
             log.info("Deleted replicaset {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete replicaset {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete ReplicaSet: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete ReplicaSet", e);
         }
     }
 
     public void deletePod(Cluster cluster, String namespace, String name) {
-        try (KubernetesClient client = clientFactory.buildClient(
-                encryptionService.decrypt(cluster.getKubeconfigContent()))) {
+        try (KubernetesClient client = clientFactory.buildClient(cluster)) {
             client.pods().inNamespace(namespace).withName(name).delete();
             log.info("Deleted pod {}/{}", namespace, name);
         } catch (Exception e) {
             log.error("Failed to delete pod {}/{}: {}", namespace, name, e.getMessage());
-            throw new KubernetesOperationException("Failed to delete Pod: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to delete Pod", e);
         }
     }
 

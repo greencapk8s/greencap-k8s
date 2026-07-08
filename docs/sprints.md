@@ -8,15 +8,15 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 78 | Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions | ✅ Concluído |
-| 79 | UX — Padronização de header: ClustersView e UserManagementView com buildSectionHeader | ✅ Concluído |
-| 80 | Add Cluster dialog — provider Minikube (Docker), aviso OpenShift e comando kubectl copiável | ✅ Concluído |
-| 81 | Testes automatizados: TestContainers + cobertura de services críticos | ✅ Concluído |
-| 82 | Karibu-Testing: testes de views Vaadin — dialogs destrutivos | ✅ Concluído |
-| 83 | Import Compose — wizard 3 passos para importar docker-compose.yml de Git Repository público e provisionar recursos Kubernetes | ✅ Concluído |
-| 84 | Bug fixes: Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags | ✅ Concluído |
-| 85 | Deploy from Dockerfile — terceiro modo de deploy: wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes | ✅ Concluído |
-| 86 | EventsView — seletor de limite de Events exibidos (50/100/200/500/All, padrão 100) no section header | ✅ Concluído |
+| 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
+| 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
+| 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
+| 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
+| 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
+| 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
+| 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
+| 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
+| 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 | 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
 
 ---
@@ -25,13 +25,17 @@
 
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
-### 🔴 Alta Prioridade
-
-#### 🔵 Gerenciamento ativo — próximas operações de escrita
-
-- **Atualizar imagem do Deployment (`kubectl set image`)** — patch em `spec.template.spec.containers[].image`. Requer UI para escolher o container quando o Pod tem múltiplos (multi-container) — maior complexidade de UX que as demais ações de write já implementadas.
-
 ### 🟡 Média Prioridade
+
+#### 🔗 Registro de Cluster — método alternativo ao kubeconfig
+
+> Token + URL foi entregue na Sprint 93 (`ClustersView` com aba dedicada + `ClusterService.synthesizeKubeconfig()`).
+
+- **In-cluster** — segundo método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
+
+#### 🔌 Developer Experience — follow-ups da Sprint 88
+
+- **Custom Resources** — view genérica na seção Developer Experience que lista os tipos de CRD instalados por operators (filtrados por grupo `*.io` de operators gerenciados pelo OLM), exibe instâncias por namespace e permite criar/editar/deletar via YAML reutilizando o mecanismo de Apply existente. Cobre automaticamente qualquer operator instalado (Grafana, Prometheus, cert-manager, KEDA, etc.) sem precisar de painéis específicos por operator. Posicionamento no sidebar: `DEVELOPER EXPERIENCE → Custom Resources`, abaixo de Operators.
 
 #### ⚡ UX — Carregamento assíncrono nas views restantes
 
@@ -66,6 +70,10 @@
 
 ### ⚪ Baixa Prioridade
 
+#### 🔵 Gerenciamento ativo — próximas operações de escrita
+
+- **Atualizar imagem do Deployment (`kubectl set image`)** — patch em `spec.template.spec.containers[].image`. Requer UI para escolher o container quando o Pod tem múltiplos (multi-container) — maior complexidade de UX que as demais ações de write já implementadas.
+
 #### 🎓 Diferencial — Onboarding e Aprendizado
 
 > Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs. Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint.
@@ -74,18 +82,124 @@
 - **Sample Manifests** — biblioteca de YAMLs de exemplo que o usuário pode aplicar a partir do Manifest/Apply existente, para aprender padrões comuns de workloads.
 - **Onboarding/Tutorial in-app** — guia introdutório dentro da própria UI para usuários iniciantes em Kubernetes.
 
-#### 🔌 Diferencial — Integrações futuras
-
-> Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint. Avaliar caso a caso o impacto no posicionamento "plataforma leve" (`CONTEXT.md`, seção "Purpose & Audience").
-
-- **Helm** — visualizar/gerenciar releases Helm instaladas no cluster (charts, valores, histórico de releases).
-- **Operators** — visualizar Operators instalados (CRDs, Custom Resources geridos) e seus recursos gerenciados.
-
 ---
 
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 96 ✅ — Consolidar execução assíncrona em virtual threads
+
+- `AsyncTasks` (novo, `io.greencap.k8s.ui`): ponto único de execução assíncrona do projeto — `execute(Runnable)` para disparo único e `schedulePolling(Runnable, Duration, Duration)` para polling recorrente, ambos com propagação de `SecurityContext` via `DelegatingSecurityContextExecutor`; internamente, o polling usa um único "clock" de thread de plataforma compartilhado que apenas dispara o tick, despachando o trabalho real para o mesmo executor do disparo único — elimina tanto a duplicação de código quanto o custo de criar/destruir um `ScheduledExecutorService` por view visitada
+- `docs/adr/0014-async-tasks-clock-compartilhado.md`: decisão do clock compartilhado em vez de um scheduler por chamador
+- `UiConstants.VIRTUAL_THREADS` removido — a classe volta a conter apenas helpers de construção de UI; 12 views (`DashboardView`, `DeployApplicationView`, `DeployFromHelmView`, `DeploymentsView`, `HelmReleasesView`, `InstalledOperatorsView`, `MainLayout`, `NamespacesView`, `OperatorCatalogView`, `PodsView`, `StatefulSetsView`, `TopologiaView`) migradas para `AsyncTasks.execute(...)`; pontos que usavam `CompletableFuture.runAsync(runnable, VIRTUAL_THREADS)` como fire-and-forget simplificados para chamada direta a `AsyncTasks.execute(...)`
+- `BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`: `ScheduledExecutorService` próprio e `shutdown()` no detach removidos — passam a usar `AsyncTasks.schedulePolling(...)`, sem wrapping manual de `DelegatingSecurityContextRunnable`; comportamento observável (intervalo, pause/resume, cancelamento ao sair da view) inalterado
+- Fora do escopo, por decisão explícita: o `Thread.ofVirtual().start(...)` cru em `MainLayout` usado para forçar um ciclo de push separado do Vaadin — não faz chamada Kubernetes, não tem o bug de propagação de contexto que motivou a sprint
+- `AsyncTasksTest`: cobertura JUnit pura (sem Spring), verificando propagação de `SecurityContext` no disparo único, disparo repetido do polling e efeito do cancelamento
+- Issues: `.scratch/sprint-96/issues/` (3 issues, todas `done`)
+
+### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
+
+- `KubernetesClientFactory.resolveKubeconfig`: fail-closed — usuário não-admin sem `serviceaccountToken` provisionado lança `KubernetesOperationException` em vez de cair silenciosamente no kubeconfig admin do Cluster (janela de corrida entre `createUser` e `provisionUser`, transações separadas); seam `resolveKubeconfigForUser(Authentication)` extraída para teste sem mockar `SecurityContextHolder`; `KubernetesClientFactoryTest` (4 casos)
+- `Permission.java` e `ClusterProvider.java` removidos — enums órfãos sem nenhum uso real (achado do relatório `/improve-codebase-architecture`)
+- Causa raiz mais profunda descoberta durante o teste de aceite: `SecurityContextHolder` (baseado em `ThreadLocal`) não propaga para virtual threads — todo carregamento assíncrono (namespaces, dashboard, deploy wizards, topologia, logs) rodava sem usuário autenticado, e o comportamento pré-fix mascarava isso caindo direto no kubeconfig admin para qualquer usuário, não só os não provisionados
+- `UiConstants.VIRTUAL_THREADS`: `Executor` envolvido em `DelegatingSecurityContextExecutor` (spring-security-core, já dependência do projeto) — corrige de uma vez as 8 views que já reusavam esse executor compartilhado
+- `DashboardView`: executor privado duplicado removido, passou a reusar `UiConstants.VIRTUAL_THREADS`
+- `MainLayout`: `loadNamespacesForCluster` migrado de `Thread.ofVirtual().start()` para `UiConstants.VIRTUAL_THREADS.execute()`; timer de auto-refresh (`applyRefreshInterval`) envolvido em `DelegatingSecurityContextRunnable`
+- `DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`: `Thread.ofVirtual().start()` migrado para `UiConstants.VIRTUAL_THREADS.execute()` (14 pontos)
+- `BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`: pollers (`ScheduledExecutorService` próprio) envolvidos em `DelegatingSecurityContextRunnable`
+- `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
+- Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
+- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
+
+### Sprint 94 ✅ — K8s RBAC substituindo sistema de permissões interno
+
+- `user_permissions` table e enum `Permission` removidos; migration `V34__migrate_to_kubernetes_rbac.sql` dropa `user_permissions` e adiciona colunas `serviceaccount_name`, `cluster_role_name`, `serviceaccount_token` em `users`
+- `User`: campos `serviceaccountName`, `clusterRoleName`, `serviceaccountToken`; campo `permissions` removido
+- `UserService`: `createUser` simplificado (sem permissões); `deactivateUser` substituído por `deleteUser`; `assignKubernetesIdentity` + `clearKubernetesIdentity` para lifecycle do SA
+- `SecurityUtils.isAdmin()`: identifica admin pelo username hardcoded `"admin"` (sem verificação de `Permission`)
+- `KubernetesClientFactory`: context-aware — admin usa kubeconfig do cluster; usuário regular usa SA token encriptado armazenado no banco; `buildAdminClient` e `buildFromRawKubeconfig` para casos especiais
+- `UserProvisioningService`: cria ServiceAccount + ClusterRoleBinding + token no namespace `greencap-system`; constrói kubeconfig sintético com CA extraído do kubeconfig admin (sem double-encoding); `deprovisionUser` deleta SA + CRB; `updateClusterRole` deleta CRB antigo, cria novo e regenera token
+- `KubernetesOperationException.from()`: extrai mensagem legível do cause chain (`KubernetesClientException.getCode()` + fallback por texto "Forbidden"/"403"); exibe "permission denied" para 403, "resource not found" para 404, "conflict" para 409
+- `UserManagementView`: reescrita completa — grid sem coluna Status; ação "Edit Role" (troca ClusterRole e regenera token); ação "Remove" (substitui "Deactivate" — deleta usuário + deprovisions SA/CRB); dialog "Add User" com ComboBox de Cluster + ClusterRole dinâmico; restrita a admin via `beforeEnter`
+- 35 views Vaadin: todos os guards `SecurityUtils.hasPermission()` e `beforeEnter` de permissão removidos — K8s RBAC é o único guard de autorização
+- 14 services Fabric8: migrados de `buildClient(String)` para `buildClient(Cluster)` — factory resolve credenciais pelo SecurityContext
+- `MainLayout`: cluster switcher oculto para não-admin
+- `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
+- Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
+
+### Sprint 93 ✅ — Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider
+
+- `ClusterProvider` enum removido; migration `V33__remove_cluster_provider.sql` dropa coluna `provider` da tabela `clusters`; `CreateClusterRequest` passa a ter apenas `name` + `kubeconfigContent`
+- `ClusterService.synthesizeKubeconfig(url, token, caCert)`: sintetiza kubeconfig mínimo a partir de Token+URL; CA em PEM → base64-encoda para `certificate-authority-data`; sem CA → `insecure-skip-tls-verify: true`
+- `ClustersView`: dialog "New Cluster" com `TabSheet` (Token+URL primeiro, Kubeconfig segundo); dialog `560×520px` resizable; aba Token+URL tem campo URL, TextArea de bearer token e `Details` colapsável para CA certificate opcional
+- Guards de UX: primeiro cluster registrado é ativado automaticamente; ao deletar cluster ativo, ativa automaticamente o próximo disponível (ou limpa contexto se não há mais)
+- `cluster-provision.sh` renomeado para `cluster-setup.sh` via `git mv`; `cluster-teardown.sh` criado com confirmação explícita (`yes`) antes de deletar
+- `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
+- `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
+- Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`
+
+### Sprint 92 ✅ — Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência
+
+- `CodeMirrorEditor` (componente Vaadin customizado): Lit + `@NpmPackage` (`codemirror`, `@codemirror/lang-yaml`, `@codemirror/theme-one-dark`); syntax highlighting YAML, line numbers, indent 2 espaços, fonte mono; tema sincronizado via `closest('[theme~="dark"]')` + MutationObserver subtree; altura configurável; API: `getValue/setValue/setReadOnly/focus`
+- `ManifestView`: substituído `Pre` + `TextArea` por `CodeMirrorEditor` permanente; `readOnly=true` na visualização, `readOnly=false` no edit; campo `lastLoadedYaml` para restaurar no Cancel sem reload de rede
+- `DeployFromHelmView`, `HelmReleasesView`: `TextArea` de values substituído por `CodeMirrorEditor`; dialog de Upgrade com `setResizable(true)`, tamanho inicial 720×520px e editor flex-grow
+- `helm.svg` em `META-INF/resources/icons/helm.svg`: símbolo ⎈ (leme, 8 raios) com `currentColor`; `MainLayout.buildHelmNavItem()` usa `SvgIcon` em vez de `VaadinIcon.PACKAGE`
+- `MainLayout`: ícone ⓘ como `setSuffixComponent` no item "Repositories" com tooltip "cluster-scoped"
+- `HelmReleasesView`: coluna Updated truncada para `yyyy-MM-dd HH:mm`; `refresh()` com guard `clusterErrorMessage.isVisible()` — para de disparar quando cluster em erro
+- `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
+- `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
+- `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
+
+### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
+
+- `HelmRepository` (entidade JPA, `HelmRepositoryRepository`, `HelmRepositoryService`): repos persistidos por cluster; `V31__create_helm_repositories.sql`
+- `HelmService.install()`: `--create-namespace` para criar namespace se ausente; `ensureRepos()` re-adiciona todos os repos antes de cada operação; `--reuse-values` no `upgrade()`
+- `HelmService.upgrade()`: aceita nova versão e values editados; re-adiciona repos antes da execução
+- `Permission.PROJECT_HELM_INSTALL/UPGRADE`; `V32__add_helm_install_upgrade_permissions.sql`
+- `HelmRepositoriesView` (rota `helm/repositories`): grid Name/URL; botão "Add Repository" no section header; `SelectionAction` Remove com `ConfirmDialog`; sub-item "Repositories" na seção Helm do sidebar
+- `DeployFromHelmView` (rota `deploy/helm`): 4º modo em New Application; wizard 3 passos (Chart → Config → Values & Install); Back como ícone puro; footer com spacer para alinhar Next/Install à direita; após install atualiza namespace ativo via `clusterContext.setNamespace` + `userService.updateActiveNamespace` e navega para `HelmReleasesView`
+- `HelmReleasesView`: `SelectionAction` Upgrade com dialog pré-preenchido com values atuais e campo de nova versão
+- `ObservabilityService.fetchPodLogs()`: guard para pods em fase `Pending` — retorna mensagem informativa imediatamente em vez de bloquear até timeout
+- `gradle.properties`: bump `0.7.1` → `0.7.2`
+- Issues: `.scratch/sprint-91/issues/` (6 issues, todas `done`)
+
+### Sprint 90 ✅ — Helm Releases: listagem, detalhes e uninstall via Helm CLI
+
+- `HelmService`: executa operações Helm via `ProcessBuilder`; kubeconfig descriptografado gravado em tempfile com permissão `600` e deletado em `finally`; `listReleases` faz parse do `helm list -o json` via Jackson; `getReleaseDetails` executa `helm get notes/values/manifest` e agrega em `HelmReleaseDetails`; `uninstall` executa `helm uninstall`; `HelmOperationException` em falha de processo ou CLI ausente
+- DTOs: `HelmReleaseInfo` (name, namespace, chart, appVersion, revision, status, updated), `HelmReleaseDetails` (notes, values, manifest)
+- `HelmReleasesView` (rota `helm/releases`): grid com filtro embutido no header da coluna Name; badge de status (`deployed` → success, `failed` → error, demais → contrast); botões "Details" e "Uninstall" como `SelectionAction` no section header; dialog de detalhes com abas Notes/Values/Manifest em `Pre` monoespaçado, carregado async; dialog de uninstall type-to-confirm
+- `Dockerfile`: Helm `v4.2.2` baixado no builder stage, binário copiado para `/usr/local/bin/helm` no runtime stage
+- `setup.sh`: verifica e instala `helm` automaticamente junto com demais dependências
+- `Permission`: `PROJECT_HELM_VIEW` + `PROJECT_HELM_UNINSTALL`; `V30__add_helm_permissions.sql`
+- `MainLayout`: seção Helm com sub-item "Releases" abaixo de Storage em Project
+- `UserManagementView`: grupo "Helm" na treeview de permissões
+- `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
+- Issues: `.scratch/sprint-90/issues/` (4 issues, todas `done`)
+
+### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
+
+- `StorageService.deletePersistentVolume(Cluster, String)`: remove o PV via Fabric8 `client.persistentVolumes().withName(name).delete()`
+- `Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE`: nova permissão concedida a usuários com `GLOBAL_INFRASTRUCTURE_CORDON`; `V29__add_pv_delete_permission.sql`
+- `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
+- `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
+- `gradle.properties`: bump de `0.7.0` → `0.7.1`
+- Issues: `.scratch/sprint-89/issues/` (2 issues, ambas `done`)
+
+### Sprint 88 ✅ — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
+
+- Seção **Developer Experience** adicionada ao sidebar do `MainLayout` (entre Global e Settings), com badge `beta` em fonte menor no item pai
+- `KubernetesOperatorService`: detecta presença do OLM (`isOlmInstalled`), lista operators instalados via `Subscription` + `ClusterServiceVersion`, lista catálogo via `PackageManifest` de todos os `CatalogSource`s, instala via `Subscription` + `OperatorGroup` (AllNamespaces), desinstala removendo Subscription + CSV; status derivado do CSV phase com fallback para `Subscription.status.state` quando CSV ainda não existe (`Failed`/`ResolutionFailed` → badge vermelho com tooltip do reason)
+- DTOs: `OperatorInfo`, `OperatorPackage`, `OperatorChannel`
+- `InstalledOperatorsView` (rota `developer-experience/operators/installed`): grid com filtro embutido no header da coluna Name; botão Uninstall como `SelectionAction` destrutiva no section header; dialog type-to-confirm; OLM missing empty state; badge de fase (`Installing`/`Succeeded`/`Failed`) com tooltip no `Failed`
+- `OperatorCatalogView` (rota `developer-experience/operators/catalog`): carrega catálogo uma vez com `ProgressBar` indeterminate; filtro de nome no header da coluna Name; filtro de CatalogSource no header da coluna Catalog; botão Install como `SelectionAction` no section header; `refresh()` é no-op (evita reload a cada tick do auto-refresh); botão Refresh manual força reload; após install navega para InstalledOperatorsView
+- `Permission`: 3 novas permissões `DEVELOPER_EXPERIENCE_OPERATORS_VIEW/INSTALL/UNINSTALL`; `V28__add_developer_experience_operator_permissions.sql`
+- `DataInitializer`: garante que o admin sempre tenha todas as permissões atuais em qualquer startup (não apenas na criação)
+- `setup/setup.sh` e `samples/greencap-demo/cluster-provision.sh`: addon `olm` habilitado com `kubectl rollout status deployment/olm-operator` de espera
+- `UserManagementView`: grupo "Kubernetes Operators" na treeview de permissões da seção Developer Experience
+- `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
+- `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
+- Issues: `.scratch/sprint-88/issues/` (4 issues, todas `done`)
 
 ### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
 
@@ -97,92 +211,6 @@
 - `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
 - Issues: `.scratch/sprint-87/issues/` (2 issues, ambas `done`)
 
-### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
-
-- `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
-- `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
-- `EventsDialog` (events por recurso específico) não alterado — continua sem limite
-- Issue: `.scratch/sprint-86/issues/01-events-view-limit-selector.md`
-
-### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
-
-- `ComposeParser` (novo, `kubernetes/compose/`): busca o `docker-compose.yml` via HTTP raw do GitHub/GitLab, faz parse com SnakeYAML `SafeConstructor`; classifica variáveis de ambiente com heurística de chave sensível (`PASSWORD`, `SECRET`, `TOKEN`, `KEY`, `CREDENTIAL` → Secret; restante → ConfigMap); volumes named → PVC, bind-mounts → aviso; `depends_on:` e diretivas não suportadas → lista de avisos consolidada
-- `ComposeDocument` (novo): modelo intermediário do Compose parseado — `ParsedService`, `BuildSpec`, `EnvEntry`, `VolumeEntry`
-- `ImportComposeService` (novo, `kubernetes/compose/`): provisiona Namespace, ConfigMap (`<service>-config`), Secret (`<service>-secret`), PVC (`<service>-pvc`), Deployment e Service ClusterIP para cada serviço; labels `app.kubernetes.io/part-of: <namespace>` + `app.kubernetes.io/component: <service-name>` em todos os recursos para agrupamento em Topologia; tenta todos os serviços antes de reportar falhas (sem rollback)
-- `ImportComposeView` (nova, rota `deploy/compose`): view independente com wizard de 3 passos — (1) Git URL + branch + path + namespace; (2) revisão por serviço com campos editáveis (imagem para `build:` pré-preenchida como `localhost:5000/<namespace>/<service>:latest`, PVC StorageClass/size, warnings de bind-mounts/`depends_on:`/diretivas ignoradas); (3) execução — Builds Kaniko sequenciais com log live + grid de status em 2 colunas + provisionamento K8s + resultado; em sucesso total navega para Topologia do novo Namespace
-- `DeployApplicationView`: seletor de modo "Deploy from Image" / "Deploy from Compose" no topo; botão "Deploy from Compose" navega para `ImportComposeView` (views independentes, sem aninhamento)
-- Fixes encontrados no aceite: imagem para `build:` precisava do prefixo `localhost:5000/` (registry-proxy hostPort); contexto de build (`--context-sub-path`) resolvia relativo à raiz do repo em vez de relativo ao diretório do `docker-compose.yml`; nome do repositório inclui namespace como prefixo (`<namespace>/<service>:tag`)
-- Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
-- `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
-- `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
-- Issues: `.scratch/sprint-83/issues/` (4 issues, todas `done`)
-
-### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
-
-- `build.gradle.kts`: dependência `karibu-testing-v24:2.1.2` adicionada
-- `KaribuTest` (nova classe base): `MockVaadin.setup/tearDown()` + helper `loginAs(String... authorities)` para configurar o `SecurityContextHolder` sem Spring; testes de view rodam sem TestContainers, sem banco, em ~1s
-- `NamespacesViewTest` (novo, 4 cenários): guard de system namespace (`kube-system` exibe notificação de erro sem abrir dialog), estado inicial do dialog (botão Delete desabilitado), type-to-confirm com nome errado (permanece desabilitado) e com nome correto (habilita)
-- `ClustersViewTest` (novo, 1 cenário): confirmação de remoção de cluster chama `clusterService.deleteCluster()` com o cluster selecionado
-- `docs/adr/0010-karibu-para-testes-de-views-vaadin.md` (novo): decisão de usar Karibu (in-memory, sem browser) em vez de Selenium/Playwright para cobrir lógica de orquestração de views
-- `CLAUDE.md`: fluxo de sprint atualizado — novo passo 6 (Testes) após o aceite manual, cobrindo as duas frentes: views Karibu e integração com `PostgresIntegrationTest`
-- Issue: `.scratch/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
-
-### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
-
-- `build.gradle.kts`: dependências TestContainers adicionadas (`spring-boot-testcontainers`, `postgresql`, `junit-jupiter`); H2 removido
-- `application-test.yaml`: configuração de datasource/H2/Flyway manual removida; mantida apenas a chave de encriptação — o `@ServiceConnection` do Spring Boot 3 auto-configura o datasource a partir do container
-- `GreenCapApplicationTests`: reescrito com `@Testcontainers` + `@ServiceConnection` + `PostgreSQLContainer("postgres:16")`; valida implicitamente que todas as migrations Flyway executam sem erro no PostgreSQL real
-- `PostgresIntegrationTest` (nova classe base): `@SpringBootTest(webEnvironment = MOCK)` + container estático compartilhado entre subclasses; `MOCK` necessário pois o `SpringBootAutoConfiguration` do Vaadin exige `WebApplicationContext`
-- `WorkloadServiceTest` (nova): 4 cenários com `@EnableKubernetesMockClient(crud = true)` — mapeamento de campos de `PodInfo`/`DeploymentInfo`, filtro por namespace vs. `"all"`, propagação de exceção Fabric8 como `KubernetesOperationException`
-- `NamespaceServiceTest` (nova): 4 cenários — filtro de namespaces em fase `Terminating`, contagens de recursos por namespace, criação de namespace, propagação de exceção
-- `UserServiceTest` (nova): 4 cenários — authorities corretas em `loadUserByUsername`, usuário inativo lança `UsernameNotFoundException`, senha armazenada como hash BCrypt nunca plaintext, usuário inexistente lança `UsernameNotFoundException`
-- `ClusterServiceTest` (nova): 3 cenários — kubeconfig encriptado no banco nunca plaintext, `createdBy` populado a partir do `SecurityContext`, `markAsDisconnectedIfConnected` só altera clusters `CONNECTED`
-- `CLAUDE.md`: fluxo de sprint atualizado — compilar a cada mudança relevante; `./gradlew test` somente antes do fechamento da sprint
-- Issues: `.scratch/sprint-81/issues/` (5 issues)
-
-### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
-
-- `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; método `displayName()` retorna `"Minikube (Docker)"` / `"OpenShift"`
-- `V27__rename_provider_kubernetes_to_minikube_docker.sql`: DROP/re-ADD CHECK constraint; UPDATE `'Kubernetes'` → `'MinikubeDocker'` em linhas existentes
-- `ClustersView` grid: coluna Provider usa `displayName()` em vez de `.name()`
-- `ClustersView` dialog: Select usa `ItemLabelGenerator` com `displayName()`; default alterado para `MinikubeDocker`; ao selecionar OpenShift, exibe aviso inline `"OpenShift support is coming in a future release."` e desabilita o botão Save; code block escuro com `kubectl config view --flatten --minify` e botão de cópia via `navigator.clipboard.writeText`
-- `CONTEXT.md`: entrada `ClusterProvider` atualizada com os valores reais (`MinikubeDocker`, `OpenShift`)
-- Issue: `.scratch/sprint-80/issues/01-add-cluster-dialog-ux.md`
-
-### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
-
-- `ClustersView`: `buildToolbar()` com `H2` removido; substituído por `UiConstants.buildSectionHeader` com H3 + botão "Add Cluster" (`LUMO_PRIMARY + LUMO_SMALL`) como extra leading button; ações "Test Connection" (`VaadinIcon.CONNECT`) e "Remove" (`VaadinIcon.TRASH`, destrutivo) movidas para `SelectionAction` no header (habilitadas pela seleção de linha); coluna de ações inline removida do grid; `GridSelectionMemory` injetado com `configureSingleSelection`; `refreshGrid()` retorna `boolean` para uso como `BooleanSupplier`; imports `H2` e `HorizontalLayout` removidos
-- `UserManagementView`: mesmo padrão — botão "Add User" (`LUMO_PRIMARY + LUMO_SMALL`); ações "Edit Permissions" (`VaadinIcon.EDIT`) e "Deactivate" (`VaadinIcon.BAN`, destrutivo) como `SelectionAction`; proteções antes feitas via botão desabilitado por linha passaram para early-exit com toast em `openEditPermissionsDialog` (admin padrão bloqueado) e `confirmDeactivate` (auto-desativação e usuário já inativo bloqueados); imports `H2` e `H4` removidos
-- Issues: `.scratch/sprint-79/issues/01-clusters-view-header-padrao.md`, `02-user-management-view-header-padrao.md`
-
-### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
-
-- `topology-graph.ts`: `randomize` dinâmico — `true` quando posições salvas ausentes (fix para nós empilhados na primeira renderização), `false` quando presentes (mantém layout salvo); guard `if (node.data('isGroup')) return` no tap handler (fix para painel lateral não abrir ao clicar em group nodes)
-- `TopologyLayoutRepository`: `deleteByUserIdAndClusterIdAndNamespace` (método derivado Spring Data)
-- `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
-- `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
-- Issues: `.scratch/sprint-78/issues/01-fix-randomize-layout.md`, `02-fix-group-node-tap.md`, `03-reset-positions-button.md`
-
-### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
-
-- `CONTEXT.md`: `Topologia` atualizado — adicionado Ingress aos tipos de nó e ao fluxo de edges (Ingress→Service via `spec.rules[].http.paths[].backend.service.name`, apenas para Services existentes no namespace); comportamento de clique alterado de "navega para o Manifest" para "Go to resource" (navega para a view do recurso pré-filtrada por nome); `TopologyNode` atualizado com tipo Ingress e URL de resource view em vez de link para Manifest
-- `TopologyService`: listagem de Ingresses via Fabric8 `client.network().v1().ingresses()`; `ingressNode()` com ingressClass/hosts/TLS; `extractBackendServiceNames()` extrai backends de `spec.rules[].http.paths[].backend.service` e `spec.defaultBackend.service`; método `manifestUrl()` renomeado para `resourceViewUrl()` mapeando cada tipo para a rota da view com `?name=`; parâmetro `namespace` removido dos métodos `*Node()` que não o utilizavam mais
-- `topology-graph.ts`: cor Ingress `#06B6D4` (ciano) em `NODE_COLORS`; cor das arestas de `#CBD5E1` para `#64748B` (contraste contra fundo dos grupos); fcose separado da inicialização do Cytoscape (`layout: preset` no construtor + `cy.layout(fcose).run()` após); `fixedNodeConstraint` desabilitado quando compound nodes presentes (fcose não suporta o mix); posições salvas aplicadas manualmente após o layout quando grouping ativo
-- `TopologyNodeDrawer`: bloco `isIngress` exibe Hosts, badge TLS (`buildTlsBadgeRow()`), IngressClass; botão "Go to resource" substitui "Ver YAML"; pod groups usam "Go to Pods"
-- `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` promovido a instância; `beforeEnter` lê `?name=` e aplica `nameFilter.setValue()` seguindo o padrão `?job=` do `PodsView`
-- `samples/greencap-demo/manifests/`: label `app.kubernetes.io/part-of: greencap-demo` adicionada em todos os 13 manifests (Deployments e CronJob também no pod template); recursos aplicados e Deployments reiniciados para propagação das labels
-- Issues: `.scratch/sprint-77/issues/01-ingress-topology-node.md`, `02-goto-resource-button.md`, `03-prefilter-name-query-param.md`
-
-### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
-
-- `NamespaceInfo`: +campos `podCount`, `deploymentCount`, `serviceCount`
-- `NamespaceService`: `listNamespacesWithCounts()` (4 chamadas Fabric8 — namespaces, pods, deployments, services — agrupadas por namespace em uma única conexão), `createNamespace()`, `deleteNamespace()`; `listNamespaceNames()` passa a filtrar namespaces em fase `Terminating` para que namespaces deletados não reapareçam no combobox da navbar durante a exclusão em cascata
-- `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE` (novos): VIEW concedido a todos com `GLOBAL_CLUSTERS_VIEW`; WRITE e DELETE concedidos a usuários com `GLOBAL_CLUSTERS_WRITE`; `V26__add_namespace_permissions.sql`
-- `NamespacesView` (nova, rota `global/namespaces`): grid com Name/Status/Pods/Deployments/Services/Age; botão "Create Namespace" (visível com WRITE) — dialog com campo de nome validado por regex DNS; ação "Delete" (visível com DELETE) — dialog exige digitar o nome do namespace antes de confirmar, com aviso explícito de destruição cascata; system namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) bloqueados para deleção; após create/delete chama `MainLayout.refreshClusterState()` para recarregar o combobox de namespaces; se o namespace deletado era o namespace ativo, o contexto é zerado antes do refresh (seleciona "default" automaticamente); async load com padrão `CompletableFuture` + `UiConstants.VIRTUAL_THREADS`
-- `MainLayout`: item "Namespaces" (ícone `FOLDER_O`) na seção Global, entre Clusters e Infrastructure, adicionado à lista `clusterDependentNavItems`
-- `UserManagementView`: grupo "Namespaces" com as 3 permissões na treeview Global
-- `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace` detalhadas; `Global` atualizado para incluir Namespaces
-- Issue: `.scratch/sprint-76/issues/01-namespaces-view.md`
 
 ---
 

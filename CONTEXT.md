@@ -1,6 +1,6 @@
 # GreenCap K8s
 
-A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Permissions granted to each User.
+A web platform for monitoring and managing external Kubernetes clusters. GreenCap does not provision clusters — it registers access credentials to clusters that exist outside the platform. GreenCap is not a read-only tool — it actively manages Kubernetes resources (create, delete, scale, restart, suspend, trigger) within registered clusters, subject to the Kubernetes RBAC permissions of the acting User.
 
 ## Purpose & Audience
 
@@ -10,7 +10,7 @@ _Avoid_: Enterprise platform, cloud provider, cluster provisioner
 ## Language
 
 **Cluster**:
-A registered access point to an external Kubernetes cluster. Stores an encrypted kubeconfig as the single credential needed to connect to it. GreenCap monitors and operates on Clusters but does not own or provision them.
+A registered access point to an external Kubernetes cluster. Internally stores an encrypted kubeconfig as the credential used for all operations. Users may register a Cluster by pasting a kubeconfig directly, or by providing an API server URL and a bearer token (which GreenCap synthesizes into a kubeconfig at registration time). GreenCap monitors and operates on Clusters but does not own or provision them.
 _Avoid_: Connection, server, environment
 
 **ConnectionStatus**:
@@ -18,12 +18,20 @@ The result of the last connection attempt to a Cluster. Not a persistent authori
 _Avoid_: Status, health, availability
 
 **User**:
-A person with access to the GreenCap platform. Access is determined by the explicit set of Permissions granted to them — there is no Role field.
+A person with access to the GreenCap platform. Non-admin Users are represented in their assigned Cluster by a UserServiceAccount, and their access to Kubernetes resources is governed entirely by Kubernetes RBAC. Each non-admin User belongs to exactly one Cluster.
 _Avoid_: Account, member, principal
 
-**Permission**:
-A named capability granted explicitly to a User. Persisted as a `Set<Permission>` on the User entity (`@ElementCollection`). Covers two levels: view-level (can the user navigate to a section?) and action-level (can the user perform a write operation within that section?). Examples: `WORKLOADS_DEPLOYMENTS_VIEW`, `WORKLOADS_DEPLOYMENTS_SCALE`, `SETTINGS_USERS_VIEW`. Loaded as Spring Security `GrantedAuthority` objects at login so that `hasAuthority()` checks work at the framework level. ADMIN, OPERATOR and VIEWER are preset labels used only in Flyway migration to seed permissions for existing users — they are not a persistent concept.
-_Avoid_: Role, privilege, group
+**PlatformAdmin**:
+The single administrative User of the GreenCap platform, identified by the fixed username `admin`. Uses the Cluster's kubeconfig directly for all operations, giving full cluster access. The only User who can register Clusters, create/deactivate other Users, and switch between Clusters. Not represented by a UserServiceAccount.
+_Avoid_: Admin user, superuser, root
+
+**UserServiceAccount**:
+A Kubernetes ServiceAccount created in the `greencap-system` namespace of a Cluster when a non-admin User is created. Its bearer token is stored encrypted on the User record and used for all Kubernetes API calls made on that User's behalf. Bound to a ClusterRole via a ClusterRoleBinding. Deleted from the cluster when the User is deactivated.
+_Avoid_: SA, service account, user credentials
+
+**ClusterRole**:
+A Kubernetes ClusterRole assigned to a User's UserServiceAccount via a ClusterRoleBinding, determining the User's access level across all namespaces in the Cluster. Selected by the PlatformAdmin at User creation time and editable afterwards. GreenCap populates the selector from the ClusterRoles available in the target Cluster.
+_Avoid_: Role, permission level, access level
 
 **Namespace**:
 A logical isolation unit within a Cluster that groups Workloads. Cluster-scoped — not itself a Workload. In GreenCap, displayed in the Global section with resource counts (Pods, Deployments, Services) to give a quick overview of what lives inside. Supports two write operations: Create and Delete Namespace. System namespaces (`kube-system`, `kube-public`, `kube-node-lease`, `default`) are protected from deletion in the UI — the Delete action is disabled when one of these is selected.
@@ -150,8 +158,12 @@ UI section grouping persistent storage resources visible in GreenCap. Currently 
 _Avoid_: Volumes, persistent storage, disks
 
 **PersistentVolume**:
-A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed read-only under Infrastructure in the Global section. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error).
+A cluster-scoped storage resource representing a physical or virtual disk provisioned in the cluster. Not namespaced. Bound one-to-one to a PersistentVolumeClaim. In GreenCap, displayed under Infrastructure in the Global section. Supports one write operation: Delete. Status values: `Available` (free, no claim), `Bound` (allocated to a PVC), `Released` (PVC deleted, awaiting reclaim), `Terminating` (deletion in progress), `Failed` (provisioning error). Delete is blocked when the PV is `Bound` — the PVC must be deleted first to avoid orphaning it.
 _Avoid_: PV, disk, volume
+
+**Delete PersistentVolume**:
+A write operation that permanently removes a PersistentVolume from the cluster. Only available when the PV status is not `Bound` — attempting to delete a Bound PV is blocked in the UI to prevent orphaning the associated PersistentVolumeClaim. Confirmed via a simple confirmation dialog (no type-to-confirm). Protected by `GLOBAL_INFRASTRUCTURE_PV_DELETE`.
+_Avoid_: Remove PV, drop volume
 
 **StorageClass**:
 A cluster-scoped Kubernetes resource that defines how PersistentVolumes are dynamically provisioned (provisioner, reclaim policy, binding mode, expansion support). Not namespaced. In GreenCap, displayed read-only under Infrastructure in the Global section.
@@ -170,16 +182,56 @@ UI section within Global grouping cluster-scoped infrastructure resources. Curre
 _Avoid_: Admin, cluster resources, system
 
 **Project**:
-UI section in the sidebar grouping all views and operations scoped to the active Namespace within a Cluster. Contains Topology, Observability (Dashboard, Events, Metrics), Workloads, Networking, Parameters, Auto Scaling, and Storage. Distinct from Global (cluster-scoped, independent of Namespace) and Settings (GreenCap platform/user configuration).
+UI section in the sidebar grouping all views and operations scoped to the active Namespace within a Cluster. Contains Topology, Observability (Dashboard, Events, Metrics), Workloads, Networking, Parameters, Auto Scaling, Storage, and Helm. Distinct from Global (cluster-scoped, independent of Namespace) and Settings (GreenCap platform/user configuration).
 _Avoid_: Namespace view, Workspace
+
+**Helm**:
+UI subsection within Project grouping Helm-related views scoped to the active Namespace. Contains Releases and Repositories. Positioned below Storage in the sidebar. Helm operations are executed via the Helm CLI binary embedded in the GreenCap runtime image, with the active Cluster's Kubeconfig written to a temporary file for each operation and deleted immediately after. Before install or upgrade operations, GreenCap re-adds all HelmRepositories configured for the active Cluster to the Helm CLI environment.
+_Avoid_: Package manager, charts section
+
+**HelmRelease**:
+A Helm release installed in the active Namespace — a named instance of a chart deployed to the cluster. Carries: name, chart name and version, app version, revision number, status, and installation timestamp. In GreenCap, displayed in a grid under Helm → Releases, scoped to the active Namespace. Selecting a release opens a detail drawer with three tabs: Notes (chart's post-install instructions), Values (user-supplied overrides as YAML), and Manifest (rendered Kubernetes resources as YAML). Supports two write operations: Uninstall and Upgrade. Protected by `PROJECT_HELM_VIEW`.
+_Avoid_: Chart, deployment, Helm chart
+
+**HelmRepository**:
+A named Helm chart repository configured for a specific Cluster in GreenCap. Carries a name (used as the Helm repo alias, e.g. `bitnami`) and a URL (e.g. `https://charts.bitnami.com/bitnami`). Persisted per Cluster in the GreenCap database. Before any install or upgrade operation, GreenCap re-adds all configured HelmRepositories to the Helm CLI environment (`helm repo add`) and updates them (`helm repo update`). Managed via Helm → Repositories in the sidebar. Supports two operations: Add (registers a new repo) and Remove (deletes it from GreenCap and the Helm CLI environment).
+_Avoid_: Helm repo, chart source, registry
+
+**Deploy from Helm**:
+A wizard-guided write operation that installs a Helm chart as a new HelmRelease in the active Namespace. One of four deploy modes alongside Deploy Application, Import Compose, and Deploy from Dockerfile, accessible via the mode selector in the New Application section. The wizard runs in three steps: (1) Chart — select a configured HelmRepository, enter chart name and optional version (empty = latest); (2) Config — release name (auto-suggested from chart name) and namespace (pre-filled with active Namespace, editable); (3) Values & Install — optional YAML values override textarea, followed by inline output of `helm install` after confirmation. Protected by `PROJECT_HELM_INSTALL`.
+_Avoid_: Helm install, chart deploy
+
+**Upgrade (Helm)**:
+A write operation on a HelmRelease that updates the release with new values and/or a new chart version (`helm upgrade`). Triggered from Helm → Releases via a SelectionAction. Opens a dialog pre-filled with the release's current user-supplied values (from `helm get values`); the user edits the YAML and optionally specifies a new chart version. On confirmation, executes `helm upgrade <release> <chart> -f <values>`. Protected by `PROJECT_HELM_UPGRADE`.
+_Avoid_: Update release, redeploy, helm update
+
+**Uninstall (Helm)**:
+A write operation on a HelmRelease that removes all Kubernetes resources created by the release from the cluster (`helm uninstall`). Requires the user to type the release name in a confirmation dialog before proceeding — the blast radius is equivalent to deleting all resources the chart provisioned. Does not delete PersistentVolumeClaims by default (Helm's standard behavior). Protected by `PROJECT_HELM_UNINSTALL`.
+_Avoid_: Delete release, remove chart, helm delete
 
 **Observability**:
 UI subsection within Project grouping namespace-scoped monitoring views. Currently contains Dashboard (health overview), Events, and Metrics (PodMetric listing).
 _Avoid_: Monitoring, Telemetry
 
 **Global**:
-UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Namespaces, Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection) and from Settings (GreenCap platform/user configuration, unrelated to any Cluster).
+UI section in the sidebar grouping views related to Clusters as a whole rather than to resources inside a Namespace. Currently contains Clusters (the list of registered Clusters), Namespaces, Infrastructure, and Registry. Distinct from Project (scoped to the active Namespace, which includes the Observability subsection), Developer Experience (tooling and learning aids), and Settings (GreenCap platform/user configuration, unrelated to any Cluster).
 _Avoid_: Cluster-wide, Admin
+
+**Developer Experience**:
+Top-level UI section in the sidebar grouping capabilities aimed at developers studying, building, and experimenting with Kubernetes. Peer to Global, Project, and Settings. Currently contains Kubernetes Operators. Planned to also contain Sample Catalog. Distinct from Global (cluster infrastructure resources) and Project (workloads scoped to a Namespace).
+_Avoid_: DevEx, tooling, learning
+
+**Kubernetes Operator**:
+A controller deployed to a Kubernetes cluster that extends the API with custom resources (CRDs) and automates the lifecycle of complex applications — databases, message queues, certificate managers, monitoring stacks, and more. In GreenCap, managed exclusively via OLM (Operator Lifecycle Manager). Displayed in Developer Experience under a dedicated view with two tabs: Installed (lists operators whose `ClusterServiceVersion` is present in the cluster) and Catalog (lists packages available across all `CatalogSource`s for installation). Installation is triggered by creating a `Subscription` via a simple dialog (channel selector, AllNamespaces install mode by default); OLM handles the rest asynchronously. Each installed operator shows a status badge derived from its `ClusterServiceVersion` phase: `Installing`, `Succeeded`, or `Failed`; a `Failed` badge carries a tooltip with the `status.message` from the CSV. If OLM is not installed in the cluster, the view shows an informative empty state. Not to be confused with the `OPERATOR` label used in Flyway migrations to seed legacy user permissions — that is a GreenCap preset, not a Kubernetes resource.
+_Avoid_: Cluster Operator, addon, plugin, extension
+
+**Install Operator**:
+A write operation in the Catalog tab of the Kubernetes Operators view that provisions a Kubernetes Operator in the active Cluster by creating a `Subscription` (and an `OperatorGroup` if absent) in the `operators` namespace. The user selects a channel from the channels available in the operator's `PackageManifest`; install mode is fixed at `AllNamespaces`. Protected by `DEVELOPER_EXPERIENCE_OPERATORS_INSTALL`.
+_Avoid_: Deploy operator, add operator, enable operator
+
+**Uninstall Operator**:
+A write operation in the Installed tab of the Kubernetes Operators view that removes a Kubernetes Operator from the active Cluster by deleting its `Subscription` and `ClusterServiceVersion`. Does not delete the CRDs created by the operator — leaving CRD cleanup to the user avoids accidental data loss from custom resources still present in the cluster. Requires the user to type the operator name in a confirmation dialog before proceeding. Protected by `DEVELOPER_EXPERIENCE_OPERATORS_UNINSTALL`.
+_Avoid_: Remove operator, delete operator, disable operator
 
 **Topologia**:
 UI view that renders an interactive graph of Kubernetes resources within a Namespace and the relationships between them. Node types: Deployment, ReplicaSet, Pod, Service, PersistentVolumeClaim, Ingress. Edges derived from `ownerReferences` (Deployment→ReplicaSet→Pod), label selector matching (Service→Pod), volume mounts (PodGroup→PersistentVolumeClaim via `spec.volumes[].persistentVolumeClaim.claimName`), and backend service references (Ingress→Service via `spec.rules[].http.paths[].backend.service.name` — only when the target Service exists in the namespace). Isolated nodes (no edges) are shown — they signal misconfiguration. Pods owned by a Job (directly or via a CronJob's Job) are deliberately excluded — they represent finite task executions, not the long-running service topology this view is meant to map. Clicking a node opens a detail panel; the "Go to resource" button navigates to the resource's listing view pre-filtered by name. Pan and zoom are enabled. Optionally renders `TopologyGroup` containers around nodes sharing `app.kubernetes.io/part-of`/`app.kubernetes.io/component` labels, toggleable via a control that is on by default.

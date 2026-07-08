@@ -3,7 +3,6 @@ package io.greencap.k8s.kubernetes;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.LocalPortForward;
 import io.fabric8.kubernetes.client.dsl.ExecWatch;
-import io.greencap.k8s.config.EncryptionService;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.TagInfo;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +38,6 @@ public class RegistryMaintenanceService {
     private static final String REGISTRY_REPOSITORIES_PATH = "/var/lib/registry/docker/registry/v2/repositories/";
 
     private final KubernetesClientFactory clientFactory;
-    private final EncryptionService encryptionService;
     private final RegistryService registryService;
 
     public void deleteRepository(Cluster cluster, String repository) {
@@ -51,7 +49,7 @@ public class RegistryMaintenanceService {
             deleteRepositoryDirectory(connection.client(), repository);
         } catch (Exception e) {
             log.error("Failed to remove repository {} on cluster {}: {}", repository, cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to remove Repository: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to remove Repository", e);
         }
     }
 
@@ -60,12 +58,12 @@ public class RegistryMaintenanceService {
             deleteManifests(connection, repository, tags);
         } catch (Exception e) {
             log.error("Failed to remove tags from repository {} on cluster {}: {}", repository, cluster.getName(), e.getMessage());
-            throw new KubernetesOperationException("Failed to remove Tags: " + e.getMessage(), e);
+            throw KubernetesOperationException.from("Failed to remove Tags", e);
         }
     }
 
     private RegistryConnection openConnection(Cluster cluster) {
-        KubernetesClient client = clientFactory.buildClient(encryptionService.decrypt(cluster.getKubeconfigContent()));
+        KubernetesClient client = clientFactory.buildClient(cluster);
         LocalPortForward portForward = client.services()
                 .inNamespace(REGISTRY_NAMESPACE)
                 .withName(REGISTRY_SERVICE_NAME)

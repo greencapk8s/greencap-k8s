@@ -3,6 +3,7 @@ package io.greencap.k8s.ui;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.grid.HeaderRow;
 import com.vaadin.flow.component.html.Span;
@@ -27,8 +28,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.ArrayList;
 import java.util.List;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 
 @Route(value = "infrastructure/pvs", layout = MainLayout.class)
 @PageTitle("PersistentVolumes — GreenCap K8s")
@@ -62,26 +61,72 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), PersistentVolumeInfo::name);
 
+        boolean canDelete = true;
+
+        var deleteIcon = VaadinIcon.TRASH.create();
+        deleteIcon.setSize(UiConstants.ICON_SIZE);
+        Button deleteBtn = new Button(deleteIcon, e -> {
+            PersistentVolumeInfo selected = grid.asSingleSelect().getValue();
+            if (selected != null) openDeleteDialog(selected);
+        });
+        deleteBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_ERROR);
+        deleteBtn.setEnabled(false);
+        deleteBtn.setVisible(canDelete);
+        deleteBtn.getElement().setAttribute("title", "Delete");
+
+        grid.asSingleSelect().addValueChangeListener(e ->
+                deleteBtn.setEnabled(canDelete && e.getValue() != null));
+
         List<UiConstants.SelectionAction<PersistentVolumeInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
                         pv -> UI.getCurrent().navigate("yaml/persistentvolume/-/" + pv.name()))
         );
 
-        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes, HELP_TITLE, HELP_TEXT, grid, selectionActions), noClusterMessage, grid);
+        add(UiConstants.buildSectionHeader("PersistentVolumes", this::loadPersistentVolumes, HELP_TITLE, HELP_TEXT,
+                        grid, selectionActions, canDelete ? List.of(deleteBtn) : List.of()),
+                noClusterMessage, grid);
     }
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.GLOBAL_INFRASTRUCTURE_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
         if (hasCluster) {
             loadPersistentVolumes();
         }
+    }
+
+    private void openDeleteDialog(PersistentVolumeInfo pv) {
+        if ("Bound".equals(pv.status())) {
+            ConfirmDialog guard = new ConfirmDialog();
+            guard.setHeader("Cannot Delete PersistentVolume");
+            guard.setText("\"" + pv.name() + "\" is currently Bound to claim \"" + pv.claim() + "\". " +
+                    "Delete the PersistentVolumeClaim first to release this volume before deleting it.");
+            guard.setCancelable(false);
+            guard.setConfirmText("OK");
+            guard.open();
+            return;
+        }
+
+        ConfirmDialog dialog = new ConfirmDialog();
+        dialog.setHeader("Delete PersistentVolume");
+        dialog.setText("Deleting PersistentVolume \"" + pv.name() + "\" is irreversible. Make sure no application depends on this volume.");
+        dialog.setCancelable(true);
+        dialog.setConfirmText("Delete");
+        dialog.setConfirmButtonTheme("error primary");
+        dialog.addConfirmListener(e -> {
+            Cluster cluster = clusterContext.getCluster();
+            if (cluster == null) return;
+            try {
+                storageService.deletePersistentVolume(cluster, pv.name());
+                loadPersistentVolumes();
+                notify("PersistentVolume " + pv.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
+            } catch (KubernetesOperationException ex) {
+                notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
+            }
+        });
+        dialog.open();
     }
 
     private void buildGrid() {
@@ -169,6 +214,7 @@ public class PersistentVolumesView extends VerticalLayout implements BeforeEnter
         badge.getElement().getThemeList().add("badge");
         switch (status) {
             case "Available"  -> badge.getElement().getThemeList().add("success");
+            case "Bound"      -> badge.getElement().getThemeList().add("success");
             case "Failed"     -> badge.getElement().getThemeList().add("error");
             default           -> badge.getElement().getThemeList().add("contrast");
         }

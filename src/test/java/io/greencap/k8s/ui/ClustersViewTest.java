@@ -4,7 +4,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.grid.Grid;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
 import io.greencap.k8s.domain.user.UserService;
@@ -70,7 +69,6 @@ class ClustersViewTest extends KaribuTest {
     private static Cluster buildCluster(String name) {
         Cluster c = new Cluster();
         c.setName(name);
-        c.setProvider(ClusterProvider.MinikubeDocker);
         c.setConnectionStatus(ConnectionStatus.UNKNOWN);
         return c;
     }

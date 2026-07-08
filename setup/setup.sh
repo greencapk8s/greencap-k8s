@@ -71,6 +71,12 @@ install_minikube() {
   ok "minikube installed"
 }
 
+install_helm() {
+  echo "    Installing helm..."
+  curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | $SUDO bash
+  ok "helm installed"
+}
+
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 1: Checking requirements"
 
@@ -88,6 +94,7 @@ check_cmd() {
 check_cmd docker
 check_cmd minikube
 check_cmd kubectl
+check_cmd helm
 check_cmd openssl
 
 if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
@@ -110,6 +117,7 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
       docker)    install_docker   ;;
       kubectl)   install_kubectl  ;;
       minikube)  install_minikube ;;
+      helm)      install_helm     ;;
       openssl)   $SUDO apt-get install -y openssl && ok "openssl installed" ;;
     esac
   done
@@ -176,11 +184,18 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-step "Step 4: Enabling addons (metrics-server, ingress, registry)"
+step "Step 4: Enabling addons (metrics-server, ingress, registry, olm)"
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress        -p "$PROFILE"
 minikube addons enable registry       -p "$PROFILE"
+minikube addons enable olm            -p "$PROFILE"
+
+echo ""
+echo "    Waiting for OLM operator..."
+kubectl rollout status deployment/olm-operator \
+  -n olm --timeout=180s
+ok "OLM ready"
 
 echo ""
 echo "    Waiting for ingress-nginx controller..."
@@ -326,7 +341,15 @@ fi
 
 HOSTS_ENTRY="$MINIKUBE_IP  greencap.local  # GreenCap K8s — managed by setup.sh"
 if grep -q "greencap.local" /etc/hosts 2>/dev/null; then
-  ok "/etc/hosts already contains greencap.local — skipping"
+  EXISTING_IP=$(grep "greencap.local" /etc/hosts | awk '{print $1}' | head -1)
+  if [ "$EXISTING_IP" = "$MINIKUBE_IP" ]; then
+    ok "/etc/hosts already contains greencap.local → $MINIKUBE_IP — skipping"
+  else
+    echo "    Updating greencap.local in /etc/hosts ($EXISTING_IP → $MINIKUBE_IP)..."
+    $SUDO sed -i "/greencap.local/d" /etc/hosts
+    echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null
+    ok "greencap.local updated: $EXISTING_IP → $MINIKUBE_IP"
+  fi
 else
   echo "    Adding greencap.local to /etc/hosts..."
   echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null

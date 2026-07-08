@@ -25,8 +25,6 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.AutoScalingService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
-import io.greencap.k8s.config.SecurityUtils;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.kubernetes.dto.HorizontalScalerInfo;
 import jakarta.annotation.security.PermitAll;
 
@@ -63,7 +61,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
         buildGrid();
         UiConstants.configureSingleSelection(grid, selectionMemory, getClass().getSimpleName(), HorizontalScalerInfo::name);
 
-        boolean canDelete = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_DELETE);
+        boolean canDelete = true;
         List<UiConstants.SelectionAction<HorizontalScalerInfo>> selectionActions = List.of(
                 UiConstants.SelectionAction.destructive(VaadinIcon.TRASH, "Delete", canDelete, this::openDeleteDialog),
                 UiConstants.SelectionAction.of(VaadinIcon.CODE, "View Manifest",
@@ -75,10 +73,6 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
 
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
-        if (!SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_VIEW)) {
-            event.forwardTo("");
-            return;
-        }
         boolean hasCluster = clusterContext.getCluster() != null;
         noClusterMessage.setVisible(!hasCluster);
         grid.setVisible(hasCluster);
@@ -103,7 +97,7 @@ public class HorizontalScalerView extends VerticalLayout implements BeforeEnterO
                 .setHeader("Current / Max").setWidth("120px").setResizable(true);
         grid.addColumn(HorizontalScalerInfo::metrics).setHeader("Metrics").setFlexGrow(1).setResizable(true);
         grid.addColumn(HorizontalScalerInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
-        boolean canWrite = SecurityUtils.hasPermission(Permission.AUTOSCALING_HORIZONTALSCALER_WRITE);
+        boolean canWrite = true;
         UiConstants.addActionsColumn(grid, 1, h -> {
             Button editBtn = buildActionButton(VaadinIcon.EDIT, "Edit Limits", e -> openEditDialog(h));
             editBtn.setEnabled(canWrite);

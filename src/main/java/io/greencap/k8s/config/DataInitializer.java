@@ -1,10 +1,8 @@
 package io.greencap.k8s.config;
 
-import io.greencap.k8s.domain.cluster.ClusterProvider;
 import io.greencap.k8s.domain.cluster.ClusterRepository;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.CreateClusterRequest;
-import io.greencap.k8s.domain.user.Permission;
 import io.greencap.k8s.domain.user.UserRepository;
 import io.greencap.k8s.domain.user.UserService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +27,7 @@ public class DataInitializer implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         if (!userRepository.existsByUsername("admin")) {
-            userService.createUser("admin", "admin@greencap.local", "admin", Permission.allPermissions());
+            userService.createUser("admin", "admin@greencap.local", "admin");
             log.info("Admin user created — login: admin / admin");
         }
 
@@ -37,7 +35,6 @@ public class DataInitializer implements ApplicationRunner {
         if (kubeconfig != null && !kubeconfig.isBlank() && !clusterRepository.existsByName(SELF_CLUSTER_NAME)) {
             var cluster = clusterService.createCluster(new CreateClusterRequest(
                     SELF_CLUSTER_NAME,
-                    ClusterProvider.MinikubeDocker,
                     kubeconfig
             ));
             userService.updateActiveCluster("admin", cluster);

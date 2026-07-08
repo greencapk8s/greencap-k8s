@@ -22,8 +22,6 @@ import com.vaadin.flow.theme.lumo.LumoUtility;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -33,7 +31,6 @@ final class UiConstants {
 
     static final int NOTIFICATION_DURATION_MS = 6000;
     static final String ICON_SIZE = "28px";
-    static final Executor VIRTUAL_THREADS = Executors.newVirtualThreadPerTaskExecutor();
 
     private static final int ACTION_BUTTON_WIDTH_PX = 48;
     private static final int ACTIONS_COLUMN_RIGHT_PADDING_PX = 8;
