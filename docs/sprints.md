@@ -27,11 +27,11 @@
 
 ### 🟡 Média Prioridade
 
-#### 🔗 Registro de Cluster — métodos alternativos ao kubeconfig
+#### 🔗 Registro de Cluster — método alternativo ao kubeconfig
 
-- **Token + URL** — segundo método de registro de cluster: o usuário informa apenas o endpoint da API Kubernetes (`https://...`) e um bearer token de service account. Mais acessível para iniciantes que não sabem localizar o kubeconfig, e o fluxo natural para clusters gerenciados (GKE, EKS, AKS) que expõem esses dois valores no console do provedor. Internamente, o Fabric8 constrói o `Config` via `withMasterUrl()` + `withOauthToken()` — sem necessidade de gerar um arquivo kubeconfig. A tela de registro (`ClustersView`) ganha um toggle para escolher o método: _Kubeconfig_ (atual) ou _Token + URL_. Limitação esperada: suporta apenas autenticação por bearer token; certificado de cliente e OIDC não são cobertos por este método.
+> Token + URL foi entregue na Sprint 93 (`ClustersView` com aba dedicada + `ClusterService.synthesizeKubeconfig()`).
 
-- **In-cluster** — terceiro método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
+- **In-cluster** — segundo método de registro: quando o GreenCap roda dentro de um cluster Kubernetes, ele pode auto-detectar o service account do pod (`/var/run/secrets/kubernetes.io/serviceaccount/token` + CA bundle) sem nenhuma credencial manual. Útil para quem instala o GreenCap no próprio cluster que quer gerenciar. O Fabric8 suporta via `Config.autoConfigure()` quando rodando in-cluster. No fluxo de registro, seria uma opção "Usar cluster atual" disponível apenas quando a plataforma detectar que está rodando dentro de um pod Kubernetes.
 
 #### 🔌 Developer Experience — follow-ups da Sprint 88
 
@@ -81,13 +81,6 @@
 - **Playground/Sandbox** — marcar um Cluster ou Namespace como "seguro para experimentar", possivelmente com avisos/restrições diferenciados na UI.
 - **Sample Manifests** — biblioteca de YAMLs de exemplo que o usuário pode aplicar a partir do Manifest/Apply existente, para aprender padrões comuns de workloads.
 - **Onboarding/Tutorial in-app** — guia introdutório dentro da própria UI para usuários iniciantes em Kubernetes.
-
-#### 🔌 Diferencial — Integrações futuras
-
-> Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint. Avaliar caso a caso o impacto no posicionamento "plataforma leve" (`CONTEXT.md`, seção "Purpose & Audience").
-
-- **Helm** — visualizar/gerenciar releases Helm instaladas no cluster (charts, valores, histórico de releases).
-- **Operators** — visualizar Operators instalados (CRDs, Custom Resources geridos) e seus recursos gerenciados.
 
 ---
 
