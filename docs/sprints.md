@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
 | 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 | 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
-| 87 | Setup wizard: script de instalação da plataforma GreenCap no minikube | ✅ Concluído |
 
 ---
 
@@ -87,6 +87,13 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 97 ✅ — Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling)
+
+- Encontrado durante validação manual pós-Sprint 96: Deploy from Dockerfile mostrava "Build failed. Check the logs above." mesmo com o Job Kaniko completando com sucesso e a imagem sendo pushada ao registry
+- `AsyncTasks.schedulePolling`: `DelegatingSecurityContextExecutor` captura o `SecurityContext` da thread que chama `.execute()` — para o tick recorrente, essa chamada acontecia na thread do `CLOCK`, que nunca tem usuário autenticado (WARN "Unable to resolve Kubernetes credentials: no authenticated user"); fix: captura o contexto da thread chamadora (UI) no momento de `schedulePolling()` e envolve `command` com `DelegatingSecurityContextRunnable` antes de despachar para `VIRTUAL_THREADS` — corrige os 5 call sites (`BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`) sem exigir mudança neles
+- `DeployFromDockerfileView.waitForBuild`: `fetchPodLogs` isolado em `fetchAndDisplayBuildLogs()` com try/catch próprio — falha transitória ao ler logs do pod Kaniko (container de vida curta terminando) não deve abortar a checagem de status do Job, única fonte de verdade sobre sucesso/falha do build
+- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
 
 ### Sprint 96 ✅ — Consolidar execução assíncrona em virtual threads
 
@@ -200,17 +207,6 @@
 - `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
 - `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
 - Issues: `.scratch/sprint-88/issues/` (4 issues, todas `done`)
-
-### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
-
-- `setup/setup.sh`: script idempotente em 7 etapas — verifica/instala ferramentas ausentes (docker, kubectl, minikube) com `sg docker` para ativar grupo sem logout; menu de perfil (Minimal/Recommended/Custom); inicia minikube com driver docker; habilita addons metrics-server, ingress e registry (PVC 8 Gi + nodeSelector para persistência); build + push da imagem via registry-proxy; cria Secret `greencap-secrets` com `DB_PASSWORD`, `GREENCAP_ENCRYPTION_KEY` e `GREENCAP_SELF_CLUSTER_KUBECONFIG`; aplica manifests e aguarda rollout; adiciona entrada `greencap.local` no `/etc/hosts` automaticamente se ausente
-- `setup/teardown.sh`: exige confirmação `yes` antes de deletar o profile minikube `greencap-platform`
-- `setup/manifests/`: 7 manifests Kubernetes — namespace, PVC Postgres (2 Gi), Deployment Postgres 16, Service ClusterIP `greencap-db`, Deployment GreenCap (imagePullPolicy Always), Service ClusterIP `greencap`, Ingress `greencap.local`
-- `DataInitializer`: auto-registra o cluster `greencap-platform` na primeira inicialização quando `GREENCAP_SELF_CLUSTER_KUBECONFIG` está definido; define como cluster e namespace ativos do admin
-- `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
-- `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
-- Issues: `.scratch/sprint-87/issues/` (2 issues, ambas `done`)
-
 
 ---
 
