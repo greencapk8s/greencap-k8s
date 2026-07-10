@@ -1,0 +1,9 @@
+# 01 — Criar o repositório greencap-templates com o Template seed
+
+Status: done
+
+Novo repositório público `greencapk8s/greencap-templates`, em inglês (README, comentários, conteúdo do catálogo) — primeiro repositório do ecossistema GreenCap a adotar o novo padrão de idioma, antes da futura conversão do próprio `greencap-k8s`. Contém `catalog.json` na raiz (índice com id, title, description, technologies, path e namespace de cada Template) e, por Template, um `template.yaml` (lista de `resources` aplicados em ordem, mais uma seção opcional `builds` para componentes sem imagem pública pronta). Ver ADR 0015 (`docs/adr/0015-sample-catalog-templates-via-indice-raw-http.md`) para o raciocínio por trás desse formato.
+
+O Template seed é `crud-flask-postgres`: um mini CRUD com backend Python (Flask) servindo sua própria interface HTML (sem frontend separado), persistindo em PostgreSQL. Os manifests criam a Namespace `crud-flask-postgres`, um Secret com as credenciais do banco, uma PVC + Deployment + Service do Postgres, um Deployment + Service do backend (cujo container usa a imagem-sentinela `__BUILD__backend`, substituída pelo GreenCap após o build), e um Ingress fixo em `crud-flask-postgres.greencap.local` para acesso via navegador. O código-fonte do Flask (rotas de listagem/criação/edição/remoção de um item simples, com tabela criada automaticamente no primeiro boot) e o `Dockerfile` ficam dentro do próprio diretório do Template, usados como contexto do build Kaniko (issue 04).
+
+Feito: repositório criado manualmente pelo usuário (o token do GitHub do MCP não tinha permissão de criar repositórios nem de push de conteúdo); push do conteúdo preparado feito via Git/SSH após o usuário adicionar `joseafilho` como colaborador. Conteúdo publicado em `main` e validado via fetch raw HTTP (`https://raw.githubusercontent.com/greencapk8s/greencap-templates/main/catalog.json` retorna 200).

@@ -813,3 +813,20 @@
 - `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
 - `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
 - Issues: `.scratch/archive/sprint-87/issues/` (2 issues, ambas `done`)
+
+### Sprint 88 — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
+
+- Seção **Developer Experience** adicionada ao sidebar do `MainLayout` (entre Global e Settings), com badge `beta` em fonte menor no item pai
+- `KubernetesOperatorService`: detecta presença do OLM (`isOlmInstalled`), lista operators instalados via `Subscription` + `ClusterServiceVersion`, lista catálogo via `PackageManifest` de todos os `CatalogSource`s, instala via `Subscription` + `OperatorGroup` (AllNamespaces), desinstala removendo Subscription + CSV; status derivado do CSV phase com fallback para `Subscription.status.state` quando CSV ainda não existe (`Failed`/`ResolutionFailed` → badge vermelho com tooltip do reason)
+- DTOs: `OperatorInfo`, `OperatorPackage`, `OperatorChannel`
+- `InstalledOperatorsView` (rota `developer-experience/operators/installed`): grid com filtro embutido no header da coluna Name; botão Uninstall como `SelectionAction` destrutiva no section header; dialog type-to-confirm; OLM missing empty state; badge de fase (`Installing`/`Succeeded`/`Failed`) com tooltip no `Failed`
+- `OperatorCatalogView` (rota `developer-experience/operators/catalog`): carrega catálogo uma vez com `ProgressBar` indeterminate; filtro de nome no header da coluna Name; filtro de CatalogSource no header da coluna Catalog; botão Install como `SelectionAction` no section header; `refresh()` é no-op (evita reload a cada tick do auto-refresh); botão Refresh manual força reload; após install navega para InstalledOperatorsView
+- `Permission`: 3 novas permissões `DEVELOPER_EXPERIENCE_OPERATORS_VIEW/INSTALL/UNINSTALL`; `V28__add_developer_experience_operator_permissions.sql`
+- `DataInitializer`: garante que o admin sempre tenha todas as permissões atuais em qualquer startup (não apenas na criação)
+- `setup/setup.sh` e `samples/greencap-demo/cluster-provision.sh`: addon `olm` habilitado com `kubectl rollout status deployment/olm-operator` de espera
+- `UserManagementView`: grupo "Kubernetes Operators" na treeview de permissões da seção Developer Experience
+- `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
+- `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
+- Issues: `.scratch/archive/sprint-88/issues/` (4 issues, todas `done`)
+
+Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false`) — segue em beta, rotas continuam funcionando; `Permission`/`DEVELOPER_EXPERIENCE_OPERATORS_*` acima descontinuados pela ADR 0013 (RBAC substituindo o sistema de permissões interno, Sprint 94).
