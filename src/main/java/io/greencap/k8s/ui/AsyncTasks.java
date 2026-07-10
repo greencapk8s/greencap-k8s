@@ -1,6 +1,8 @@
 package io.greencap.k8s.ui;
 
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
+import org.springframework.security.concurrent.DelegatingSecurityContextRunnable;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
 import java.util.concurrent.Executor;
@@ -29,8 +31,14 @@ final class AsyncTasks {
         VIRTUAL_THREADS.execute(command);
     }
 
+    // DelegatingSecurityContextExecutor captures SecurityContext from whichever thread calls
+    // .execute() — for a recurring tick, that is the CLOCK thread itself, which never has an
+    // authenticated user. Capturing the caller's context here, once, up front, and wrapping
+    // command with it is what makes every tick run as the user who scheduled the polling.
     static ScheduledFuture<?> schedulePolling(Runnable command, Duration initialDelay, Duration period) {
-        return CLOCK.scheduleAtFixedRate(() -> VIRTUAL_THREADS.execute(command),
+        Runnable commandWithCallerContext =
+                new DelegatingSecurityContextRunnable(command, SecurityContextHolder.getContext());
+        return CLOCK.scheduleAtFixedRate(() -> VIRTUAL_THREADS.execute(commandWithCallerContext),
                 initialDelay.toMillis(), period.toMillis(), TimeUnit.MILLISECONDS);
     }
 

@@ -803,3 +803,13 @@
 - `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
 - `EventsDialog` (events por recurso específico) não alterado — continua sem limite
 - Issue: `.scratch/archive/sprint-86/issues/01-events-view-limit-selector.md`
+
+### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
+
+- `setup/setup.sh`: script idempotente em 7 etapas — verifica/instala ferramentas ausentes (docker, kubectl, minikube) com `sg docker` para ativar grupo sem logout; menu de perfil (Minimal/Recommended/Custom); inicia minikube com driver docker; habilita addons metrics-server, ingress e registry (PVC 8 Gi + nodeSelector para persistência); build + push da imagem via registry-proxy; cria Secret `greencap-secrets` com `DB_PASSWORD`, `GREENCAP_ENCRYPTION_KEY` e `GREENCAP_SELF_CLUSTER_KUBECONFIG`; aplica manifests e aguarda rollout; adiciona entrada `greencap.local` no `/etc/hosts` automaticamente se ausente
+- `setup/teardown.sh`: exige confirmação `yes` antes de deletar o profile minikube `greencap-platform`
+- `setup/manifests/`: 7 manifests Kubernetes — namespace, PVC Postgres (2 Gi), Deployment Postgres 16, Service ClusterIP `greencap-db`, Deployment GreenCap (imagePullPolicy Always), Service ClusterIP `greencap`, Ingress `greencap.local`
+- `DataInitializer`: auto-registra o cluster `greencap-platform` na primeira inicialização quando `GREENCAP_SELF_CLUSTER_KUBECONFIG` está definido; define como cluster e namespace ativos do admin
+- `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
+- `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
+- Issues: `.scratch/archive/sprint-87/issues/` (2 issues, ambas `done`)
