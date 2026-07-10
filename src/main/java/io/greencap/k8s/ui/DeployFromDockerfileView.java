@@ -682,14 +682,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
             try {
                 var progress = registryService.getBuildProgress(cluster, jobName);
                 if (progress.podName() != null) {
-                    Optional<String> logs = observabilityService.fetchPodLogs(
-                            cluster, BUILD_NAMESPACE, progress.podName(), KANIKO_CONTAINER, BUILD_TAIL_LINES, false);
-                    ui.access(() -> {
-                        if (buildLogArea != null) {
-                            logs.ifPresent(buildLogArea::setText);
-                            buildLogArea.getElement().executeJs("this.scrollTop = this.scrollHeight");
-                        }
-                    });
+                    fetchAndDisplayBuildLogs(cluster, progress.podName(), ui);
                 }
                 if (!"Running".equals(progress.status())) {
                     boolean isComplete = "Complete".equals(progress.status());
@@ -717,6 +710,24 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
             }
         }
         return success[0];
+    }
+
+    // Log fetching runs isolated from the Job status check: the Kaniko container's log
+    // stream can transiently fail while the pod is terminating, but that has no bearing
+    // on whether the Job itself (the source of truth for success/failure) actually completed.
+    private void fetchAndDisplayBuildLogs(Cluster cluster, String podName, UI ui) {
+        try {
+            Optional<String> logs = observabilityService.fetchPodLogs(
+                    cluster, BUILD_NAMESPACE, podName, KANIKO_CONTAINER, BUILD_TAIL_LINES, false);
+            ui.access(() -> {
+                if (buildLogArea != null) {
+                    logs.ifPresent(buildLogArea::setText);
+                    buildLogArea.getElement().executeJs("this.scrollTop = this.scrollHeight");
+                }
+            });
+        } catch (Exception e) {
+            log.debug("Could not fetch build logs for pod {}: {}", podName, e.getMessage());
+        }
     }
 
     private void updateExecutionBadge(String status, String variant) {
