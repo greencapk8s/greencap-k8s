@@ -1,0 +1,68 @@
+name: Setup Script Validate
+
+on:
+  pull_request:
+    branches: [main, staging, develop]
+    paths: &watched-paths
+      - "setup/**"
+      - "docker/**"
+      - "build.gradle.kts"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
+      - "src/**"
+      - ".github/workflows/setup-script-validate.yml"
+  push:
+    branches: [main, staging, develop]
+    paths: *watched-paths
+
+jobs:
+  setup:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Fixed runner versions, not ubuntu-latest/macos-latest — those tags move to a
+          # newer image over time without notice, which would silently invalidate the
+          # Apple Silicon-specific assumptions this workflow validates (Colima
+          # virtualization, TARGETARCH=arm64 in docker/Dockerfile)
+          - os: ubuntu-24.04
+            timeout: 25
+          - os: macos-14
+            timeout: 45
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ matrix.timeout }}
+    env:
+      # Skip setup.sh's interactive prompts — Minimal profile (1 node) keeps the
+      # cluster small enough to fit comfortably on standard GitHub-hosted runners.
+      AUTO_INSTALL: "y"
+      PROFILE_CHOICE: "1"
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run setup.sh
+        run: ./setup/setup.sh
+
+      - name: Check GreenCap is reachable
+        run: curl --fail -L http://greencap.local
+
+      - name: Dump diagnostics on failure
+        if: failure()
+        run: |
+          echo "── kubectl get pods -A ──"
+          kubectl get pods -A || true
+          echo "── kubectl describe non-Running pods ──"
+          # Explicit empty check instead of `xargs -r` — that flag is GNU-only and
+          # unsupported by BSD xargs on macOS
+          PENDING_PODS="$(kubectl get pods -A --field-selector=status.phase!=Running -o name 2>/dev/null || true)"
+          if [ -n "$PENDING_PODS" ]; then
+            echo "$PENDING_PODS" | xargs -n1 kubectl describe || true
+          fi
+          echo "── minikube logs ──"
+          minikube logs -p greencap-platform || true
+
+      - name: Teardown
+        if: always()
+        env:
+          CONFIRM: "yes"
+        run: ./setup/teardown.sh

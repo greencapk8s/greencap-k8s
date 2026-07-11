@@ -1,0 +1,15 @@
+# 01 — Suporte nativo a macOS nos instaladores do setup.sh
+
+Status: in-progress
+
+Hoje `install_docker`, `install_kubectl`, `install_minikube` e `install_helm` em `setup/setup.sh` só sabem se instalar no Linux (`apt-get`/`systemctl`/binários `linux-amd64`), e o script recusa explicitamente rodar o auto-install fora do Linux, pedindo instalação manual. Esta issue estende cada instalador com um branch macOS baseado em Homebrew, removendo esse bloqueio — um usuário rodando `setup.sh` num Mac do zero deve conseguir completar o setup sem instalar nada manualmente antes, igual já acontece hoje no Linux.
+
+Docker no macOS é provido via Colima (`brew install colima docker` + `colima start`), não Docker Desktop — Docker Desktop exige abrir o app manualmente e aceitar termos na primeira execução, o que quebra o fluxo headless que o script promete. Ver ADR 0016 para o raciocínio completo. O socket exposto pelo Colima é compatível com `minikube --driver docker`, então o driver do minikube não muda entre plataformas. `kubectl`, `minikube` e `helm` usam as fórmulas oficiais do Homebrew (`brew install kubectl minikube helm`), em vez do download direto de binário usado no Linux — os dois mecanismos convivem lado a lado, sem alterar o caminho Linux já testado.
+
+Além dos instaladores, a etapa final do script que grava `greencap.local` em `/etc/hosts` usa `sed -i "/padrão/d" /etc/hosts` — sintaxe GNU sed. BSD sed (macOS) exige um argumento após `-i` (mesmo que vazio) e falha com essa chamada. Corrigir para uma forma compatível com as duas variantes (ex.: `sed -i.bak ... && rm -f /etc/hosts.bak`, ou branch por `uname -s`), já que essa etapa roda independente do SO e hoje só foi validada em Linux.
+
+Escopo não inclui: mudar o comportamento do Linux, nem dar suporte a outros SOs (Windows/WSL fica fora).
+
+## Comments
+
+Descoberto durante a implementação: `docker/Dockerfile` baixava o binário do Helm CLI fixo em `linux-amd64`, sem checar a arquitetura do build. Isso não falhava o build (o binário só é copiado, nunca executado dentro do `Dockerfile`), mas produzia uma imagem com Helm CLI incompatível em builds `arm64` — caso do `macos-latest` do GitHub Actions (Apple Silicon) buildando via Colima. Qualquer operação de Helm (Releases, Repositories, Upgrade) falharia silenciosamente em runtime num Mac Apple Silicon. Corrigido no mesmo escopo desta issue: `ARG TARGETARCH` (populado automaticamente pelo BuildKit) substitui o `amd64` fixo no download do Helm.

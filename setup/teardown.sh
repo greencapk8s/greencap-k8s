@@ -12,7 +12,10 @@ echo ""
 echo -e "${BOLD}${RED}  WARNING: This will permanently delete the '$PROFILE' minikube cluster${RESET}"
 echo -e "${RED}  and all data inside it (Postgres database, registry images, etc).${RESET}"
 echo ""
-read -rp "    Type 'yes' to confirm: " CONFIRM
+# CONFIRM can be pre-set in the environment to skip this prompt (automation/CI)
+if [ -z "${CONFIRM:-}" ]; then
+  read -rp "    Type 'yes' to confirm: " CONFIRM
+fi
 
 if [ "$CONFIRM" != "yes" ]; then
   echo -e "    ${YELLOW}Teardown cancelled.${RESET}"

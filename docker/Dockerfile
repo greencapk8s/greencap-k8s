@@ -5,9 +5,12 @@ FROM eclipse-temurin:21-jdk AS builder
 WORKDIR /app
 
 # Download Helm CLI binary
+# TARGETARCH is set by BuildKit to the build's target architecture (amd64/arm64) —
+# required so the binary matches the host on arm64 builders (e.g. macOS/Colima on Apple Silicon)
 ARG HELM_VERSION=v4.2.2
-RUN curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz \
-    | tar -xz --strip-components=1 -C /usr/local/bin linux-amd64/helm
+ARG TARGETARCH
+RUN curl -fsSL https://get.helm.sh/helm-${HELM_VERSION}-linux-${TARGETARCH}.tar.gz \
+    | tar -xz --strip-components=1 -C /usr/local/bin linux-${TARGETARCH}/helm
 
 # Cache Gradle wrapper and dependency resolution separately from source code
 COPY gradlew ./
