@@ -59,6 +59,14 @@ install_docker_macos() {
   ensure_homebrew
   echo "    Installing Docker via Colima (brew)..."
   brew install colima docker
+
+  # INSTALL_ONLY stops here — used by CI on runners with no nested virtualization,
+  # where `colima start` can never succeed regardless of the code (see ADR 0016)
+  if [ "${INSTALL_ONLY:-}" = "true" ]; then
+    ok "Colima installed — skipping colima start (INSTALL_ONLY set)"
+    return
+  fi
+
   # Colima's own defaults (2 CPU / 2 GiB) undersize even the Minimal minikube
   # profile (2 CPUs / 4 GB) once VM + Docker overhead is accounted for — size
   # explicitly so `minikube start` has room inside the VM
