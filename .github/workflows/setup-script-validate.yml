@@ -44,7 +44,18 @@ jobs:
         run: ./setup/setup.sh
 
       - name: Check GreenCap is reachable
-        run: curl --fail -L http://greencap.local
+        run: |
+          # Retry — ingress-nginx reconciles the Ingress asynchronously after
+          # `kubectl apply`, so the route can 503 for a few seconds right after
+          # setup.sh reports the Deployment ready
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail -sS -L http://greencap.local; then
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          exit 1
 
       - name: Dump diagnostics on failure
         if: failure()

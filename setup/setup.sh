@@ -190,9 +190,13 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
   if [ -z "${AUTO_INSTALL:-}" ]; then
     read -rp "    Install missing tools automatically? [y/N]: " AUTO_INSTALL
   fi
-  if [[ "${AUTO_INSTALL,,}" != "y" ]]; then
-    fail "Install the missing tools manually and re-run setup.sh"
-  fi
+  # Case-insensitive match without ${VAR,,} — that's Bash 4+ only and breaks under
+  # macOS's system /bin/bash, stuck at 3.2 for licensing reasons (see ADR 0016 for
+  # the broader context on macOS shipping ancient default tooling)
+  case "$AUTO_INSTALL" in
+    y|Y) ;;
+    *) fail "Install the missing tools manually and re-run setup.sh" ;;
+  esac
 
   echo ""
   for tool in "${MISSING_TOOLS[@]}"; do
