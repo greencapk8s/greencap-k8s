@@ -35,10 +35,9 @@ OS="$(uname -s)"
 SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
-# ─── macOS (Homebrew/Colima) ───────────────────────────────────────────────────
-# Docker Desktop requires opening the GUI app and accepting terms on first run —
-# incompatible with a headless/scriptable setup. Colima provides a Docker daemon
-# via a Lima VM without that friction. See ADR 0016.
+# ─── macOS (Homebrew) ──────────────────────────────────────────────────────────
+# kubectl/minikube/helm/openssl auto-install via brew. Docker is the exception: it
+# must be installed and started manually on macOS (see install_docker_macos).
 ensure_homebrew() {
   command -v brew &>/dev/null && return
 
@@ -55,23 +54,13 @@ ensure_homebrew() {
   ok "Homebrew installed"
 }
 
+# Docker is a manual prerequisite on macOS — setup.sh does not auto-provision a
+# daemon. Docker Desktop needs its GUI/EULA on first launch and a scripted Colima
+# provision proved unreliable across environments, so the user installs and starts
+# a Docker provider themselves (Docker Desktop, Colima or OrbStack).
 install_docker_macos() {
-  ensure_homebrew
-  echo "    Installing Docker via Colima (brew)..."
-  brew install colima docker
-
-  # INSTALL_ONLY stops here — used by CI on runners with no nested virtualization,
-  # where `colima start` can never succeed regardless of the code (see ADR 0016)
-  if [ "${INSTALL_ONLY:-}" = "true" ]; then
-    ok "Colima installed — skipping colima start (INSTALL_ONLY set)"
-    return
-  fi
-
-  # Colima's own defaults (2 CPU / 2 GiB) undersize even the Minimal minikube
-  # profile (2 CPUs / 4 GB) once VM + Docker overhead is accounted for — size
-  # explicitly so `minikube start` has room inside the VM
-  colima start --cpu 2 --memory 6
-  ok "Colima started — Docker daemon ready"
+  fail "Docker not found. On macOS you must install and start a Docker provider
+       manually — Docker Desktop, Colima or OrbStack — then re-run setup.sh."
 }
 
 install_kubectl_macos() {
@@ -148,9 +137,8 @@ install_helm() {
 ensure_docker_accessible() {
   if [ "$OS" = "Darwin" ]; then
     if ! docker version &>/dev/null 2>&1; then
-      warn "Docker (Colima) not responding — starting..."
-      colima start
-      docker version &>/dev/null 2>&1 || fail "Colima started but Docker is still unreachable — check 'colima status'"
+      fail "Docker daemon is not reachable. On macOS, start your Docker provider
+       (Docker Desktop, Colima or OrbStack) and re-run setup.sh."
     fi
     return
   fi
