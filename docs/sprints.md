@@ -84,6 +84,10 @@
 
 - **Atualizar imagem do Deployment (`kubectl set image`)** — patch em `spec.template.spec.containers[].image`. Requer UI para escolher o container quando o Pod tem múltiplos (multi-container) — maior complexidade de UX que as demais ações de write já implementadas.
 
+#### 📄 Documentação — divulgar `setup/setup.sh` no README principal
+
+- **`setup.sh` não é mencionado no `README.md`** — o script provisiona um cluster Minikube completo (profile configurável, addons metrics-server/ingress/registry/olm, registry persistente, build+push da imagem GreenCap e deploy via manifests em `setup/manifests/`), mas hoje só é descoberto por quem navega até `setup/`. Adicionar uma seção no README principal apresentando `./setup/setup.sh` como opção de quickstart alternativa ao `docker compose up` (ex.: "quero rodar num cluster Kubernetes de verdade, não só localmente via Docker"), com o efeito esperado (`http://greencap.local`, login `admin`/`admin`) e o script de teardown correspondente (`setup/teardown.sh`).
+
 #### 🎓 Diferencial — Onboarding e Aprendizado
 
 > Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs. Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint.
