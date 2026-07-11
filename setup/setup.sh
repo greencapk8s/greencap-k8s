@@ -188,8 +188,17 @@ step "Step 4: Enabling addons (metrics-server, ingress, registry, olm)"
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress        -p "$PROFILE"
-minikube addons enable registry       -p "$PROFILE"
-minikube addons enable olm            -p "$PROFILE"
+
+# Older minikube binaries embed a stale kube-registry-proxy tag pinned to
+# gcr.io (e.g. 0.0.8), which no longer exists after minikube's image
+# migration to registry.k8s.io. Overriding it here decouples setup.sh from
+# whatever addon defaults happen to be baked into the user's minikube
+# version, matching what upstream currently ships.
+minikube addons enable registry -p "$PROFILE" \
+  --images="KubeRegistryProxy=minikube/kube-registry-proxy:v0.0.11" \
+  --registries="KubeRegistryProxy=registry.k8s.io"
+
+minikube addons enable olm -p "$PROFILE"
 
 echo ""
 echo "    Waiting for OLM operator..."
