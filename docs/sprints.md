@@ -8,6 +8,8 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
+| 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
 | 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
@@ -16,8 +18,6 @@
 | 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
 | 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
 | 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
-| 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
-| 88 | Developer Experience: seção no sidebar + Kubernetes Operators (listar, instalar, desinstalar via OLM) | ✅ Concluído |
 
 ---
 
@@ -26,6 +26,19 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🟡 Média Prioridade
+
+#### 🐛 Bug: combobox de Namespaces não atualiza após criar uma Namespace fora da NamespacesView
+
+- **Selector de Namespace no header fica desatualizado** — descoberto ao testar o Deploy Template (Sprint 98): a Namespace recém-criada pelo Template não aparecia no combobox de Namespaces do `MainLayout`. Causa: `MainLayout.updateNamespaceSelector()` só recarrega os itens do combobox quando o Cluster ativo muda (`!cluster.equals(lastLoadedCluster)`) — criar uma Namespace sem trocar de Cluster não dispara reload. `NamespacesView` já contorna isso após Create Namespace, chamando `MainLayout.refreshClusterState()` (agora também usado por `SampleCatalogView` após Deploy Template). **Deploy Application, Deploy from Dockerfile e Import Compose não fazem essa chamada** — não é percebido nesses fluxos porque todos navegam direto para a `TopologiaView` da Namespace recém-criada (já contextualizada via `clusterContext.setNamespace(...)`), mas o combobox no header fica com a lista desatualizada até o usuário trocar de Cluster e voltar. Aplicar o mesmo `refreshClusterState()` nesses três fluxos.
+- **Combobox perde a seleção (volta para "Select...") num full reload (F5)** — descoberto ao testar os Templates da Sprint 99 (MongoDB/cache-aside). Diferente do bug acima: aqui a lista está correta, mas o **valor selecionado** some após F5, mesmo com `ClusterContext` (`@VaadinSessionScope`, sobrevive ao F5 por estar atrelado à `VaadinSession`) mantendo o Namespace certo no servidor. Causa provável: F5 cria uma `UI` nova (diferente de navegação SPA, que reaproveita a mesma `UI`), zerando o campo de instância `lastLoadedCluster` de `MainLayout` — a condição `!cluster.equals(lastLoadedCluster)` em `updateNamespaceSelector()` é sempre `true` logo após reload, então o caminho síncrono barato (que só aplicaria `namespaceCombo.setValue(...)` a partir da sessão já correta) nunca é tomado; cai sempre em `loadNamespacesForCluster()`, que zera o combo visualmente (`setItems(List.of())`, placeholder) e reconstrói tudo assincronamente — o valor selecionado é aplicado num *segundo push*, disparado de uma virtual thread solta (`Thread.ofVirtual().start(() -> ui.access(...))`, comentário "to guarantee a distinct push batch"). Hipótese: em SPA a conexão push (`@Push`) já está estabelecida quando esse double-push roda; no F5, o canal push só é aberto pelo cliente depois da resposta HTML inicial — se o segundo `ui.access()` dispara antes do canal estar pronto, a atualização de valor se perde no cliente. Investigar se um único push (aplicar itens + valor selecionado juntos) resolve, evitando a dependência de timing entre dois pushes.
+
+#### 🐛 Bug: badge de status de Pod não reflete CrashLoopBackOff/BackOff
+
+- **Status do Pod ignora o estado real do container** — descoberto durante o teste manual do Sample Catalog (Sprint 98): com o Postgres fora do ar, o container `backend` entrou em `CrashLoopBackOff`, mas o badge de status na listagem de Pods continuou mostrando "Running". Provável causa: a derivação do badge usa `pod.status.phase` (que permanece `Running` enquanto o Pod em si não falhou totalmente) em vez de inspecionar `containerStatuses[].state.waiting.reason` (`CrashLoopBackOff`, `ErrImagePull`, etc.) e `restartCount`. Afeta pelo menos `PodsView`; avaliar se `DeploymentsView`/`StatefulSetsView` têm o mesmo problema ao agregar status a partir dos Pods.
+
+#### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
+
+- **`/etc/hosts` não suporta curinga** — descoberto ao testar o Ingress do Sample Catalog (Sprint 98): a convenção `<namespace>.greencap.local`, usada também em Deploy Application e Deploy from Dockerfile, exige uma linha manual em `/etc/hosts` por aplicação implantada (`/etc/hosts` faz correspondência exata, sem expansão de glob — uma entrada `*.greencap.local` não resolve nada). Conforme o Sample Catalog cresce com mais Templates, essa fricção tende a aumentar. Solução: documentar (ou automatizar via script) um resolver DNS local com curinga real, ex. `dnsmasq` com `address=/.greencap.local/<ip-do-cluster>`, resolvendo qualquer subdomínio de uma vez — no Linux via NetworkManager/dnsmasq, no macOS via dnsmasq + `/etc/resolver/greencap.local`.
 
 #### 🔗 Registro de Cluster — método alternativo ao kubeconfig
 
@@ -59,14 +72,11 @@
 
 - **Build a partir de Git Repository privado** — a Sprint 73 implementou Build via Kaniko apenas para repositórios públicos (sem credenciais). Suporte a repositórios privados exigiria capturar credenciais (token/usuário+senha) na UI e propagá-las ao Job Kaniko (`GIT_TOKEN`/`GIT_USERNAME`/`GIT_PASSWORD`), com cuidado para não persistir as credenciais em texto plano.
 - **Histórico de Builds** — a Sprint 73 não persiste histórico: um Build finalizado não deixa rastro em GreenCap (Job efêmero com `ttlSecondsAfterFinished`). Avaliar persistir um registro mínimo (Repositório/Tag, Git Repository/branch, status, timestamps) para permitir consultar Builds anteriores.
-
-#### 🛠️ Infraestrutura de Demo — follow-up da Sprint 71
-
-- **StorageClass com `nodeAffinity` correta no `greencap-demo`** — o `storage-provisioner` (hostpath) do minikube cria PVs sem `nodeAffinity`; em cluster multi-node, se o Pod que monta a PVC for reagendado para outro node, o diretório hostPath local fica vazio (dados "somem" mesmo com a PVC `Bound`). Descoberto na Sprint 71 ao persistir o Registry (contornado com `nodeSelector` fixo no control-plane). Solução geral mais proporcional: substituir a StorageClass default por `local-path-provisioner` (Rancher) — leve (1 pod), mas define `nodeAffinity` corretamente, resolvendo para qualquer PVC sem `nodeSelector` manual por recurso. ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap (`CONTEXT.md`).
+- **Storage do Registry interno pode estar subdimensionado com o crescimento do catálogo de Templates** — descoberto ao planejar a Sprint 99 (dois novos Templates buildados via Kaniko, empilhando mais imagens no Registry interno). O tamanho da PVC não é definido em código Java nem em manifest versionado — apenas em dois scripts shell de provisionamento, com valores **divergentes**: `samples/greencap-demo/cluster-setup.sh` usa `4Gi` (decisão original da Sprint 71, ver `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`), enquanto `setup/setup.sh` (setup "oficial") usa `8Gi`, sem ADR documentando essa evolução. Avaliar: (a) se o drift entre os dois scripts é intencional ou esquecimento, (b) se mesmo 8Gi comporta o catálogo crescendo além dos 3 Templates atuais sem exigir intervenção manual.
 
 #### 📊 Storage — visualização de uso (sprint 72, cancelada)
 
-- **Gráfico de uso (used/free) por PVC na `PersistentVolumeClaimsView`** — demanda original: coluna com mini gráfico de pizza/donut + diálogo "View Usage" com detalhamento em GiB/%, cores por limiar (70%/90%). Sprint 72 iniciada via `/grill-with-docs` e cancelada na etapa de implementação ao descobrir limitação técnica: a fonte de dados planejada (kubelet `/stats/summary`, endpoint `/api/v1/nodes/{node}/proxy/stats/summary`) **não reporta `pvcRef`/`usedBytes`/`capacityBytes` para volumes `hostPath`** — o `volume.Metrics` não é implementado por esse plugin. Testado no `greencap-demo` (StorageClass `standard` = `k8s.io/minikube-hostpath`): nenhuma PVC (`redis-data`, `registry-storage`) aparece no `/stats/summary`, nem mesmo as montadas por Pods `Running`. Mesma limitação provavelmente afeta `local-path-provisioner` (k3s/kind), candidato do item acima. Caminho alternativo a avaliar quando retomar: `exec df`/`stat -f` no Pod que monta a PVC via Fabric8 (RBAC `pods/exec` em vez de `nodes/proxy`), funciona independente do storage backend desde que o container tenha `df` disponível.
+- **Gráfico de uso (used/free) por PVC na `PersistentVolumeClaimsView`** — demanda original: coluna com mini gráfico de pizza/donut + diálogo "View Usage" com detalhamento em GiB/%, cores por limiar (70%/90%). Sprint 72 iniciada via `/grill-with-docs` e cancelada na etapa de implementação ao descobrir limitação técnica: a fonte de dados planejada (kubelet `/stats/summary`, endpoint `/api/v1/nodes/{node}/proxy/stats/summary`) **não reporta `pvcRef`/`usedBytes`/`capacityBytes` para volumes `hostPath`** — o `volume.Metrics` não é implementado por esse plugin. Testado no `greencap-demo` (StorageClass `standard` = `k8s.io/minikube-hostpath`): nenhuma PVC (`redis-data`, `registry-storage`) aparece no `/stats/summary`, nem mesmo as montadas por Pods `Running`. Mesma limitação provavelmente afeta `local-path-provisioner` — adotado como StorageClass default do `greencap-demo` na Sprint 98 (resolve `nodeAffinity`, não resolve esta limitação de métricas). Caminho alternativo a avaliar quando retomar: `exec df`/`stat -f` no Pod que monta a PVC via Fabric8 (RBAC `pods/exec` em vez de `nodes/proxy`), funciona independente do storage backend desde que o container tenha `df` disponível.
 
 ### ⚪ Baixa Prioridade
 
@@ -74,19 +84,53 @@
 
 - **Atualizar imagem do Deployment (`kubectl set image`)** — patch em `spec.template.spec.containers[].image`. Requer UI para escolher o container quando o Pod tem múltiplos (multi-container) — maior complexidade de UX que as demais ações de write já implementadas.
 
+#### 📄 Documentação — divulgar `setup/setup.sh` no README principal
+
+- **`setup.sh` não é mencionado no `README.md`** — o script provisiona um cluster Minikube completo (profile configurável, addons metrics-server/ingress/registry/olm, registry persistente, build+push da imagem GreenCap e deploy via manifests em `setup/manifests/`), mas hoje só é descoberto por quem navega até `setup/`. Adicionar uma seção no README principal apresentando `./setup/setup.sh` como opção de quickstart alternativa ao `docker compose up` (ex.: "quero rodar num cluster Kubernetes de verdade, não só localmente via Docker"), com o efeito esperado (`http://greencap.local`, login `admin`/`admin`) e o script de teardown correspondente (`setup/teardown.sh`).
+
+#### 👀 Observação — `storage-provisioner` pode repetir o bug do `kube-registry-proxy`
+
+- **Contexto**: um usuário reportou, ao rodar `setup.sh` no macOS, falha `manifest for gcr.io/k8s-minikube/kube-registry-proxy:0.0.8 not found` no Step 4 (addon `registry`). Causa: a tag ficou pinada no binário do minikube instalado (não no `setup.sh`) e foi removida do GCR após o addon migrar para `registry.k8s.io/minikube/kube-registry-proxy:v0.0.11` upstream. Corrigido fixando o override `--images`/`--registries` na chamada `minikube addons enable registry` em `setup/setup.sh`, desacoplando o script da versão de minikube instalada localmente.
+- **Por que só o addon `registry` foi afetado**: dos addons habilitados pelo `setup.sh` (`metrics-server`, `ingress`, `registry`, `olm`), só o `KubeRegistryProxy` vivia em `gcr.io/k8s-minikube/*` — o namespace próprio do minikube no GCR, que sofreu a migração. `ingress` e `metrics-server` já nascem em `registry.k8s.io`; `olm` está em `quay.io` (projeto de terceiros). Nenhum dos três compartilha essa causa raiz — guardrail não replicado neles (ver `docs/adr/` — sem abstrair antes da segunda ocorrência real).
+- **Risco latente não corrigido**: o `storage-provisioner`, habilitado automaticamente pelo `minikube start` (não é um addon explícito no `setup.sh`), ainda está pinado em `gcr.io/k8s-minikube/storage-provisioner` no código atual do minikube — mesmo padrão de risco do `kube-registry-proxy`. Se uma tag antiga for removida do GCR, o `minikube start` quebraria antes mesmo do Step 4 (habilitação de addons). Sem ocorrência real ainda — não corrigido preventivamente. Não dá para mitigar via `--images`/`--registries` do `addons enable` (não é habilitado por addon toggle); exigiria outro mecanismo, ex. `minikube start --extra-config`. Reavaliar se surgir um relato parecido.
+
 #### 🎓 Diferencial — Onboarding e Aprendizado
 
 > Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs. Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint.
 
 - **Playground/Sandbox** — marcar um Cluster ou Namespace como "seguro para experimentar", possivelmente com avisos/restrições diferenciados na UI.
-- **Sample Manifests** — biblioteca de YAMLs de exemplo que o usuário pode aplicar a partir do Manifest/Apply existente, para aprender padrões comuns de workloads.
 - **Onboarding/Tutorial in-app** — guia introdutório dentro da própria UI para usuários iniciantes em Kubernetes.
+
+> "Sample Manifests" (biblioteca de YAMLs de exemplo via Manifest/Apply) foi absorvido e superado pela Sprint 98 — ver Templates Catalog.
 
 ---
 
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 100 ✅ — Suporte nativo a macOS no setup.sh + workflows GitHub Actions
+
+- Escopo fechado via `/grill-with-docs`: `setup/setup.sh` recusava auto-install fora do Linux; decisão de dar suporte nativo real a macOS (não só cobertura de CI) via instaladores Homebrew, com Docker provido por **Colima** headless em vez de Docker Desktop (GUI, inviável para o fluxo plug-and-play e para CI) — raciocínio completo na ADR 0016 (`docs/adr/0016-colima-como-provedor-docker-no-macos.md`)
+- `install_docker/kubectl/minikube/helm` ganham branch macOS (`brew install colima docker` / `kubectl` / `minikube` / `helm`); `ensure_homebrew()` auto-instala o Homebrew se ausente (`NONINTERACTIVE=1`); mecanismo Linux (curl/apt) inalterado
+- Modo não-interativo via variáveis de ambiente (`AUTO_INSTALL`, `PROFILE_CHOICE`, `NODES`/`CPUS`/`MEMORY`, e `CONFIRM` em `teardown.sh`) — estende o padrão já usado por `GREENCAP_ENCRYPTION_KEY`/`DB_PASSWORD`, necessário para automação em CI
+- Novo workflow `.github/workflows/setup-script-validate.yml`: matrix `ubuntu-24.04` (fluxo completo: setup → reachability com retry → teardown) e `macos-14` (`INSTALL_ONLY=true` — só valida os instaladores Homebrew, sem provisionar cluster). `docker-compose-validate.yml` também migrado de `ubuntu-latest` para `ubuntu-24.04` — tags `*-latest` são realocadas pelo GitHub sem aviso, arriscando invalidar premissas específicas de Apple Silicon
+- Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
+- **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
+- Issues: `.scratch/sprint-100/issues/` (3 issues, todas `done`)
+
+### Sprint 98 ✅ — Templates Catalog: catálogo de Templates (greencap-templates) com deploy em um clique
+
+- Escopo fechado via `/grill-with-docs`: item de backlog "Diferencial — Onboarding e Aprendizado" desdobrado em dois conceitos novos no `CONTEXT.md` — **Templates Catalog** (view em Developer Experience, lista de cards) e **Template** (unidade: app de estudo completa, multi-recurso), mais a operação **Deploy Template**. Raciocínio completo registrado na ADR 0015 (`docs/adr/0015-sample-catalog-templates-via-indice-raw-http.md`): índice `catalog.json` + manifest `template.yaml` por Template, buscados via HTTP raw (sem cliente Git); componentes sem imagem pública são buildados via Kaniko (reaproveitando o mecanismo de Deploy from Dockerfile/Import Compose), publicando no Registry interno do Cluster; "Installed" é por Cluster (Namespace de nome fixo no índice), não por usuário; deploy aborta no primeiro conflito, sem rollback; sem gate de permissão (ADR 0013 já eliminou o sistema de permissões interno — RBAC do Kubernetes autoriza)
+- Novo repositório público `greencapk8s/greencap-templates` (em inglês — primeiro repositório do ecossistema a adotar esse padrão): `catalog.json`, e o Template seed `crud-flask-postgres` (Flask + PostgreSQL, sem frontend separado, com Ingress fixo `crud-flask-postgres.greencap.local`, labels `app.kubernetes.io/part-of`/`component` em todos os recursos para agrupamento correto na Topologia, e páginas HTML com CSS próprio via `static/style.css`)
+- `SampleCatalogService`: fetch e parsing do índice/manifest via HTTP simples, sem cache; `isInstalled` verifica existência da Namespace declarada no índice
+- `TemplateDeploymentService`: aplica o arquivo de recurso da Namespace primeiro; roda Kaniko por entrada em `builds` (`dockerfilePath` resolvido relativo ao `contextPath`, não à raiz do repo — mesma convenção de Deploy from Dockerfile); substitui o valor-sentinela `__BUILD__<name>` pela imagem publicada; aplica os demais recursos via client genérico do Fabric8 (`resourceList`/`NamespaceableResource`, tipos não conhecidos de antemão)
+- `SampleCatalogView` (rota `developer-experience/sample-catalog`, menu "Templates Catalog"): lista de cards com CSS próprio (grid responsivo, sombra com hover, chips de tecnologia, badge Installed/botão Deploy), preview somente-leitura antes de confirmar deploy, log de build inline durante o Kaniko; após deploy bem-sucedido, força o recarregamento do combobox de Namespaces do `MainLayout` (`refreshClusterState()`, mesmo mecanismo já usado por `NamespacesView`)
+- Menu **Operators** ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false` em `MainLayout`) — ainda beta, rotas continuam funcionando
+- Infraestrutura: `local-path-provisioner` instalado no `greencap-demo` (vendorizado em `samples/greencap-demo/local-path-storage.yaml`, aplicado por `cluster-setup.sh`) e definido como StorageClass default, resolvendo a limitação de `nodeAffinity` do hostpath-provisioner já registrada no backlog (Sprint 71) — descoberta reativada ao ver o Postgres do Template em `CreateContainerConfigError` num node diferente do node com os dados
+- Testes: `SampleCatalogServiceTest` e `TemplateDeploymentServiceTest` (parsing de fixtures, `isInstalled` via `@EnableKubernetesMockClient`, substituição de sentinela, abort-sem-rollback em conflito) em `kubernetes/`; `SampleCatalogViewTest` (badge Installed oculta/mostra o botão Deploy, preview abre somente-leitura sem disparar deploy antes da confirmação) em `ui/` — `forceReload()` da view tornado síncrono (mesmo padrão de `NamespacesView.loadNamespaces()`) para permitir dirigir o teste sem correr atrás de uma thread virtual
+- Dois bugs pré-existentes encontrados durante o aceite manual e registrados no backlog (não corrigidos nesta sprint): badge de status de Pod não reflete `CrashLoopBackOff`; combobox de Namespaces não atualiza após Deploy Application/Deploy from Dockerfile/Import Compose (mesma causa corrigida aqui para Deploy Template)
+- Issues: `.scratch/sprint-98/issues/` (5 issues, todas `done`)
 
 ### Sprint 97 ✅ — Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling)
 
@@ -183,30 +227,6 @@
 - `UserManagementView`: grupo "Helm" na treeview de permissões
 - `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
 - Issues: `.scratch/sprint-90/issues/` (4 issues, todas `done`)
-
-### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
-
-- `StorageService.deletePersistentVolume(Cluster, String)`: remove o PV via Fabric8 `client.persistentVolumes().withName(name).delete()`
-- `Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE`: nova permissão concedida a usuários com `GLOBAL_INFRASTRUCTURE_CORDON`; `V29__add_pv_delete_permission.sql`
-- `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
-- `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
-- `gradle.properties`: bump de `0.7.0` → `0.7.1`
-- Issues: `.scratch/sprint-89/issues/` (2 issues, ambas `done`)
-
-### Sprint 88 ✅ — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
-
-- Seção **Developer Experience** adicionada ao sidebar do `MainLayout` (entre Global e Settings), com badge `beta` em fonte menor no item pai
-- `KubernetesOperatorService`: detecta presença do OLM (`isOlmInstalled`), lista operators instalados via `Subscription` + `ClusterServiceVersion`, lista catálogo via `PackageManifest` de todos os `CatalogSource`s, instala via `Subscription` + `OperatorGroup` (AllNamespaces), desinstala removendo Subscription + CSV; status derivado do CSV phase com fallback para `Subscription.status.state` quando CSV ainda não existe (`Failed`/`ResolutionFailed` → badge vermelho com tooltip do reason)
-- DTOs: `OperatorInfo`, `OperatorPackage`, `OperatorChannel`
-- `InstalledOperatorsView` (rota `developer-experience/operators/installed`): grid com filtro embutido no header da coluna Name; botão Uninstall como `SelectionAction` destrutiva no section header; dialog type-to-confirm; OLM missing empty state; badge de fase (`Installing`/`Succeeded`/`Failed`) com tooltip no `Failed`
-- `OperatorCatalogView` (rota `developer-experience/operators/catalog`): carrega catálogo uma vez com `ProgressBar` indeterminate; filtro de nome no header da coluna Name; filtro de CatalogSource no header da coluna Catalog; botão Install como `SelectionAction` no section header; `refresh()` é no-op (evita reload a cada tick do auto-refresh); botão Refresh manual força reload; após install navega para InstalledOperatorsView
-- `Permission`: 3 novas permissões `DEVELOPER_EXPERIENCE_OPERATORS_VIEW/INSTALL/UNINSTALL`; `V28__add_developer_experience_operator_permissions.sql`
-- `DataInitializer`: garante que o admin sempre tenha todas as permissões atuais em qualquer startup (não apenas na criação)
-- `setup/setup.sh` e `samples/greencap-demo/cluster-provision.sh`: addon `olm` habilitado com `kubectl rollout status deployment/olm-operator` de espera
-- `UserManagementView`: grupo "Kubernetes Operators" na treeview de permissões da seção Developer Experience
-- `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
-- `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
-- Issues: `.scratch/sprint-88/issues/` (4 issues, todas `done`)
 
 ---
 

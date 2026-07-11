@@ -616,14 +616,18 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         return nav;
     }
 
+    // Kubernetes Operators is still beta — kept fully working (routes, views) but hidden
+    // from the sidebar until it's ready to be surfaced to all users.
+    private static final boolean OPERATORS_MENU_VISIBLE = false;
+
     private SideNav buildDeveloperExperienceNav() {
         SideNav nav = new SideNav();
         nav.setWidthFull();
 
-        boolean canOperators = true;
+        if (OPERATORS_MENU_VISIBLE) {
+            boolean canOperators = true;
 
-        SideNavItem operatorsItem = navItem("Operators", InstalledOperatorsView.class, VaadinIcon.GRID_BIG_O, canOperators);
-        if (canOperators) {
+            SideNavItem operatorsItem = navItem("Operators", InstalledOperatorsView.class, VaadinIcon.GRID_BIG_O, canOperators);
             Span betaBadge = new Span("beta");
             betaBadge.getStyle()
                     .set("font-size", "var(--lumo-font-size-xxs)")
@@ -632,15 +636,20 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                     .set("letter-spacing", "0.05em")
                     .set("margin-left", "var(--lumo-space-xs)");
             operatorsItem.setSuffixComponent(betaBadge);
-        }
-        operatorsItem.addItem(navItem("Installed", InstalledOperatorsView.class, VaadinIcon.CHECK_CIRCLE_O, canOperators));
-        operatorsItem.addItem(navItem("Catalog", OperatorCatalogView.class, VaadinIcon.SEARCH, canOperators));
+            operatorsItem.addItem(navItem("Installed", InstalledOperatorsView.class, VaadinIcon.CHECK_CIRCLE_O, canOperators));
+            operatorsItem.addItem(navItem("Catalog", OperatorCatalogView.class, VaadinIcon.SEARCH, canOperators));
 
-        if (canOperators) {
             clusterDependentNavItems.add(operatorsItem);
+            nav.addItem(operatorsItem);
         }
 
-        nav.addItem(operatorsItem);
+        boolean canSampleCatalog = true;
+        SideNavItem sampleCatalogItem = navItem("Templates Catalog", SampleCatalogView.class, VaadinIcon.GRID_H, canSampleCatalog);
+        if (canSampleCatalog) {
+            clusterDependentNavItems.add(sampleCatalogItem);
+        }
+
+        nav.addItem(sampleCatalogItem);
         return nav;
     }
 
