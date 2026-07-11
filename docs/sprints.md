@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 | 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
 | 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
 | 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
 | 90 | Helm Releases — listagem, detalhes (Notes/Values/Manifest) e uninstall via Helm CLI | ✅ Concluído |
-| 89 | PersistentVolumes — operação Delete com guard de Bound e badge de status | ✅ Concluído |
 
 ---
 
@@ -88,6 +88,12 @@
 
 - **`setup.sh` não é mencionado no `README.md`** — o script provisiona um cluster Minikube completo (profile configurável, addons metrics-server/ingress/registry/olm, registry persistente, build+push da imagem GreenCap e deploy via manifests em `setup/manifests/`), mas hoje só é descoberto por quem navega até `setup/`. Adicionar uma seção no README principal apresentando `./setup/setup.sh` como opção de quickstart alternativa ao `docker compose up` (ex.: "quero rodar num cluster Kubernetes de verdade, não só localmente via Docker"), com o efeito esperado (`http://greencap.local`, login `admin`/`admin`) e o script de teardown correspondente (`setup/teardown.sh`).
 
+#### 👀 Observação — `storage-provisioner` pode repetir o bug do `kube-registry-proxy`
+
+- **Contexto**: um usuário reportou, ao rodar `setup.sh` no macOS, falha `manifest for gcr.io/k8s-minikube/kube-registry-proxy:0.0.8 not found` no Step 4 (addon `registry`). Causa: a tag ficou pinada no binário do minikube instalado (não no `setup.sh`) e foi removida do GCR após o addon migrar para `registry.k8s.io/minikube/kube-registry-proxy:v0.0.11` upstream. Corrigido fixando o override `--images`/`--registries` na chamada `minikube addons enable registry` em `setup/setup.sh`, desacoplando o script da versão de minikube instalada localmente.
+- **Por que só o addon `registry` foi afetado**: dos addons habilitados pelo `setup.sh` (`metrics-server`, `ingress`, `registry`, `olm`), só o `KubeRegistryProxy` vivia em `gcr.io/k8s-minikube/*` — o namespace próprio do minikube no GCR, que sofreu a migração. `ingress` e `metrics-server` já nascem em `registry.k8s.io`; `olm` está em `quay.io` (projeto de terceiros). Nenhum dos três compartilha essa causa raiz — guardrail não replicado neles (ver `docs/adr/` — sem abstrair antes da segunda ocorrência real).
+- **Risco latente não corrigido**: o `storage-provisioner`, habilitado automaticamente pelo `minikube start` (não é um addon explícito no `setup.sh`), ainda está pinado em `gcr.io/k8s-minikube/storage-provisioner` no código atual do minikube — mesmo padrão de risco do `kube-registry-proxy`. Se uma tag antiga for removida do GCR, o `minikube start` quebraria antes mesmo do Step 4 (habilitação de addons). Sem ocorrência real ainda — não corrigido preventivamente. Não dá para mitigar via `--images`/`--registries` do `addons enable` (não é habilitado por addon toggle); exigiria outro mecanismo, ex. `minikube start --extra-config`. Reavaliar se surgir um relato parecido.
+
 #### 🎓 Diferencial — Onboarding e Aprendizado
 
 > Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs. Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint.
@@ -102,6 +108,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 100 ✅ — Suporte nativo a macOS no setup.sh + workflows GitHub Actions
+
+- Escopo fechado via `/grill-with-docs`: `setup/setup.sh` recusava auto-install fora do Linux; decisão de dar suporte nativo real a macOS (não só cobertura de CI) via instaladores Homebrew, com Docker provido por **Colima** headless em vez de Docker Desktop (GUI, inviável para o fluxo plug-and-play e para CI) — raciocínio completo na ADR 0016 (`docs/adr/0016-colima-como-provedor-docker-no-macos.md`)
+- `install_docker/kubectl/minikube/helm` ganham branch macOS (`brew install colima docker` / `kubectl` / `minikube` / `helm`); `ensure_homebrew()` auto-instala o Homebrew se ausente (`NONINTERACTIVE=1`); mecanismo Linux (curl/apt) inalterado
+- Modo não-interativo via variáveis de ambiente (`AUTO_INSTALL`, `PROFILE_CHOICE`, `NODES`/`CPUS`/`MEMORY`, e `CONFIRM` em `teardown.sh`) — estende o padrão já usado por `GREENCAP_ENCRYPTION_KEY`/`DB_PASSWORD`, necessário para automação em CI
+- Novo workflow `.github/workflows/setup-script-validate.yml`: matrix `ubuntu-24.04` (fluxo completo: setup → reachability com retry → teardown) e `macos-14` (`INSTALL_ONLY=true` — só valida os instaladores Homebrew, sem provisionar cluster). `docker-compose-validate.yml` também migrado de `ubuntu-latest` para `ubuntu-24.04` — tags `*-latest` são realocadas pelo GitHub sem aviso, arriscando invalidar premissas específicas de Apple Silicon
+- Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
+- **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
+- Issues: `.scratch/sprint-100/issues/` (3 issues, todas `done`)
 
 ### Sprint 98 ✅ — Templates Catalog: catálogo de Templates (greencap-templates) com deploy em um clique
 
@@ -211,15 +227,6 @@
 - `UserManagementView`: grupo "Helm" na treeview de permissões
 - `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
 - Issues: `.scratch/sprint-90/issues/` (4 issues, todas `done`)
-
-### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
-
-- `StorageService.deletePersistentVolume(Cluster, String)`: remove o PV via Fabric8 `client.persistentVolumes().withName(name).delete()`
-- `Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE`: nova permissão concedida a usuários com `GLOBAL_INFRASTRUCTURE_CORDON`; `V29__add_pv_delete_permission.sql`
-- `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
-- `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
-- `gradle.properties`: bump de `0.7.0` → `0.7.1`
-- Issues: `.scratch/sprint-89/issues/` (2 issues, ambas `done`)
 
 ---
 

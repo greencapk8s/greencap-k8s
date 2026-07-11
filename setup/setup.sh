@@ -29,11 +29,74 @@ echo ""
 echo -e "${GREEN}${BOLD}  GreenCap K8s — Setup${RESET}"
 echo ""
 
-# ─── Auto-install helpers (Linux only) ────────────────────────────────────────
+# ─── Auto-install helpers (Linux and macOS) ────────────────────────────────────
+OS="$(uname -s)"
+
 SUDO=""
 [ "$(id -u)" -ne 0 ] && SUDO="sudo"
 
-install_docker() {
+# ─── macOS (Homebrew/Colima) ───────────────────────────────────────────────────
+# Docker Desktop requires opening the GUI app and accepting terms on first run —
+# incompatible with a headless/scriptable setup. Colima provides a Docker daemon
+# via a Lima VM without that friction. See ADR 0016.
+ensure_homebrew() {
+  command -v brew &>/dev/null && return
+
+  echo "    Installing Homebrew..."
+  NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+
+  command -v brew &>/dev/null || fail "Homebrew installation failed — install manually from https://brew.sh and re-run"
+  ok "Homebrew installed"
+}
+
+install_docker_macos() {
+  ensure_homebrew
+  echo "    Installing Docker via Colima (brew)..."
+  brew install colima docker
+
+  # INSTALL_ONLY stops here — used by CI on runners with no nested virtualization,
+  # where `colima start` can never succeed regardless of the code (see ADR 0016)
+  if [ "${INSTALL_ONLY:-}" = "true" ]; then
+    ok "Colima installed — skipping colima start (INSTALL_ONLY set)"
+    return
+  fi
+
+  # Colima's own defaults (2 CPU / 2 GiB) undersize even the Minimal minikube
+  # profile (2 CPUs / 4 GB) once VM + Docker overhead is accounted for — size
+  # explicitly so `minikube start` has room inside the VM
+  colima start --cpu 2 --memory 6
+  ok "Colima started — Docker daemon ready"
+}
+
+install_kubectl_macos() {
+  ensure_homebrew
+  echo "    Installing kubectl via brew..."
+  brew install kubectl
+  ok "kubectl installed"
+}
+
+install_minikube_macos() {
+  ensure_homebrew
+  echo "    Installing minikube via brew..."
+  brew install minikube
+  ok "minikube installed"
+}
+
+install_helm_macos() {
+  ensure_homebrew
+  echo "    Installing helm via brew..."
+  brew install helm
+  ok "helm installed"
+}
+
+# ─── Linux (apt/curl) ───────────────────────────────────────────────────────────
+install_docker_linux() {
   echo "    Installing Docker via get.docker.com..."
   curl -fsSL https://get.docker.com | $SUDO sh
   $SUDO systemctl enable --now docker
@@ -42,18 +105,7 @@ install_docker() {
   exec sg docker -c "bash '$0'"
 }
 
-ensure_docker_accessible() {
-  if ! docker version &>/dev/null 2>&1; then
-    if ! groups | grep -qw docker; then
-      warn "Docker found but user is not in the docker group — adding..."
-      $SUDO usermod -aG docker "$USER"
-    fi
-    warn "Restarting setup with docker group active..."
-    exec sg docker -c "bash '$0'"
-  fi
-}
-
-install_kubectl() {
+install_kubectl_linux() {
   echo "    Installing kubectl..."
   local version
   version="$(curl -Ls https://dl.k8s.io/release/stable.txt)"
@@ -63,7 +115,7 @@ install_kubectl() {
   ok "kubectl ${version} installed"
 }
 
-install_minikube() {
+install_minikube_linux() {
   echo "    Installing minikube..."
   curl -fsSLo /tmp/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
   $SUDO install /tmp/minikube /usr/local/bin/minikube
@@ -71,10 +123,46 @@ install_minikube() {
   ok "minikube installed"
 }
 
-install_helm() {
+install_helm_linux() {
   echo "    Installing helm..."
   curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | $SUDO bash
   ok "helm installed"
+}
+
+# ─── OS dispatch ────────────────────────────────────────────────────────────────
+# Explicit if/else (not `&&`/`||` one-liners) — under `set -e`, a failure on the
+# macOS branch of an `A && B || C` chain falls through to C instead of aborting.
+install_docker() {
+  if [ "$OS" = "Darwin" ]; then install_docker_macos; else install_docker_linux; fi
+}
+install_kubectl() {
+  if [ "$OS" = "Darwin" ]; then install_kubectl_macos; else install_kubectl_linux; fi
+}
+install_minikube() {
+  if [ "$OS" = "Darwin" ]; then install_minikube_macos; else install_minikube_linux; fi
+}
+install_helm() {
+  if [ "$OS" = "Darwin" ]; then install_helm_macos; else install_helm_linux; fi
+}
+
+ensure_docker_accessible() {
+  if [ "$OS" = "Darwin" ]; then
+    if ! docker version &>/dev/null 2>&1; then
+      warn "Docker (Colima) not responding — starting..."
+      colima start
+      docker version &>/dev/null 2>&1 || fail "Colima started but Docker is still unreachable — check 'colima status'"
+    fi
+    return
+  fi
+
+  if ! docker version &>/dev/null 2>&1; then
+    if ! groups | grep -qw docker; then
+      warn "Docker found but user is not in the docker group — adding..."
+      $SUDO usermod -aG docker "$USER"
+    fi
+    warn "Restarting setup with docker group active..."
+    exec sg docker -c "bash '$0'"
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -102,14 +190,21 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
   echo -e "    ${YELLOW}Missing: ${MISSING_TOOLS[*]}${RESET}"
   echo ""
 
-  if [[ "$(uname -s)" != "Linux" ]]; then
-    fail "Auto-install is only supported on Linux. Install the missing tools manually and re-run."
+  if [[ "$OS" != "Linux" && "$OS" != "Darwin" ]]; then
+    fail "Auto-install is only supported on Linux and macOS. Install the missing tools manually and re-run."
   fi
 
-  read -rp "    Install missing tools automatically? [y/N]: " AUTO_INSTALL
-  if [[ "${AUTO_INSTALL,,}" != "y" ]]; then
-    fail "Install the missing tools manually and re-run setup.sh"
+  # AUTO_INSTALL can be pre-set in the environment to skip this prompt (automation/CI)
+  if [ -z "${AUTO_INSTALL:-}" ]; then
+    read -rp "    Install missing tools automatically? [y/N]: " AUTO_INSTALL
   fi
+  # Case-insensitive match without ${VAR,,} — that's Bash 4+ only and breaks under
+  # macOS's system /bin/bash, stuck at 3.2 for licensing reasons (see ADR 0016 for
+  # the broader context on macOS shipping ancient default tooling)
+  case "$AUTO_INSTALL" in
+    y|Y) ;;
+    *) fail "Install the missing tools manually and re-run setup.sh" ;;
+  esac
 
   echo ""
   for tool in "${MISSING_TOOLS[@]}"; do
@@ -118,7 +213,14 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
       kubectl)   install_kubectl  ;;
       minikube)  install_minikube ;;
       helm)      install_helm     ;;
-      openssl)   $SUDO apt-get install -y openssl && ok "openssl installed" ;;
+      openssl)
+        if [ "$OS" = "Darwin" ]; then
+          ensure_homebrew
+          brew install openssl && ok "openssl installed"
+        else
+          $SUDO apt-get install -y openssl && ok "openssl installed"
+        fi
+        ;;
     esac
   done
 
@@ -128,6 +230,16 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
     command -v "$tool" &>/dev/null || fail "$tool installation failed — install manually and re-run"
     ok "$tool  →  $(command -v "$tool")"
   done
+fi
+
+# INSTALL_ONLY stops right after dependencies are in place, before touching Docker/
+# minikube — used by CI to validate the installers on platforms where the runner
+# itself can't provision a VM (e.g. GitHub-hosted macOS runners have no nested
+# virtualization, so Colima/Docker can never actually start there; see ADR 0016)
+if [ "${INSTALL_ONLY:-}" = "true" ]; then
+  echo ""
+  ok "INSTALL_ONLY set — dependencies installed, stopping before cluster provisioning"
+  exit 0
 fi
 
 ensure_docker_accessible
@@ -141,7 +253,10 @@ echo "    [1] Minimal      —  1 node,  2 CPUs,  4 GB RAM"
 echo "    [2] Recommended  —  3 nodes, 2 CPUs,  3 GB RAM each  (default)"
 echo "    [3] Custom       —  you define nodes, CPUs and RAM"
 echo ""
-read -rp "    Your choice [1/2/3]: " PROFILE_CHOICE
+# PROFILE_CHOICE can be pre-set in the environment to skip this prompt (automation/CI)
+if [ -z "${PROFILE_CHOICE:-}" ]; then
+  read -rp "    Your choice [1/2/3]: " PROFILE_CHOICE
+fi
 PROFILE_CHOICE="${PROFILE_CHOICE:-2}"
 
 case "$PROFILE_CHOICE" in
@@ -155,9 +270,10 @@ case "$PROFILE_CHOICE" in
     ;;
   3)
     echo ""
-    read -rp "    Number of nodes [1]: " NODES
-    read -rp "    CPUs per node   [2]: " CPUS
-    read -rp "    RAM per node MB [4096]: " MEMORY
+    # NODES/CPUS/MEMORY can be pre-set in the environment to skip these prompts
+    if [ -z "${NODES:-}" ]; then read -rp "    Number of nodes [1]: " NODES; fi
+    if [ -z "${CPUS:-}" ]; then read -rp "    CPUs per node   [2]: " CPUS; fi
+    if [ -z "${MEMORY:-}" ]; then read -rp "    RAM per node MB [4096]: " MEMORY; fi
     NODES="${NODES:-1}"; CPUS="${CPUS:-2}"; MEMORY="${MEMORY:-4096}"
     ok "Custom  —  $NODES node(s), $CPUS CPUs, ${MEMORY} MB each"
     ;;
@@ -188,8 +304,17 @@ step "Step 4: Enabling addons (metrics-server, ingress, registry, olm)"
 
 minikube addons enable metrics-server -p "$PROFILE"
 minikube addons enable ingress        -p "$PROFILE"
-minikube addons enable registry       -p "$PROFILE"
-minikube addons enable olm            -p "$PROFILE"
+
+# Older minikube binaries embed a stale kube-registry-proxy tag pinned to
+# gcr.io (e.g. 0.0.8), which no longer exists after minikube's image
+# migration to registry.k8s.io. Overriding it here decouples setup.sh from
+# whatever addon defaults happen to be baked into the user's minikube
+# version, matching what upstream currently ships.
+minikube addons enable registry -p "$PROFILE" \
+  --images="KubeRegistryProxy=minikube/kube-registry-proxy:v0.0.11" \
+  --registries="KubeRegistryProxy=registry.k8s.io"
+
+minikube addons enable olm -p "$PROFILE"
 
 echo ""
 echo "    Waiting for OLM operator..."
@@ -346,7 +471,9 @@ if grep -q "greencap.local" /etc/hosts 2>/dev/null; then
     ok "/etc/hosts already contains greencap.local → $MINIKUBE_IP — skipping"
   else
     echo "    Updating greencap.local in /etc/hosts ($EXISTING_IP → $MINIKUBE_IP)..."
-    $SUDO sed -i "/greencap.local/d" /etc/hosts
+    # -i.bak (with a suffix) is the one sed -i form both GNU (Linux) and BSD (macOS) accept
+    $SUDO sed -i.bak "/greencap.local/d" /etc/hosts
+    $SUDO rm -f /etc/hosts.bak
     echo "$HOSTS_ENTRY" | $SUDO tee -a /etc/hosts > /dev/null
     ok "greencap.local updated: $EXISTING_IP → $MINIKUBE_IP"
   fi

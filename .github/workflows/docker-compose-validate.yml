@@ -19,7 +19,9 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Fixed version, not ubuntu-latest — that tag moves to a newer image over time
+    # without notice, risking non-reproducible CI runs
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
@@ -42,7 +44,9 @@ jobs:
           path: build/reports/tests/test/
 
   validate:
-    runs-on: ubuntu-latest
+    # Fixed version, not ubuntu-latest — that tag moves to a newer image over time
+    # without notice, risking non-reproducible CI runs
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
