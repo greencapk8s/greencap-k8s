@@ -1,6 +1,6 @@
 # 02 — Modo não-interativo via variáveis de ambiente em setup.sh e teardown.sh
 
-Status: in-progress
+Status: done
 
 `setup.sh` faz três prompts interativos (`read -rp`): confirmar o auto-install de dependências faltantes, escolher o profile de recursos (Minimal/Recommended/Custom) e, se Custom, pedir nodes/CPUs/RAM. `teardown.sh` faz um quarto prompt, pedindo que o usuário digite "yes" para confirmar a exclusão do cluster. Nenhum dos dois pode rodar sem intervenção humana hoje, o que impede automação (CI ou qualquer script que chame o setup de ponta a ponta).
 

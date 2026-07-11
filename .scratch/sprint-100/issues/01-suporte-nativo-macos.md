@@ -1,6 +1,6 @@
 # 01 — Suporte nativo a macOS nos instaladores do setup.sh
 
-Status: in-progress
+Status: done
 
 Hoje `install_docker`, `install_kubectl`, `install_minikube` e `install_helm` em `setup/setup.sh` só sabem se instalar no Linux (`apt-get`/`systemctl`/binários `linux-amd64`), e o script recusa explicitamente rodar o auto-install fora do Linux, pedindo instalação manual. Esta issue estende cada instalador com um branch macOS baseado em Homebrew, removendo esse bloqueio — um usuário rodando `setup.sh` num Mac do zero deve conseguir completar o setup sem instalar nada manualmente antes, igual já acontece hoje no Linux.
 

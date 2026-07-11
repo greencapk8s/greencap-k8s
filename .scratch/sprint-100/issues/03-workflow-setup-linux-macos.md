@@ -1,6 +1,6 @@
 # 03 — Workflow GitHub Actions validando setup.sh em Linux e macOS
 
-Status: in-progress
+Status: done
 
 Novo workflow (`.github/workflows/setup-script-validate.yml`, seguindo o mesmo estilo de `docker-compose-validate.yml`: jobs nomeados, `timeout-minutes`, trigger por push/PR em `main`/`staging`/`develop` filtrado por path) que executa o setup completo do GreenCap via `setup/setup.sh` de ponta a ponta, numa matrix cobrindo `ubuntu-24.04` e `macos-14`. Depende das issues 01 (suporte macOS) e 02 (modo não-interativo) — sem elas o script não completa sem prompts nem falha explicitamente fora do Linux.
 

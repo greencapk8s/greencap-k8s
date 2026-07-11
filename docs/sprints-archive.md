@@ -830,3 +830,12 @@
 - Issues: `.scratch/archive/sprint-88/issues/` (4 issues, todas `done`)
 
 Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false`) — segue em beta, rotas continuam funcionando; `Permission`/`DEVELOPER_EXPERIENCE_OPERATORS_*` acima descontinuados pela ADR 0013 (RBAC substituindo o sistema de permissões interno, Sprint 94).
+
+### Sprint 89 ✅ — PersistentVolumes: operação Delete com guard de Bound e badge de status
+
+- `StorageService.deletePersistentVolume(Cluster, String)`: remove o PV via Fabric8 `client.persistentVolumes().withName(name).delete()`
+- `Permission.GLOBAL_INFRASTRUCTURE_PV_DELETE`: nova permissão concedida a usuários com `GLOBAL_INFRASTRUCTURE_CORDON`; `V29__add_pv_delete_permission.sql`
+- `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
+- `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
+- `gradle.properties`: bump de `0.7.0` → `0.7.1`
+- Issues: `.scratch/archive/sprint-89/issues/` (2 issues, ambas `done`)
