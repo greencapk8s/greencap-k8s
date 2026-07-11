@@ -224,6 +224,16 @@ if [ "${#MISSING_TOOLS[@]}" -gt 0 ]; then
   done
 fi
 
+# INSTALL_ONLY stops right after dependencies are in place, before touching Docker/
+# minikube — used by CI to validate the installers on platforms where the runner
+# itself can't provision a VM (e.g. GitHub-hosted macOS runners have no nested
+# virtualization, so Colima/Docker can never actually start there; see ADR 0016)
+if [ "${INSTALL_ONLY:-}" = "true" ]; then
+  echo ""
+  ok "INSTALL_ONLY set — dependencies installed, stopping before cluster provisioning"
+  exit 0
+fi
+
 ensure_docker_accessible
 
 # ═══════════════════════════════════════════════════════════════════════════════

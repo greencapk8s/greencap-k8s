@@ -26,10 +26,18 @@ jobs:
           # newer image over time without notice, which would silently invalidate the
           # Apple Silicon-specific assumptions this workflow validates (Colima
           # virtualization, TARGETARCH=arm64 in docker/Dockerfile)
+          #
+          # macOS is install-only: GitHub-hosted macos-* runners have no nested
+          # virtualization, so Colima can never actually start a VM there — confirmed
+          # empirically, not a setup.sh bug (see ADR 0016). The macOS job validates the
+          # Homebrew installers only; the full cluster provisioning is validated on
+          # Linux. Real macOS users (outside this sandboxed runner) are unaffected.
           - os: ubuntu-24.04
             timeout: 25
+            install_only: false
           - os: macos-14
-            timeout: 45
+            timeout: 15
+            install_only: true
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.timeout }}
     env:
@@ -37,6 +45,7 @@ jobs:
       # cluster small enough to fit comfortably on standard GitHub-hosted runners.
       AUTO_INSTALL: "y"
       PROFILE_CHOICE: "1"
+      INSTALL_ONLY: ${{ matrix.install_only }}
     steps:
       - uses: actions/checkout@v6
 
@@ -44,6 +53,7 @@ jobs:
         run: ./setup/setup.sh
 
       - name: Check GreenCap is reachable
+        if: matrix.install_only == false
         run: |
           # Retry — ingress-nginx reconciles the Ingress asynchronously after
           # `kubectl apply`, so the route can 503 for a few seconds right after
@@ -58,7 +68,7 @@ jobs:
           exit 1
 
       - name: Dump diagnostics on failure
-        if: failure()
+        if: failure() && matrix.install_only == false
         run: |
           echo "── kubectl get pods -A ──"
           kubectl get pods -A || true
@@ -73,7 +83,7 @@ jobs:
           minikube logs -p greencap-platform || true
 
       - name: Teardown
-        if: always()
+        if: always() && matrix.install_only == false
         env:
           CONFIRM: "yes"
         run: ./setup/teardown.sh

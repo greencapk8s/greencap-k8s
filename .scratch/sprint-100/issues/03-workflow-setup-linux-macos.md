@@ -10,4 +10,10 @@ O job roda `setup.sh` com `AUTO_INSTALL=y` e `PROFILE_CHOICE=1` (profile Minimal
 
 Após o setup completar, o workflow valida que a aplicação está de fato servindo tráfego — `curl --fail -L http://greencap.local`, reaproveitando a entrada em `/etc/hosts` que o próprio `setup.sh` grava, mesmo caminho que um usuário real percorre. Em caso de falha, um step de diagnóstico (`if: failure()`) despeja logs relevantes (`kubectl get pods -A`, `kubectl logs`, `minikube logs`) antes de encerrar o job, para tornar falhas de CI depuráveis sem precisar reproduzir localmente.
 
-Como último step, o workflow chama `teardown.sh` (com `CONFIRM=yes`, via issue 02) para validar que ele também funciona nas duas plataformas — mesmo o runner sendo destruído ao fim do job de qualquer forma, isso garante que o script de teardown em si não está quebrado.
+Como último step, o workflow chama `teardown.sh` (com `CONFIRM=yes`, via issue 02) para validar que ele também funciona — mesmo o runner sendo destruído ao fim do job de qualquer forma, isso garante que o script de teardown em si não está quebrado.
+
+## Comments
+
+Descoberto na primeira run real: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` falha com `error starting vm: error at 'creating and starting': exit status 1` (driver `vz` sem entitlement de hypervisor), independente de qualquer coisa no nosso código. Confirmado que hardware Apple real não é suficiente — o GitHub bloqueia isso por política do tier compartilhado/gratuito. Ver correção na ADR 0016.
+
+Escopo do job `macos-14` reduzido para instalação apenas: `setup.sh` ganhou a flag `INSTALL_ONLY=true` (para de propósito logo após instalar as dependências via Homebrew, antes de tocar em Docker/minikube), e os steps de reachability/diagnóstico/teardown do workflow passaram a ter `if: matrix.install_only == false`, rodando só no job `ubuntu-24.04`. O suporte nativo a macOS no `setup.sh` (issue 01) continua cobrindo o fluxo completo — a limitação é exclusivamente do runner de CI hospedado, não do script; um usuário real num Mac físico não é afetado.
