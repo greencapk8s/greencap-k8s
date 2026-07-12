@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | 🚧 Em andamento |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
