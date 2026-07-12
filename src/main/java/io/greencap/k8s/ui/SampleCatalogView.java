@@ -398,7 +398,7 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
                 Notification notification = Notification.show(
                         template.title() + " deployed", UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
                 notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                refreshMainLayoutNamespaces();
+                MainLayout.refreshNamespaceSelector(ui);
                 loadAsync(ui);
             });
         } catch (KubernetesOperationException e) {
@@ -473,18 +473,6 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
             pollTask.cancel(false);
             pollTask = null;
         }
-    }
-
-    // Deploy Template creates a new Namespace, but MainLayout's namespace selector only reloads
-    // its item list when the active Cluster itself changes (see MainLayout.updateNamespaceSelector) —
-    // without this, the new Namespace would be invisible in the combobox until the user switches
-    // Cluster and back. Same fix already applied in NamespacesView after Create Namespace.
-    private void refreshMainLayoutNamespaces() {
-        UI.getCurrent().getChildren()
-                .filter(c -> c instanceof MainLayout)
-                .map(c -> (MainLayout) c)
-                .findFirst()
-                .ifPresent(MainLayout::refreshClusterState);
     }
 
     private void showError(String message) {

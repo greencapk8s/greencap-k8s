@@ -212,7 +212,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
                 namespaceService.createNamespace(cluster, name);
                 dialog.close();
                 loadNamespaces();
-                refreshMainLayoutNamespaces();
+                MainLayout.refreshNamespaceSelector(UI.getCurrent());
                 notify("Namespace " + name + " created", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
@@ -271,7 +271,7 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
                 if (namespace.name().equals(clusterContext.getNamespace())) {
                     clusterContext.setNamespace(null);
                 }
-                refreshMainLayoutNamespaces();
+                MainLayout.refreshNamespaceSelector(UI.getCurrent());
                 notify("Namespace " + namespace.name() + " deleted", NotificationVariant.LUMO_SUCCESS);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
@@ -319,14 +319,6 @@ public class NamespacesView extends VerticalLayout implements BeforeEnterObserve
             dataProvider.refreshAll();
             UiConstants.selectFirstOrPreserve(grid, dataProvider, NamespaceInfo::name);
         } catch (KubernetesOperationException ignored) {}
-    }
-
-    private void refreshMainLayoutNamespaces() {
-        UI.getCurrent().getChildren()
-                .filter(c -> c instanceof MainLayout)
-                .map(c -> (MainLayout) c)
-                .findFirst()
-                .ifPresent(MainLayout::refreshClusterState);
     }
 
     private boolean matches(String value, String filter) {

@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 | 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
 | 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 | 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
 | 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
-| 91 | Helm: Repositories, Deploy from Helm (wizard), Upgrade e fix de logs em pods Pending | ✅ Concluído |
 
 ---
 
@@ -26,11 +26,6 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🟡 Média Prioridade
-
-#### 🐛 Bug: combobox de Namespaces não atualiza após criar uma Namespace fora da NamespacesView
-
-- **Selector de Namespace no header fica desatualizado** — descoberto ao testar o Deploy Template (Sprint 98): a Namespace recém-criada pelo Template não aparecia no combobox de Namespaces do `MainLayout`. Causa: `MainLayout.updateNamespaceSelector()` só recarrega os itens do combobox quando o Cluster ativo muda (`!cluster.equals(lastLoadedCluster)`) — criar uma Namespace sem trocar de Cluster não dispara reload. `NamespacesView` já contorna isso após Create Namespace, chamando `MainLayout.refreshClusterState()` (agora também usado por `SampleCatalogView` após Deploy Template). **Deploy Application, Deploy from Dockerfile e Import Compose não fazem essa chamada** — não é percebido nesses fluxos porque todos navegam direto para a `TopologiaView` da Namespace recém-criada (já contextualizada via `clusterContext.setNamespace(...)`), mas o combobox no header fica com a lista desatualizada até o usuário trocar de Cluster e voltar. Aplicar o mesmo `refreshClusterState()` nesses três fluxos.
-- **Combobox perde a seleção (volta para "Select...") num full reload (F5)** — descoberto ao testar os Templates da Sprint 99 (MongoDB/cache-aside). Diferente do bug acima: aqui a lista está correta, mas o **valor selecionado** some após F5, mesmo com `ClusterContext` (`@VaadinSessionScope`, sobrevive ao F5 por estar atrelado à `VaadinSession`) mantendo o Namespace certo no servidor. Causa provável: F5 cria uma `UI` nova (diferente de navegação SPA, que reaproveita a mesma `UI`), zerando o campo de instância `lastLoadedCluster` de `MainLayout` — a condição `!cluster.equals(lastLoadedCluster)` em `updateNamespaceSelector()` é sempre `true` logo após reload, então o caminho síncrono barato (que só aplicaria `namespaceCombo.setValue(...)` a partir da sessão já correta) nunca é tomado; cai sempre em `loadNamespacesForCluster()`, que zera o combo visualmente (`setItems(List.of())`, placeholder) e reconstrói tudo assincronamente — o valor selecionado é aplicado num *segundo push*, disparado de uma virtual thread solta (`Thread.ofVirtual().start(() -> ui.access(...))`, comentário "to guarantee a distinct push batch"). Hipótese: em SPA a conexão push (`@Push`) já está estabelecida quando esse double-push roda; no F5, o canal push só é aberto pelo cliente depois da resposta HTML inicial — se o segundo `ui.access()` dispara antes do canal estar pronto, a atualização de valor se perde no cliente. Investigar se um único push (aplicar itens + valor selecionado juntos) resolve, evitando a dependência de timing entre dois pushes.
 
 #### 🐛 Bug: badge de status de Pod não reflete CrashLoopBackOff/BackOff
 
@@ -108,6 +103,14 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 101 ✅ — Bug fixes do selector de Namespace no header (refresh pós-deploy + seleção no F5)
+
+- Dois bugs do combobox de Namespaces do `MainLayout`, ambos registrados no backlog durante os aceites das Sprints 98/99 — fluxo de bug fix pontual (sem `/grill-with-docs` nem issues formais em `.scratch/`)
+- **Selector desatualizado após deploy**: Deploy Application, Deploy from Dockerfile e Import Compose criam uma Namespace nova e navegam direto para a `TopologiaView`, mas não recarregavam a lista do combobox no header (a Namespace nova só aparecia após trocar de Cluster e voltar, pois `updateNamespaceSelector()` só recarrega quando o Cluster ativo muda). Fix: os três fluxos passam a chamar o refresh do `MainLayout` após `setNamespace`, antes do `navigate` — mesmo mecanismo já usado por `NamespacesView`/`SampleCatalogView`
+- **Seleção perdida no full reload (F5)**: o valor selecionado sumia após F5 (voltava para "Select...") enquanto a lista continuava correta. Causa: o valor só era aplicado via `@Push` assíncrono — num F5 a `UI` nova abre o canal push apenas após a resposta HTML inicial, então o push do valor podia chegar antes do canal estar pronto e ser descartado pelo cliente (a implementação anterior ainda o piorava usando um *segundo* push disparado de uma virtual thread solta). Fix: `loadNamespacesForCluster()` semeia o combo **sincronamente** com o Namespace da sessão (item único + valor) antes do load assíncrono — como o `ClusterContext` é `@VaadinSessionScope` e sobrevive ao F5, o valor entra no render HTML inicial sem depender de push; o task assíncrono depois substitui pela lista completa de Namespaces
+- **Limpeza de duplicação**: o helper que localiza o `MainLayout` a partir da view e chama `refreshClusterState()` estava copiado idêntico em `NamespacesView` e `SampleCatalogView`; com mais três fluxos precisando dele, foi extraído para o estático `MainLayout.refreshNamespaceSelector(UI)` e os cinco call sites apontam para lá
+- Sem novos testes automatizados: o núcleo do fix do F5 é timing do canal `@Push` (inerentemente de browser, fora do alcance do Karibu, que roda single-thread sem push real); validado por aceite manual nos dois cenários (F5 e navegação SPA) e nos três fluxos de deploy. Suíte existente rodada como verificação de regressão (verde)
 
 ### Sprint 100 ✅ — Suporte nativo a macOS no setup.sh + workflows GitHub Actions
 
@@ -209,19 +212,6 @@
 - `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
 - `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
 - `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
-
-### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
-
-- `HelmRepository` (entidade JPA, `HelmRepositoryRepository`, `HelmRepositoryService`): repos persistidos por cluster; `V31__create_helm_repositories.sql`
-- `HelmService.install()`: `--create-namespace` para criar namespace se ausente; `ensureRepos()` re-adiciona todos os repos antes de cada operação; `--reuse-values` no `upgrade()`
-- `HelmService.upgrade()`: aceita nova versão e values editados; re-adiciona repos antes da execução
-- `Permission.PROJECT_HELM_INSTALL/UPGRADE`; `V32__add_helm_install_upgrade_permissions.sql`
-- `HelmRepositoriesView` (rota `helm/repositories`): grid Name/URL; botão "Add Repository" no section header; `SelectionAction` Remove com `ConfirmDialog`; sub-item "Repositories" na seção Helm do sidebar
-- `DeployFromHelmView` (rota `deploy/helm`): 4º modo em New Application; wizard 3 passos (Chart → Config → Values & Install); Back como ícone puro; footer com spacer para alinhar Next/Install à direita; após install atualiza namespace ativo via `clusterContext.setNamespace` + `userService.updateActiveNamespace` e navega para `HelmReleasesView`
-- `HelmReleasesView`: `SelectionAction` Upgrade com dialog pré-preenchido com values atuais e campo de nova versão
-- `ObservabilityService.fetchPodLogs()`: guard para pods em fase `Pending` — retorna mensagem informativa imediatamente em vez de bloquear até timeout
-- `gradle.properties`: bump `0.7.1` → `0.7.2`
-- Issues: `.scratch/sprint-91/issues/` (6 issues, todas `done`)
 
 ---
 

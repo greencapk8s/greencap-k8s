@@ -493,6 +493,7 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                         clusterContext.setNamespace(request.namespace());
                         String username = SecurityContextHolder.getContext().getAuthentication().getName();
                         userService.updateActiveNamespace(username, request.namespace());
+                        MainLayout.refreshNamespaceSelector(ui);
                         ui.navigate(TopologiaView.class);
                     } else {
                         String created = String.join(", ", result.createdResources());
