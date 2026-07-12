@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 | 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 | 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
-| 92 | Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência | ✅ Concluído |
 
 ---
 
@@ -44,6 +44,10 @@
 #### 🔌 Developer Experience — follow-ups da Sprint 88
 
 - **Custom Resources** — view genérica na seção Developer Experience que lista os tipos de CRD instalados por operators (filtrados por grupo `*.io` de operators gerenciados pelo OLM), exibe instâncias por namespace e permite criar/editar/deletar via YAML reutilizando o mecanismo de Apply existente. Cobre automaticamente qualquer operator instalado (Grafana, Prometheus, cert-manager, KEDA, etc.) sem precisar de painéis específicos por operator. Posicionamento no sidebar: `DEVELOPER EXPERIENCE → Custom Resources`, abaixo de Operators.
+
+#### 🎯 Templates Catalog — follow-ups da Sprint 102
+
+- **Uninstall Template no card instalado** — adicionar ao card de um Template instalado uma ação de desinstalação, complementando o "Open Topology" entregue na Sprint 102. Mecanicamente é encaixável (estado instalado = Namespace existe; desinstalar = `NamespaceService.deleteNamespace`, cascateando a remoção dos recursos namespaced — mesmo mecanismo da `Delete Namespace`), mas foi deixado para sprint própria por carregar um design tree que não deve ser decidido no impulso: (a) **operação destrutiva** — exige dialog type-to-confirm e cobertura de teste Karibu própria (guard de confirmação); (b) **o que "Uninstall" realmente remove** — deletar a Namespace não remove as imagens buildadas via Kaniko e publicadas no **Registry interno** do Cluster no Deploy Template, nem eventuais recursos **cluster-scoped** que um Template venha a criar (hoje os Templates são namespaced, mas o modelo não garante) — decisão *hard-to-reverse* e *surprising*, candidata a ADR; (c) **simetria com Deploy Template** — Deploy é abort-no-primeiro-conflito sem rollback (ADR 0015); Uninstall precisa de semântica coerente e novo termo no glossário espelhando `Uninstall Operator`/`Delete Namespace`; (d) **layout do card** — footer passaria a ter badge + Open Topology + Uninstall, misturando navegação inócua com ação destrutiva — avaliar hierarquia visual (ícone discreto / overflow menu) em vez de empilhar botões.
 
 #### ⚡ UX — Carregamento assíncrono nas views restantes
 
@@ -103,6 +107,17 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 102 ✅ — Templates Catalog: ação "Open Topology" no card de Template instalado
+
+- Escopo fechado via `/grill-with-docs` — feature pequena e focada; Uninstall de Template avaliado e **deliberadamente adiado** para sprint própria (registrado no backlog com as 4 questões abertas: operação destrutiva, o que "uninstall" remove do Registry interno, simetria com Deploy Template, hierarquia visual do footer)
+- `SampleCatalogView`: o card de um Template instalado passa a mostrar o badge "Installed" à esquerda **e** um botão "Open Topology" à direita (footer `JustifyContentMode.BETWEEN`); botão secundário (small/tertiary) com o ícone `CLUSTER` — o mesmo da Topologia no sidebar — para não competir com o "Deploy" primário dos cards não-instalados
+- Ação "Open Topology": troca o Namespace ativo para o Namespace do Template (vem do `TemplateSummary`/`catalog.json`, sem fetch extra), persiste via `userService.updateActiveNamespace`, atualiza o combo do header com `MainLayout.refreshNamespaceSelector(UI)` (helper da Sprint 101) e navega para a `TopologiaView` — mesmo contrato de navegação do pós-deploy das views de New Application. Injeta `UserService` na view (antes ausente)
+- Estado "Installed" é snapshot: a ação navega **sem** re-checar existência da Namespace no clique — se removida por fora, a `TopologiaView` (async, com tratamento de inacessível desde a Sprint 50) renderiza topologia vazia, sem crash; consistente com o tratamento de snapshot de `ConnectionStatus`
+- Fix cosmético incluído: no badge "Installed", ícone de check e texto estavam colados — adicionado `margin-inline-start` no label
+- `CONTEXT.md`: entrada **Templates Catalog** atualizada descrevendo a ação "Open Topology" no card instalado, explicitando que é distinta do botão "Go to resource" do painel de detalhe da própria Topologia
+- Testes: `SampleCatalogViewTest` (Karibu) estendido — card instalado renderiza "Open Topology" junto ao badge; card não-instalado não o mostra (só "Deploy"); clicar troca o Namespace ativo para o do Template (`clusterContext.setNamespace` + `userService.updateActiveNamespace` verificados, absorvendo o `NotFoundException` de `navigate` no ambiente de teste sem rotas)
+- Issues: `.scratch/sprint-102/issues/` (1 issue, `done`)
 
 ### Sprint 101 ✅ — Bug fixes do selector de Namespace no header (refresh pós-deploy + seleção no F5)
 
@@ -200,18 +215,6 @@
 - `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
 - `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
 - Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`
-
-### Sprint 92 ✅ — Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência
-
-- `CodeMirrorEditor` (componente Vaadin customizado): Lit + `@NpmPackage` (`codemirror`, `@codemirror/lang-yaml`, `@codemirror/theme-one-dark`); syntax highlighting YAML, line numbers, indent 2 espaços, fonte mono; tema sincronizado via `closest('[theme~="dark"]')` + MutationObserver subtree; altura configurável; API: `getValue/setValue/setReadOnly/focus`
-- `ManifestView`: substituído `Pre` + `TextArea` por `CodeMirrorEditor` permanente; `readOnly=true` na visualização, `readOnly=false` no edit; campo `lastLoadedYaml` para restaurar no Cancel sem reload de rede
-- `DeployFromHelmView`, `HelmReleasesView`: `TextArea` de values substituído por `CodeMirrorEditor`; dialog de Upgrade com `setResizable(true)`, tamanho inicial 720×520px e editor flex-grow
-- `helm.svg` em `META-INF/resources/icons/helm.svg`: símbolo ⎈ (leme, 8 raios) com `currentColor`; `MainLayout.buildHelmNavItem()` usa `SvgIcon` em vez de `VaadinIcon.PACKAGE`
-- `MainLayout`: ícone ⓘ como `setSuffixComponent` no item "Repositories" com tooltip "cluster-scoped"
-- `HelmReleasesView`: coluna Updated truncada para `yyyy-MM-dd HH:mm`; `refresh()` com guard `clusterErrorMessage.isVisible()` — para de disparar quando cluster em erro
-- `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
-- `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
-- `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
 
 ---
 

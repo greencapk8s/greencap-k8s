@@ -7,6 +7,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextArea;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
@@ -27,6 +28,7 @@ import java.util.List;
 import static com.github.mvysny.kaributesting.v10.LocatorJ.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -34,6 +36,7 @@ import static org.mockito.Mockito.when;
 class SampleCatalogViewTest extends KaribuTest {
 
     @Mock private ClusterContext clusterContext;
+    @Mock private UserService userService;
     @Mock private SampleCatalogService sampleCatalogService;
     @Mock private TemplateDeploymentService templateDeploymentService;
     @Mock private RegistryService registryService;
@@ -53,7 +56,7 @@ class SampleCatalogViewTest extends KaribuTest {
         when(clusterContext.getCluster()).thenReturn(cluster);
 
         loginAs("testuser");
-        view = new SampleCatalogView(clusterContext, sampleCatalogService, templateDeploymentService,
+        view = new SampleCatalogView(clusterContext, userService, sampleCatalogService, templateDeploymentService,
                 registryService, observabilityService);
     }
 
@@ -66,10 +69,11 @@ class SampleCatalogViewTest extends KaribuTest {
 
         assertThat(_find(view, Button.class, s -> s.withText("Deploy"))).isNotEmpty();
         assertThat(_find(view, Span.class, s -> s.withText("Installed"))).isEmpty();
+        assertThat(_find(view, Button.class, s -> s.withText("Open Topology"))).isEmpty();
     }
 
     @Test
-    void installedTemplate_hidesDeployButton_showsInstalledBadge() {
+    void installedTemplate_hidesDeployButton_showsInstalledBadgeAndOpenTopology() {
         when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
         when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
 
@@ -77,6 +81,23 @@ class SampleCatalogViewTest extends KaribuTest {
 
         assertThat(_find(view, Button.class, s -> s.withText("Deploy"))).isEmpty();
         assertThat(_find(view, Span.class, s -> s.withText("Installed"))).isNotEmpty();
+        assertThat(_find(view, Button.class, s -> s.withText("Open Topology"))).isNotEmpty();
+    }
+
+    @Test
+    void clickingOpenTopology_switchesActiveNamespace_toTemplateNamespace() {
+        when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
+        when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
+        clickRefresh();
+
+        // navigate(TopologiaView) throws NotFoundException in the test environment (route not
+        // registered), but the namespace switch runs before it — absorb it and assert the switch.
+        try {
+            _click(_get(view, Button.class, s -> s.withText("Open Topology")));
+        } catch (com.vaadin.flow.router.NotFoundException ignored) {}
+
+        verify(clusterContext).setNamespace(TEMPLATE.namespace());
+        verify(userService).updateActiveNamespace("testuser", TEMPLATE.namespace());
     }
 
     @Test

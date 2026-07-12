@@ -25,6 +25,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
@@ -36,6 +37,7 @@ import io.greencap.k8s.kubernetes.dto.TemplateManifest;
 import io.greencap.k8s.kubernetes.dto.TemplateSummary;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -65,6 +67,7 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
     private static final int POLL_INTERVAL_SECONDS = 3;
 
     private final ClusterContext clusterContext;
+    private final UserService userService;
     private final SampleCatalogService sampleCatalogService;
     private final TemplateDeploymentService templateDeploymentService;
     private final RegistryService registryService;
@@ -79,11 +82,13 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
     private ScheduledFuture<?> pollTask;
 
     public SampleCatalogView(ClusterContext clusterContext,
+                              UserService userService,
                               SampleCatalogService sampleCatalogService,
                               TemplateDeploymentService templateDeploymentService,
                               RegistryService registryService,
                               ObservabilityService observabilityService) {
         this.clusterContext = clusterContext;
+        this.userService = userService;
         this.sampleCatalogService = sampleCatalogService;
         this.templateDeploymentService = templateDeploymentService;
         this.registryService = registryService;
@@ -272,14 +277,24 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
         HorizontalLayout footer = new HorizontalLayout();
         footer.setWidthFull();
         footer.setDefaultVerticalComponentAlignment(Alignment.CENTER);
-        footer.setJustifyContentMode(JustifyContentMode.END);
 
         if (installed) {
-            Span installedBadge = new Span(VaadinIcon.CHECK_CIRCLE.create(), new Span("Installed"));
+            footer.setJustifyContentMode(JustifyContentMode.BETWEEN);
+
+            Span installedLabel = new Span("Installed");
+            installedLabel.getStyle().set("margin-inline-start", "var(--lumo-space-xs)");
+            Span installedBadge = new Span(VaadinIcon.CHECK_CIRCLE.create(), installedLabel);
             installedBadge.getElement().getThemeList().add("badge");
             installedBadge.getElement().getThemeList().add("success");
-            footer.add(installedBadge);
+
+            Button openTopologyButton = new Button("Open Topology", VaadinIcon.CLUSTER.create(),
+                    e -> openTopology(template));
+            openTopologyButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            footer.add(installedBadge, openTopologyButton);
         } else {
+            footer.setJustifyContentMode(JustifyContentMode.END);
+
             Button deployButton = new Button("Deploy", VaadinIcon.ROCKET.create(), e -> openPreviewDialog(template));
             deployButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
             deployButton.setWidthFull();
@@ -289,6 +304,19 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
 
         card.add(heading, description, techBadges, divider, footer);
         return card;
+    }
+
+    // Enters the deployed solution: switches the active Namespace to the Template's own Namespace
+    // (taken from the catalog index, no extra fetch) and opens its Topologia. The installed state is
+    // a snapshot, so we navigate without re-checking existence — a Namespace removed out-of-band just
+    // renders an empty Topologia. Mirrors the post-deploy navigation of the New Application flows.
+    private void openTopology(TemplateSummary template) {
+        clusterContext.setNamespace(template.namespace());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.updateActiveNamespace(username, template.namespace());
+        UI ui = UI.getCurrent();
+        MainLayout.refreshNamespaceSelector(ui);
+        ui.navigate(TopologiaView.class);
     }
 
     private void openPreviewDialog(TemplateSummary template) {
