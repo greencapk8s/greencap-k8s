@@ -1,6 +1,6 @@
 # 02 — Novo Template: Cache-aside in Python (Flask) + PostgreSQL + Redis
 
-Status: in-progress
+Status: done
 
 Novo Template no catálogo (repositório `greencap-templates`) demonstrando o padrão cache-aside — não um CRUD "Redis puro". Decisão registrada no `CONTEXT.md` do `greencap-k8s` (verbete Template): Redis não deve ser modelado como datastore primário de um CRUD, é usado pelo seu papel idiomático (cache), com PostgreSQL como fonte de verdade.
 

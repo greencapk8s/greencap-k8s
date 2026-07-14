@@ -598,6 +598,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         clusterContext.setNamespace(namespace);
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         userService.updateActiveNamespace(username, namespace);
+        MainLayout.refreshNamespaceSelector(ui);
         ui.navigate(TopologiaView.class);
     }
 

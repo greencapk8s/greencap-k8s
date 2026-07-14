@@ -24,14 +24,16 @@ jobs:
         include:
           # Fixed runner versions, not ubuntu-latest/macos-latest — those tags move to a
           # newer image over time without notice, which would silently invalidate the
-          # Apple Silicon-specific assumptions this workflow validates (Colima
-          # virtualization, TARGETARCH=arm64 in docker/Dockerfile)
+          # Apple Silicon-specific assumptions this workflow validates (TARGETARCH=arm64
+          # in docker/Dockerfile)
           #
           # macOS is install-only: GitHub-hosted macos-* runners have no nested
-          # virtualization, so Colima can never actually start a VM there — confirmed
-          # empirically, not a setup.sh bug (see ADR 0016). The macOS job validates the
-          # Homebrew installers only; the full cluster provisioning is validated on
-          # Linux. Real macOS users (outside this sandboxed runner) are unaffected.
+          # virtualization, so no Docker daemon can run there — confirmed empirically
+          # (see ADR 0016). On macOS, Docker is a manual prerequisite, so setup.sh no
+          # longer installs it; the job provides just the docker CLI (below) so the
+          # requirements check passes and the remaining Homebrew installers
+          # (kubectl/minikube/helm/openssl) get validated. Full cluster provisioning is
+          # validated on Linux; real macOS users (outside this runner) are unaffected.
           - os: ubuntu-24.04
             timeout: 25
             install_only: false
@@ -48,6 +50,13 @@ jobs:
       INSTALL_ONLY: ${{ matrix.install_only }}
     steps:
       - uses: actions/checkout@v6
+
+      - name: Provide Docker CLI (macOS)
+        if: matrix.install_only == true
+        # macOS runners ship no Docker and setup.sh no longer installs it (Docker is a
+        # manual prerequisite on macOS). The install-only run stops before any daemon
+        # is needed, so the CLI binary alone satisfies the requirements check.
+        run: brew install docker
 
       - name: Run setup.sh
         run: ./setup/setup.sh

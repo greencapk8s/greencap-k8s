@@ -1,6 +1,6 @@
 # 01 — Novo Template: CRUD in Python (Flask) + MongoDB
 
-Status: in-progress
+Status: done
 
 Novo Template no catálogo (repositório `greencap-templates`), análogo ao `crud-flask-postgres` existente, trocando o datastore relacional por um documental. Objetivo didático: comparar diretamente os dois templates — mesma aplicação, mesma entidade, bancos diferentes — pra evidenciar o que muda entre uma conexão relacional e uma documental dentro do mesmo padrão de Deployment stateless + storage stateful na Namespace.
 
