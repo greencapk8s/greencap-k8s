@@ -655,6 +655,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
             ui.access(() -> {
                 if (result.isFullSuccess()) {
                     clusterContext.setNamespace(deployRequest.namespace());
+                    MainLayout.refreshNamespaceSelector(ui);
                     String username = SecurityContextHolder.getContext().getAuthentication().getName();
                     userService.updateActiveNamespace(username, deployRequest.namespace());
                     ui.navigate(TopologiaView.class);

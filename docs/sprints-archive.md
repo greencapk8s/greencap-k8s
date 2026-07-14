@@ -839,3 +839,52 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
 - `gradle.properties`: bump de `0.7.0` → `0.7.1`
 - Issues: `.scratch/archive/sprint-89/issues/` (2 issues, ambas `done`)
+
+### Sprint 90 ✅ — Helm Releases: listagem, detalhes e uninstall via Helm CLI
+
+- `HelmService`: executa operações Helm via `ProcessBuilder`; kubeconfig descriptografado gravado em tempfile com permissão `600` e deletado em `finally`; `listReleases` faz parse do `helm list -o json` via Jackson; `getReleaseDetails` executa `helm get notes/values/manifest` e agrega em `HelmReleaseDetails`; `uninstall` executa `helm uninstall`; `HelmOperationException` em falha de processo ou CLI ausente
+- DTOs: `HelmReleaseInfo` (name, namespace, chart, appVersion, revision, status, updated), `HelmReleaseDetails` (notes, values, manifest)
+- `HelmReleasesView` (rota `helm/releases`): grid com filtro embutido no header da coluna Name; badge de status (`deployed` → success, `failed` → error, demais → contrast); botões "Details" e "Uninstall" como `SelectionAction` no section header; dialog de detalhes com abas Notes/Values/Manifest em `Pre` monoespaçado, carregado async; dialog de uninstall type-to-confirm
+- `Dockerfile`: Helm `v4.2.2` baixado no builder stage, binário copiado para `/usr/local/bin/helm` no runtime stage
+- `setup.sh`: verifica e instala `helm` automaticamente junto com demais dependências
+- `Permission`: `PROJECT_HELM_VIEW` + `PROJECT_HELM_UNINSTALL`; `V30__add_helm_permissions.sql`
+- `MainLayout`: seção Helm com sub-item "Releases" abaixo de Storage em Project
+- `UserManagementView`: grupo "Helm" na treeview de permissões
+- `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
+- Issues: `.scratch/archive/sprint-90/issues/` (4 issues, todas `done`)
+
+### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
+
+- `HelmRepository` (entidade JPA, `HelmRepositoryRepository`, `HelmRepositoryService`): repos persistidos por cluster; `V31__create_helm_repositories.sql`
+- `HelmService.install()`: `--create-namespace` para criar namespace se ausente; `ensureRepos()` re-adiciona todos os repos antes de cada operação; `--reuse-values` no `upgrade()`
+- `HelmService.upgrade()`: aceita nova versão e values editados; re-adiciona repos antes da execução
+- `Permission.PROJECT_HELM_INSTALL/UPGRADE`; `V32__add_helm_install_upgrade_permissions.sql`
+- `HelmRepositoriesView` (rota `helm/repositories`): grid Name/URL; botão "Add Repository" no section header; `SelectionAction` Remove com `ConfirmDialog`; sub-item "Repositories" na seção Helm do sidebar
+- `DeployFromHelmView` (rota `deploy/helm`): 4º modo em New Application; wizard 3 passos (Chart → Config → Values & Install); Back como ícone puro; footer com spacer para alinhar Next/Install à direita; após install atualiza namespace ativo via `clusterContext.setNamespace` + `userService.updateActiveNamespace` e navega para `HelmReleasesView`
+- `HelmReleasesView`: `SelectionAction` Upgrade com dialog pré-preenchido com values atuais e campo de nova versão
+- `ObservabilityService.fetchPodLogs()`: guard para pods em fase `Pending` — retorna mensagem informativa imediatamente em vez de bloquear até timeout
+- `gradle.properties`: bump `0.7.1` → `0.7.2`
+- Issues: `.scratch/archive/sprint-91/issues/` (6 issues, todas `done`)
+
+### Sprint 92 ✅ — Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência
+
+- `CodeMirrorEditor` (componente Vaadin customizado): Lit + `@NpmPackage` (`codemirror`, `@codemirror/lang-yaml`, `@codemirror/theme-one-dark`); syntax highlighting YAML, line numbers, indent 2 espaços, fonte mono; tema sincronizado via `closest('[theme~="dark"]')` + MutationObserver subtree; altura configurável; API: `getValue/setValue/setReadOnly/focus`
+- `ManifestView`: substituído `Pre` + `TextArea` por `CodeMirrorEditor` permanente; `readOnly=true` na visualização, `readOnly=false` no edit; campo `lastLoadedYaml` para restaurar no Cancel sem reload de rede
+- `DeployFromHelmView`, `HelmReleasesView`: `TextArea` de values substituído por `CodeMirrorEditor`; dialog de Upgrade com `setResizable(true)`, tamanho inicial 720×520px e editor flex-grow
+- `helm.svg` em `META-INF/resources/icons/helm.svg`: símbolo ⎈ (leme, 8 raios) com `currentColor`; `MainLayout.buildHelmNavItem()` usa `SvgIcon` em vez de `VaadinIcon.PACKAGE`
+- `MainLayout`: ícone ⓘ como `setSuffixComponent` no item "Repositories" com tooltip "cluster-scoped"
+- `HelmReleasesView`: coluna Updated truncada para `yyyy-MM-dd HH:mm`; `refresh()` com guard `clusterErrorMessage.isVisible()` — para de disparar quando cluster em erro
+- `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
+- `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
+- `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
+
+### Sprint 93 ✅ — Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider
+
+- `ClusterProvider` enum removido; migration `V33__remove_cluster_provider.sql` dropa coluna `provider` da tabela `clusters`; `CreateClusterRequest` passa a ter apenas `name` + `kubeconfigContent`
+- `ClusterService.synthesizeKubeconfig(url, token, caCert)`: sintetiza kubeconfig mínimo a partir de Token+URL; CA em PEM → base64-encoda para `certificate-authority-data`; sem CA → `insecure-skip-tls-verify: true`
+- `ClustersView`: dialog "New Cluster" com `TabSheet` (Token+URL primeiro, Kubeconfig segundo); dialog `560×520px` resizable; aba Token+URL tem campo URL, TextArea de bearer token e `Details` colapsável para CA certificate opcional
+- Guards de UX: primeiro cluster registrado é ativado automaticamente; ao deletar cluster ativo, ativa automaticamente o próximo disponível (ou limpa contexto se não há mais)
+- `cluster-provision.sh` renomeado para `cluster-setup.sh` via `git mv`; `cluster-teardown.sh` criado com confirmação explícita (`yes`) antes de deletar
+- `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
+- `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
+- Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`

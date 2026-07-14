@@ -5,9 +5,12 @@ import com.vaadin.flow.component.dialog.Dialog;
 import com.vaadin.flow.component.html.Pre;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextArea;
+import com.vaadin.flow.component.textfield.TextField;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
+import io.greencap.k8s.kubernetes.NamespaceService;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.SampleCatalogService;
@@ -27,6 +30,7 @@ import java.util.List;
 import static com.github.mvysny.kaributesting.v10.LocatorJ.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -34,10 +38,12 @@ import static org.mockito.Mockito.when;
 class SampleCatalogViewTest extends KaribuTest {
 
     @Mock private ClusterContext clusterContext;
+    @Mock private UserService userService;
     @Mock private SampleCatalogService sampleCatalogService;
     @Mock private TemplateDeploymentService templateDeploymentService;
     @Mock private RegistryService registryService;
     @Mock private ObservabilityService observabilityService;
+    @Mock private NamespaceService namespaceService;
 
     private static final TemplateSummary TEMPLATE = new TemplateSummary(
             "crud-flask-postgres", "CRUD in Python (Flask) + PostgreSQL",
@@ -45,16 +51,17 @@ class SampleCatalogViewTest extends KaribuTest {
             List.of("Python", "Flask", "PostgreSQL"), "crud-flask-postgres", "crud-flask-postgres");
 
     private SampleCatalogView view;
+    private Cluster cluster;
 
     @BeforeEach
     void setupView() {
-        Cluster cluster = new Cluster();
+        cluster = new Cluster();
         cluster.setName("test-cluster");
         when(clusterContext.getCluster()).thenReturn(cluster);
 
         loginAs("testuser");
-        view = new SampleCatalogView(clusterContext, sampleCatalogService, templateDeploymentService,
-                registryService, observabilityService);
+        view = new SampleCatalogView(clusterContext, userService, sampleCatalogService, templateDeploymentService,
+                registryService, observabilityService, namespaceService);
     }
 
     @Test
@@ -66,10 +73,12 @@ class SampleCatalogViewTest extends KaribuTest {
 
         assertThat(_find(view, Button.class, s -> s.withText("Deploy"))).isNotEmpty();
         assertThat(_find(view, Span.class, s -> s.withText("Installed"))).isEmpty();
+        assertThat(_find(view, Button.class, s -> s.withText("Open Topology"))).isEmpty();
+        assertThat(findUninstallButtons()).isEmpty();
     }
 
     @Test
-    void installedTemplate_hidesDeployButton_showsInstalledBadge() {
+    void installedTemplate_hidesDeployButton_showsInstalledBadgeAndOpenTopology() {
         when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
         when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
 
@@ -77,6 +86,60 @@ class SampleCatalogViewTest extends KaribuTest {
 
         assertThat(_find(view, Button.class, s -> s.withText("Deploy"))).isEmpty();
         assertThat(_find(view, Span.class, s -> s.withText("Installed"))).isNotEmpty();
+        assertThat(_find(view, Button.class, s -> s.withText("Open Topology"))).isNotEmpty();
+        assertThat(findUninstallButtons()).isNotEmpty();
+    }
+
+    @Test
+    void clickingOpenTopology_switchesActiveNamespace_toTemplateNamespace() {
+        when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
+        when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
+        clickRefresh();
+
+        // navigate(TopologiaView) throws NotFoundException in the test environment (route not
+        // registered), but the namespace switch runs before it — absorb it and assert the switch.
+        try {
+            _click(_get(view, Button.class, s -> s.withText("Open Topology")));
+        } catch (com.vaadin.flow.router.NotFoundException ignored) {}
+
+        verify(clusterContext).setNamespace(TEMPLATE.namespace());
+        verify(userService).updateActiveNamespace("testuser", TEMPLATE.namespace());
+    }
+
+    @Test
+    void clickingUninstall_opensDialog_withConfirmButtonDisabledUntilNamespaceTyped() {
+        when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
+        when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
+        clickRefresh();
+
+        _click(findUninstallButtons().get(0));
+
+        Dialog dialog = _get(Dialog.class);
+        Button confirmButton = _get(dialog, Button.class, s -> s.withText("Uninstall"));
+        assertThat(confirmButton.isEnabled()).isFalse();
+
+        _setValue(_get(dialog, TextField.class), "wrong-namespace");
+        assertThat(confirmButton.isEnabled()).isFalse();
+
+        _setValue(_get(dialog, TextField.class), TEMPLATE.namespace());
+        assertThat(confirmButton.isEnabled()).isTrue();
+    }
+
+    @Test
+    void confirmingUninstall_deletesNamespace_closesDialogAndMarksCardUninstalling() {
+        when(sampleCatalogService.fetchCatalog()).thenReturn(List.of(TEMPLATE));
+        when(sampleCatalogService.isInstalled(any(), any())).thenReturn(true);
+        clickRefresh();
+
+        _click(findUninstallButtons().get(0));
+        Dialog dialog = _get(Dialog.class);
+        _setValue(_get(dialog, TextField.class), TEMPLATE.namespace());
+        _click(_get(dialog, Button.class, s -> s.withText("Uninstall")));
+
+        verify(namespaceService).deleteNamespace(cluster, TEMPLATE.namespace());
+        assertThat(_find(Dialog.class)).isEmpty();
+        assertThat(_find(view, Span.class, s -> s.withText("Uninstalling…"))).isNotEmpty();
+        assertThat(_find(view, Span.class, s -> s.withText("Installed"))).isEmpty();
     }
 
     @Test
@@ -102,6 +165,13 @@ class SampleCatalogViewTest extends KaribuTest {
     private void clickRefresh() {
         _click(_get(view, Button.class, s -> s.withPredicate(b ->
                 "Refresh".equals(b.getElement().getAttribute("title")))));
+    }
+
+    // The Uninstall control is an icon-only button identified by its Tooltip (see
+    // SampleCatalogView.buildUninstallButton) rather than by text or the "title" HTML attribute.
+    private List<Button> findUninstallButtons() {
+        return _find(view, Button.class, s -> s.withPredicate(b ->
+                b.getTooltip() != null && "Uninstall Template".equals(b.getTooltip().getText())));
     }
 
     // The preview dialog is populated in the background (AsyncTasks.execute + ui.access), so a

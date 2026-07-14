@@ -19,14 +19,17 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent.JustifyContentMode;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.progressbar.ProgressBar;
+import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.NamespaceService;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.SampleCatalogService;
@@ -36,8 +39,10 @@ import io.greencap.k8s.kubernetes.dto.TemplateManifest;
 import io.greencap.k8s.kubernetes.dto.TemplateSummary;
 import jakarta.annotation.security.PermitAll;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,10 +70,12 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
     private static final int POLL_INTERVAL_SECONDS = 3;
 
     private final ClusterContext clusterContext;
+    private final UserService userService;
     private final SampleCatalogService sampleCatalogService;
     private final TemplateDeploymentService templateDeploymentService;
     private final RegistryService registryService;
     private final ObservabilityService observabilityService;
+    private final NamespaceService namespaceService;
 
     private final VerticalLayout noClusterMessage;
     private final VerticalLayout clusterErrorMessage;
@@ -77,17 +84,22 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
 
     private boolean loading = false;
     private ScheduledFuture<?> pollTask;
+    private final List<ScheduledFuture<?>> uninstallPolls = new ArrayList<>();
 
     public SampleCatalogView(ClusterContext clusterContext,
+                              UserService userService,
                               SampleCatalogService sampleCatalogService,
                               TemplateDeploymentService templateDeploymentService,
                               RegistryService registryService,
-                              ObservabilityService observabilityService) {
+                              ObservabilityService observabilityService,
+                              NamespaceService namespaceService) {
         this.clusterContext = clusterContext;
+        this.userService = userService;
         this.sampleCatalogService = sampleCatalogService;
         this.templateDeploymentService = templateDeploymentService;
         this.registryService = registryService;
         this.observabilityService = observabilityService;
+        this.namespaceService = namespaceService;
 
         setSizeFull();
         setPadding(true);
@@ -132,6 +144,8 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
     @Override
     protected void onDetach(DetachEvent detachEvent) {
         stopPolling();
+        uninstallPolls.forEach(future -> future.cancel(false));
+        uninstallPolls.clear();
         super.onDetach(detachEvent);
     }
 
@@ -224,6 +238,93 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
                 .set("box-shadow", "var(--lumo-box-shadow-xs)")
                 .set("transform", "translateY(0)"));
 
+        renderCardContent(card, template, installed);
+        return card;
+    }
+
+    // Rebuilds a card's body in place so a single card can move between Installed / Deploy states without
+    // reloading the whole catalog (used by the Uninstall auto-heal poll), clearing any disabled styling a
+    // prior "Uninstalling" state left behind.
+    private void renderCardContent(Div card, TemplateSummary template, boolean installed) {
+        card.removeAll();
+        card.getStyle().remove("opacity").remove("pointer-events");
+
+        H4 title = new H4(template.title());
+        title.getStyle().set("margin", "0").set("line-height", "1.3");
+
+        HorizontalLayout heading = new HorizontalLayout(buildIconBadge(), title);
+        heading.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        heading.setSpacing(true);
+        heading.setPadding(false);
+        heading.setWidthFull();
+
+        // Uninstall lives in the title corner, deliberately apart from the footer's Open Topology:
+        // a destructive action must not share visual weight with inert navigation (see ADR 0017).
+        if (installed) {
+            heading.add(buildUninstallButton(template, card));
+            heading.expand(title);
+        }
+
+        HorizontalLayout footer = new HorizontalLayout();
+        footer.setWidthFull();
+        footer.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+
+        if (installed) {
+            footer.setJustifyContentMode(JustifyContentMode.BETWEEN);
+
+            Span installedLabel = new Span("Installed");
+            installedLabel.getStyle().set("margin-inline-start", "var(--lumo-space-xs)");
+            Span installedBadge = new Span(VaadinIcon.CHECK_CIRCLE.create(), installedLabel);
+            installedBadge.getElement().getThemeList().add("badge");
+            installedBadge.getElement().getThemeList().add("success");
+
+            Button openTopologyButton = new Button("Open Topology", VaadinIcon.CLUSTER.create(),
+                    e -> openTopology(template));
+            openTopologyButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
+
+            footer.add(installedBadge, openTopologyButton);
+        } else {
+            footer.setJustifyContentMode(JustifyContentMode.END);
+
+            Button deployButton = new Button("Deploy", VaadinIcon.ROCKET.create(), e -> openPreviewDialog(template));
+            deployButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
+            deployButton.setWidthFull();
+            footer.add(deployButton);
+            footer.expand(deployButton);
+        }
+
+        card.add(heading, buildDescription(template), buildTechBadges(template), buildDivider(), footer);
+    }
+
+    // Optimistic transient state: the Namespace lingers in Terminating after deleteNamespace, so neither
+    // Open Topology nor Deploy is valid — the card is disabled with an "Uninstalling…" badge until the
+    // auto-heal poll confirms the Namespace is gone and flips it back to a Deploy card.
+    private void renderUninstallingCard(Div card, TemplateSummary template) {
+        card.removeAll();
+        card.getStyle().set("opacity", "0.6").set("pointer-events", "none");
+
+        H4 title = new H4(template.title());
+        title.getStyle().set("margin", "0").set("line-height", "1.3");
+
+        HorizontalLayout heading = new HorizontalLayout(buildIconBadge(), title);
+        heading.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        heading.setSpacing(true);
+        heading.setPadding(false);
+        heading.setWidthFull();
+
+        Span uninstallingBadge = new Span("Uninstalling…");
+        uninstallingBadge.getElement().getThemeList().add("badge");
+        uninstallingBadge.getElement().getThemeList().add("contrast");
+
+        HorizontalLayout footer = new HorizontalLayout(uninstallingBadge);
+        footer.setWidthFull();
+        footer.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+        footer.setJustifyContentMode(JustifyContentMode.START);
+
+        card.add(heading, buildDescription(template), buildTechBadges(template), buildDivider(), footer);
+    }
+
+    private Div buildIconBadge() {
         Div iconBadge = new Div(VaadinIcon.CUBES.create());
         iconBadge.getStyle()
                 .set("display", "flex")
@@ -235,20 +336,17 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
                 .set("background", "var(--lumo-primary-color-10pct)")
                 .set("color", "var(--lumo-primary-text-color)")
                 .set("flex-shrink", "0");
+        return iconBadge;
+    }
 
-        H4 title = new H4(template.title());
-        title.getStyle().set("margin", "0").set("line-height", "1.3");
-
-        HorizontalLayout heading = new HorizontalLayout(iconBadge, title);
-        heading.setDefaultVerticalComponentAlignment(Alignment.CENTER);
-        heading.setSpacing(true);
-        heading.setPadding(false);
-        heading.setWidthFull();
-
+    private Paragraph buildDescription(TemplateSummary template) {
         Paragraph description = new Paragraph(template.description());
         description.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
         description.getStyle().set("margin", "0").set("flex-grow", "1");
+        return description;
+    }
 
+    private Div buildTechBadges(TemplateSummary template) {
         Div techBadges = new Div();
         techBadges.getStyle().set("display", "flex").set("flex-wrap", "wrap").set("gap", "var(--lumo-space-xs)");
         for (String technology : template.technologies()) {
@@ -262,33 +360,133 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
                     .set("font-weight", "500");
             techBadges.add(chip);
         }
+        return techBadges;
+    }
 
+    private Hr buildDivider() {
         Hr divider = new Hr();
         divider.getStyle()
                 .set("width", "100%")
                 .set("margin", "0")
                 .set("border-color", "var(--lumo-contrast-10pct)");
+        return divider;
+    }
 
-        HorizontalLayout footer = new HorizontalLayout();
-        footer.setWidthFull();
-        footer.setDefaultVerticalComponentAlignment(Alignment.CENTER);
-        footer.setJustifyContentMode(JustifyContentMode.END);
+    // Enters the deployed solution: switches the active Namespace to the Template's own Namespace
+    // (taken from the catalog index, no extra fetch) and opens its Topologia. The installed state is
+    // a snapshot, so we navigate without re-checking existence — a Namespace removed out-of-band just
+    // renders an empty Topologia. Mirrors the post-deploy navigation of the New Application flows.
+    private void openTopology(TemplateSummary template) {
+        clusterContext.setNamespace(template.namespace());
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        userService.updateActiveNamespace(username, template.namespace());
+        UI ui = UI.getCurrent();
+        MainLayout.refreshNamespaceSelector(ui);
+        ui.navigate(TopologiaView.class);
+    }
 
-        if (installed) {
-            Span installedBadge = new Span(VaadinIcon.CHECK_CIRCLE.create(), new Span("Installed"));
-            installedBadge.getElement().getThemeList().add("badge");
-            installedBadge.getElement().getThemeList().add("success");
-            footer.add(installedBadge);
-        } else {
-            Button deployButton = new Button("Deploy", VaadinIcon.ROCKET.create(), e -> openPreviewDialog(template));
-            deployButton.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
-            deployButton.setWidthFull();
-            footer.add(deployButton);
-            footer.expand(deployButton);
+    // Discreet icon-only button in the title corner: error-subtle at rest, tooltip compensates for the
+    // missing label (the backlog asked for a discreet icon, not a stacked destructive button).
+    private Button buildUninstallButton(TemplateSummary template, Div card) {
+        Button uninstallButton = new Button(VaadinIcon.TRASH.create(), e -> openUninstallDialog(template, card));
+        uninstallButton.addThemeVariants(
+                ButtonVariant.LUMO_TERTIARY_INLINE, ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_ERROR);
+        uninstallButton.getStyle().set("flex-shrink", "0");
+        uninstallButton.setTooltipText("Uninstall Template");
+        return uninstallButton;
+    }
+
+    // Uninstall Template deletes the Template's Namespace only — not the images its Kaniko Builds pushed to
+    // the internal Registry, nor any cluster-scoped resources (ADR 0017). Type-to-confirm on the Namespace
+    // name, reusing the Delete Namespace warning, since this is a Delete Namespace with catalog context.
+    private void openUninstallDialog(TemplateSummary template, Div card) {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+
+        String namespace = template.namespace();
+
+        Dialog dialog = new Dialog();
+        dialog.setHeaderTitle("Uninstall " + template.title());
+        dialog.setWidth("480px");
+
+        Span warning = new Span("Uninstalling \"" + template.title() + "\" deletes its Namespace \"" + namespace +
+                "\" and permanently removes ALL resources inside it — Pods, Deployments, Services, ConfigMaps, " +
+                "Secrets, PersistentVolumeClaims, and more. This action cannot be undone.");
+        warning.getStyle().set("color", "var(--lumo-error-text-color)");
+
+        Span instruction = new Span("Type the namespace name to confirm:");
+        instruction.getStyle().set("margin-top", "var(--lumo-space-m)").set("display", "block");
+
+        TextField confirmField = new TextField();
+        confirmField.setWidthFull();
+        confirmField.setPlaceholder(namespace);
+
+        VerticalLayout content = new VerticalLayout(warning, instruction, confirmField);
+        content.setPadding(false);
+        content.setSpacing(true);
+        dialog.add(content);
+
+        Button cancelButton = new Button("Cancel", e -> dialog.close());
+        cancelButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
+
+        Button confirmButton = new Button("Uninstall", e -> runUninstall(dialog, cluster, template, card));
+        confirmButton.addThemeVariants(ButtonVariant.LUMO_ERROR, ButtonVariant.LUMO_PRIMARY);
+        confirmButton.setEnabled(false);
+
+        confirmField.addValueChangeListener(e -> confirmButton.setEnabled(namespace.equals(e.getValue().trim())));
+
+        dialog.getFooter().add(cancelButton, confirmButton);
+        dialog.open();
+        confirmField.focus();
+    }
+
+    private void runUninstall(Dialog dialog, Cluster cluster, TemplateSummary template, Div card) {
+        try {
+            namespaceService.deleteNamespace(cluster, template.namespace());
+            dialog.close();
+            UI ui = UI.getCurrent();
+            if (template.namespace().equals(clusterContext.getNamespace())) {
+                clusterContext.setNamespace(null);
+            }
+            MainLayout.refreshNamespaceSelector(ui);
+            Notification notification = Notification.show(
+                    template.title() + " uninstalled", UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
+            notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
+            renderUninstallingCard(card, template);
+            pollUntilUninstalled(ui, cluster, template, card);
+        } catch (KubernetesOperationException e) {
+            log.error("Failed to uninstall Template {} on cluster {}: {}",
+                    template.id(), cluster.getName(), e.getMessage());
+            showError(e.getMessage());
         }
+    }
 
-        card.add(heading, description, techBadges, divider, footer);
-        return card;
+    // Auto-heal: Namespace deletion is asynchronous, so after Uninstall we poll until the Namespace is
+    // actually gone and then flip the card back to a deployable state — the view's auto-refresh is a
+    // deliberate no-op (it would re-fetch the whole HTTP catalog every tick), so nothing else would.
+    private void pollUntilUninstalled(UI ui, Cluster cluster, TemplateSummary template, Div card) {
+        final ScheduledFuture<?>[] holder = new ScheduledFuture<?>[1];
+        Runnable pollCommand = () -> {
+            try {
+                if (!sampleCatalogService.isInstalled(cluster, template)) {
+                    cancelUninstallPoll(holder[0]);
+                    ui.access(() -> renderCardContent(card, template, false));
+                }
+            } catch (Exception e) {
+                log.debug("Error polling uninstall of Template {}: {}", template.id(), e.getMessage());
+                cancelUninstallPoll(holder[0]);
+            }
+        };
+        holder[0] = AsyncTasks.schedulePolling(pollCommand,
+                Duration.ofSeconds(POLL_INTERVAL_SECONDS), Duration.ofSeconds(POLL_INTERVAL_SECONDS));
+        uninstallPolls.add(holder[0]);
+    }
+
+    private void cancelUninstallPoll(ScheduledFuture<?> future) {
+        if (future != null) {
+            future.cancel(false);
+            uninstallPolls.remove(future);
+        }
     }
 
     private void openPreviewDialog(TemplateSummary template) {
@@ -398,7 +596,7 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
                 Notification notification = Notification.show(
                         template.title() + " deployed", UiConstants.NOTIFICATION_DURATION_MS, Notification.Position.BOTTOM_END);
                 notification.addThemeVariants(NotificationVariant.LUMO_SUCCESS);
-                refreshMainLayoutNamespaces();
+                MainLayout.refreshNamespaceSelector(ui);
                 loadAsync(ui);
             });
         } catch (KubernetesOperationException e) {
@@ -473,18 +671,6 @@ public class SampleCatalogView extends VerticalLayout implements BeforeEnterObse
             pollTask.cancel(false);
             pollTask = null;
         }
-    }
-
-    // Deploy Template creates a new Namespace, but MainLayout's namespace selector only reloads
-    // its item list when the active Cluster itself changes (see MainLayout.updateNamespaceSelector) —
-    // without this, the new Namespace would be invisible in the combobox until the user switches
-    // Cluster and back. Same fix already applied in NamespacesView after Create Namespace.
-    private void refreshMainLayoutNamespaces() {
-        UI.getCurrent().getChildren()
-                .filter(c -> c instanceof MainLayout)
-                .map(c -> (MainLayout) c)
-                .findFirst()
-                .ifPresent(MainLayout::refreshClusterState);
     }
 
     private void showError(String message) {

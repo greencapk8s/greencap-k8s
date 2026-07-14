@@ -181,7 +181,21 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     }
 
     private void loadNamespacesForCluster(Cluster cluster) {
-        namespaceCombo.setItems(List.of());
+        // Seed the combo synchronously with the namespace already held in the session so the
+        // selected value is part of the initial server-rendered response. This is what makes the
+        // selection survive a full page reload (F5): a reloaded UI opens its @Push channel only
+        // after the initial HTML response, so a value applied later — via the async push below —
+        // can arrive before that channel is ready and be dropped by the client. The async task
+        // then replaces this single-item list with the full namespace list.
+        String sessionNamespace = clusterContext.getNamespace();
+        if (sessionNamespace != null) {
+            namespaceCombo.setItems(List.of(sessionNamespace));
+            suppressNavigation = true;
+            namespaceCombo.setValue(sessionNamespace);
+            suppressNavigation = false;
+        } else {
+            namespaceCombo.setItems(List.of());
+        }
         namespaceCombo.setPlaceholder("Loading...");
         namespaceCombo.setEnabled(false);
 
@@ -200,27 +214,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
                         preferred = names.isEmpty() ? null : names.get(0);
                     }
 
-                    // Push 1: send items so the client populates its item cache
                     namespaceCombo.setItems(names);
                     namespaceCombo.setPlaceholder("Select...");
                     namespaceCombo.setEnabled(true);
-                    if (preferred != null) {
-                        clusterContext.setNamespace(preferred);
-                    }
                     lastLoadedCluster = cluster;
                     setClusterReachable(true);
 
-                    // Push 2: set value in a separate push cycle so items are already
-                    // available on the client when the selection is applied.
-                    // Calling ui.access() from a new thread (not the current session thread)
-                    // guarantees a distinct push batch.
                     if (preferred != null) {
-                        final String finalPreferred = preferred;
-                        Thread.ofVirtual().start(() -> ui.access(() -> {
-                            suppressNavigation = true;
-                            namespaceCombo.setValue(finalPreferred);
-                            suppressNavigation = false;
-                        }));
+                        clusterContext.setNamespace(preferred);
+                        suppressNavigation = true;
+                        namespaceCombo.setValue(preferred);
+                        suppressNavigation = false;
                     }
                 });
             } catch (KubernetesOperationException e) {
@@ -300,6 +304,17 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         lastLoadedCluster = null;
         updateClusterInfo();
         updateNamespaceSelector();
+    }
+
+    // Reloads the header namespace selector from any view whose layout is this MainLayout.
+    // Needed after a flow creates a Namespace without changing the active Cluster — otherwise
+    // updateNamespaceSelector() takes the cheap path and the new Namespace never enters the combo.
+    public static void refreshNamespaceSelector(UI ui) {
+        ui.getChildren()
+                .filter(MainLayout.class::isInstance)
+                .map(MainLayout.class::cast)
+                .findFirst()
+                .ifPresent(MainLayout::refreshClusterState);
     }
 
     private void retryClusterConnection() {
