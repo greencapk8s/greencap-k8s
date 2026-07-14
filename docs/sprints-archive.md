@@ -877,3 +877,14 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `HelmService`: `USER-SUPPLIED VALUES:` stripped do output de `helm get values`; `LIST_TIMEOUT_SECONDS=8` para `listReleases` (era 30s) — evita acúmulo de virtual threads bloqueados
 - `DeployFromDockerfileView`, `ImportComposeView`: botão "Deploy from Helm" adicionado ao mode selector (estava ausente)
 - `setup.sh`: guard de `/etc/hosts` verifica IP atual vs. `$MINIKUBE_IP` e atualiza se divergente
+
+### Sprint 93 ✅ — Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider
+
+- `ClusterProvider` enum removido; migration `V33__remove_cluster_provider.sql` dropa coluna `provider` da tabela `clusters`; `CreateClusterRequest` passa a ter apenas `name` + `kubeconfigContent`
+- `ClusterService.synthesizeKubeconfig(url, token, caCert)`: sintetiza kubeconfig mínimo a partir de Token+URL; CA em PEM → base64-encoda para `certificate-authority-data`; sem CA → `insecure-skip-tls-verify: true`
+- `ClustersView`: dialog "New Cluster" com `TabSheet` (Token+URL primeiro, Kubeconfig segundo); dialog `560×520px` resizable; aba Token+URL tem campo URL, TextArea de bearer token e `Details` colapsável para CA certificate opcional
+- Guards de UX: primeiro cluster registrado é ativado automaticamente; ao deletar cluster ativo, ativa automaticamente o próximo disponível (ou limpa contexto se não há mais)
+- `cluster-provision.sh` renomeado para `cluster-setup.sh` via `git mv`; `cluster-teardown.sh` criado com confirmação explícita (`yes`) antes de deletar
+- `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
+- `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
+- Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`

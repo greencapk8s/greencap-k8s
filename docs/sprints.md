@@ -8,7 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | 🚧 Em andamento |
+| 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
@@ -18,7 +18,6 @@
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
 | 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
-| 93 | Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider | ✅ Concluído |
 
 ---
 
@@ -46,9 +45,9 @@
 
 - **Custom Resources** — view genérica na seção Developer Experience que lista os tipos de CRD instalados por operators (filtrados por grupo `*.io` de operators gerenciados pelo OLM), exibe instâncias por namespace e permite criar/editar/deletar via YAML reutilizando o mecanismo de Apply existente. Cobre automaticamente qualquer operator instalado (Grafana, Prometheus, cert-manager, KEDA, etc.) sem precisar de painéis específicos por operator. Posicionamento no sidebar: `DEVELOPER EXPERIENCE → Custom Resources`, abaixo de Operators.
 
-#### 🎯 Templates Catalog — follow-ups da Sprint 102
+#### 🎯 Templates Catalog — follow-ups da Sprint 103
 
-- **Uninstall Template no card instalado** — adicionar ao card de um Template instalado uma ação de desinstalação, complementando o "Open Topology" entregue na Sprint 102. Mecanicamente é encaixável (estado instalado = Namespace existe; desinstalar = `NamespaceService.deleteNamespace`, cascateando a remoção dos recursos namespaced — mesmo mecanismo da `Delete Namespace`), mas foi deixado para sprint própria por carregar um design tree que não deve ser decidido no impulso: (a) **operação destrutiva** — exige dialog type-to-confirm e cobertura de teste Karibu própria (guard de confirmação); (b) **o que "Uninstall" realmente remove** — deletar a Namespace não remove as imagens buildadas via Kaniko e publicadas no **Registry interno** do Cluster no Deploy Template, nem eventuais recursos **cluster-scoped** que um Template venha a criar (hoje os Templates são namespaced, mas o modelo não garante) — decisão *hard-to-reverse* e *surprising*, candidata a ADR; (c) **simetria com Deploy Template** — Deploy é abort-no-primeiro-conflito sem rollback (ADR 0015); Uninstall precisa de semântica coerente e novo termo no glossário espelhando `Uninstall Operator`/`Delete Namespace`; (d) **layout do card** — footer passaria a ter badge + Open Topology + Uninstall, misturando navegação inócua com ação destrutiva — avaliar hierarquia visual (ícone discreto / overflow menu) em vez de empilhar botões.
+- **`SampleCatalogView` com construtor de 7 parâmetros — candidata a extração** — descoberto ao revisar `SampleCatalogViewTest` após o ajuste do construtor na Sprint 103 (novo parâmetro `NamespaceService` para o Uninstall). O construtor estoura a convenção de código do projeto ("Métodos: máximo de 3 parâmetros, acima disso criar um objeto de request/DTO") e é sintoma de outra — "Classes: responsabilidade única, uma classe tem um motivo para mudar": a view hoje orquestra quatro preocupações distintas com dependências próprias — listagem/instalação (`SampleCatalogService`), deploy com build (`TemplateDeploymentService` + `RegistryService` + `ObservabilityService`), navegação (`ClusterContext` + `UserService`) e uninstall (`NamespaceService`). Avaliar extrair a lógica de deploy+build (as três dependências de build/logs) para um componente ou controller de suporte próprio, reduzindo a lista de colaboradores injetados diretamente na view.
 
 #### ⚡ UX — Carregamento assíncrono nas views restantes
 
@@ -108,6 +107,20 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
+
+- `SampleCatalogView`: card de Template instalado ganha um ícone de lixeira discreto no canto superior direito do título (botão terciário só-ícone, cor de erro sutil, tooltip "Uninstall Template"), separado do footer onde fica "Open Topology" — ação destrutiva não compete visualmente com navegação inócua
+- Dialog type-to-confirm: reusa o texto de aviso do Delete Namespace; pede o **nome do Namespace** do Template (não o título do card); botão "Uninstall" só habilita quando o texto digitado bate exatamente
+- Confirmar chama `NamespaceService.deleteNamespace(cluster, template.namespace())`, fecha o dialog, limpa o Namespace ativo se era o deletado, atualiza o combo de Namespaces do header (`MainLayout.refreshNamespaceSelector`) e mostra notification de sucesso — single-shot sem rollback, consistente com Deploy Template (ADR 0015)
+- Escopo da remoção — decisão registrada na **ADR 0017**: Uninstall Template deleta **apenas o Namespace**, cascateando os recursos namespaced; deliberadamente **não** remove as imagens que os Kaniko Builds do Deploy Template empurraram para o Registry interno, nem eventuais recursos cluster-scoped (hipotéticos hoje) — espelha Uninstall Operator (deixa CRDs) e Uninstall Helm (deixa PVCs)
+- Estado transitório "Uninstalling…" com auto-heal: como a deleção de Namespace é assíncrona e o `refresh()` da view é um no-op deliberado, o card específico vira um estado desabilitado (opacity reduzida, `pointer-events: none`, badge contrast, sem lixeira/Open Topology/Deploy) e um polling leve (`AsyncTasks.schedulePolling`) checa `isInstalled` até virar `false`, re-renderizando **apenas aquele card** como "Deploy" — suporta múltiplos uninstalls simultâneos, cancelado em `onDetach`. Conteúdo do card extraído para `renderCardContent` para permitir a troca de estado in-place sem recarregar o catálogo inteiro
+- `CONTEXT.md`: entrada **Uninstall Template** adicionada ao glossário
+- Testes (`SampleCatalogViewTest`): card instalado renderiza a lixeira (localizada pela `Tooltip`, botão só-ícone) e card não-instalado não a renderiza; guard do botão "Uninstall" — desabilitado ao abrir, continua desabilitado com texto errado, habilita só com o Namespace exato; confirmar dispara `deleteNamespace` e marca o card "Uninstalling…"
+- Sem gate de permissão (ADR 0013) — Kubernetes API autoriza (ou 403) a deleção via o service account do usuário
+- Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.scratch/sprint-103/issues/`
+- Backlog: registrado follow-up para extrair a lógica de deploy+build da `SampleCatalogView` (construtor cresceu para 7 dependências com a chegada de `NamespaceService`)
+- Issues: `.scratch/sprint-103/issues/` (1 issue, `done`)
 
 ### Sprint 102 ✅ — Templates Catalog: ação "Open Topology" no card de Template instalado
 
@@ -205,17 +218,6 @@
 - `MainLayout`: cluster switcher oculto para não-admin
 - `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
 - Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
-
-### Sprint 93 ✅ — Métodos alternativos de registro de cluster: Token + URL + remoção de ClusterProvider
-
-- `ClusterProvider` enum removido; migration `V33__remove_cluster_provider.sql` dropa coluna `provider` da tabela `clusters`; `CreateClusterRequest` passa a ter apenas `name` + `kubeconfigContent`
-- `ClusterService.synthesizeKubeconfig(url, token, caCert)`: sintetiza kubeconfig mínimo a partir de Token+URL; CA em PEM → base64-encoda para `certificate-authority-data`; sem CA → `insecure-skip-tls-verify: true`
-- `ClustersView`: dialog "New Cluster" com `TabSheet` (Token+URL primeiro, Kubeconfig segundo); dialog `560×520px` resizable; aba Token+URL tem campo URL, TextArea de bearer token e `Details` colapsável para CA certificate opcional
-- Guards de UX: primeiro cluster registrado é ativado automaticamente; ao deletar cluster ativo, ativa automaticamente o próximo disponível (ou limpa contexto se não há mais)
-- `cluster-provision.sh` renomeado para `cluster-setup.sh` via `git mv`; `cluster-teardown.sh` criado com confirmação explícita (`yes`) antes de deletar
-- `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
-- `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
-- Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`
 
 ---
 

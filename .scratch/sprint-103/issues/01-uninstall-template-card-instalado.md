@@ -1,6 +1,6 @@
 # 01 — Uninstall Template no card de Template instalado
 
-Status: in-progress
+Status: done
 
 No Templates Catalog, quando um Template já está instalado no Cluster ativo, o card hoje oferece apenas o badge "Installed" e a ação "Open Topology" (Sprint 102), mas nenhuma forma de desinstalar a solução implantada — o usuário precisa ir até Namespaces e deletar o Namespace manualmente. Esta entrega adiciona ao card instalado uma ação de Uninstall, a operação Uninstall Template (ver `CONTEXT.md`).
 
