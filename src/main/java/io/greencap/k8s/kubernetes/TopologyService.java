@@ -1,11 +1,17 @@
 package io.greencap.k8s.kubernetes;
 
+import io.fabric8.kubernetes.api.model.ConfigMap;
+import io.fabric8.kubernetes.api.model.Container;
+import io.fabric8.kubernetes.api.model.EnvFromSource;
+import io.fabric8.kubernetes.api.model.EnvVar;
 import io.fabric8.kubernetes.api.model.PersistentVolumeClaim;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
+import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.v1.Ingress;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.domain.cluster.Cluster;
@@ -15,12 +21,17 @@ import io.greencap.k8s.kubernetes.dto.TopologyNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,6 +41,7 @@ public class TopologyService {
 
     private static final String LABEL_PART_OF = "app.kubernetes.io/part-of";
     private static final String LABEL_COMPONENT = "app.kubernetes.io/component";
+    private static final Pattern CLUSTER_DNS_SUFFIX = Pattern.compile("^\\.([a-z0-9-]+)\\.svc\\.cluster\\.local\\b");
 
     private final KubernetesClientFactory clientFactory;
 
@@ -47,6 +59,11 @@ public class TopologyService {
             List<Service> services = client.services().inNamespace(namespace).list().getItems();
             List<PersistentVolumeClaim> pvcs = client.persistentVolumeClaims().inNamespace(namespace).list().getItems();
             List<Ingress> ingresses = client.network().v1().ingresses().inNamespace(namespace).list().getItems();
+            List<StatefulSet> statefulSets = client.apps().statefulSets().inNamespace(namespace).list().getItems();
+            Map<String, ConfigMap> configMapsByName = client.configMaps().inNamespace(namespace).list().getItems().stream()
+                    .collect(Collectors.toMap(cm -> cm.getMetadata().getName(), cm -> cm, (a, b) -> a));
+            Map<String, Secret> secretsByName = client.secrets().inNamespace(namespace).list().getItems().stream()
+                    .collect(Collectors.toMap(s -> s.getMetadata().getName(), s -> s, (a, b) -> a));
 
             List<TopologyNode> nodes = new ArrayList<>();
             List<TopologyEdge> edges = new ArrayList<>();
@@ -55,30 +72,35 @@ public class TopologyService {
                 nodes.add(deploymentNode(d));
             }
 
+            for (StatefulSet sts : statefulSets) {
+                nodes.add(statefulSetNode(sts));
+            }
+
             for (ReplicaSet rs : replicaSets) {
                 nodes.add(replicaSetNode(rs));
                 ownerDeploymentId(rs).ifPresent(ownerId ->
-                        edges.add(new TopologyEdge(ownerId, nodeId("replicaset", rs.getMetadata().getName()))));
+                        edges.add(TopologyEdge.structural(ownerId, nodeId("replicaset", rs.getMetadata().getName()))));
             }
 
-            // Group pods by owner ReplicaSet; orphans remain individual
-            Map<String, List<Pod>> podsByOwnerRs = new LinkedHashMap<>();
+            // Group pods by owner (ReplicaSet or StatefulSet); orphans remain individual.
+            // StatefulSet owns its Pods directly — no intermediate ReplicaSet.
+            Map<String, List<Pod>> podsByOwner = new LinkedHashMap<>();
             List<Pod> orphanPods = new ArrayList<>();
 
             for (Pod pod : pods) {
-                Optional<String> ownerRsName = ownerReplicaSetName(pod);
-                if (ownerRsName.isPresent()) {
-                    podsByOwnerRs.computeIfAbsent(ownerRsName.get(), k -> new ArrayList<>()).add(pod);
+                Optional<String> ownerId = podOwnerId(pod);
+                if (ownerId.isPresent()) {
+                    podsByOwner.computeIfAbsent(ownerId.get(), k -> new ArrayList<>()).add(pod);
                 } else {
                     orphanPods.add(pod);
                 }
             }
 
-            for (Map.Entry<String, List<Pod>> entry : podsByOwnerRs.entrySet()) {
-                String rsName = entry.getKey();
+            for (Map.Entry<String, List<Pod>> entry : podsByOwner.entrySet()) {
+                String ownerId = entry.getKey();
                 List<Pod> group = entry.getValue();
-                nodes.add(podGroupNode(rsName, group));
-                edges.add(new TopologyEdge(nodeId("replicaset", rsName), podGroupId(rsName)));
+                nodes.add(podGroupNode(ownerId, group));
+                edges.add(TopologyEdge.structural(ownerId, podGroupId(ownerId)));
             }
 
             for (Pod pod : orphanPods) {
@@ -93,9 +115,9 @@ public class TopologyService {
                 if (selector.isEmpty()) continue;
 
                 // Edge to pod groups
-                for (Map.Entry<String, List<Pod>> entry : podsByOwnerRs.entrySet()) {
+                for (Map.Entry<String, List<Pod>> entry : podsByOwner.entrySet()) {
                     if (entry.getValue().stream().anyMatch(pod -> podMatchesSelector(pod, selector))) {
-                        edges.add(new TopologyEdge(
+                        edges.add(TopologyEdge.structural(
                                 nodeId("service", svc.getMetadata().getName()),
                                 podGroupId(entry.getKey())));
                     }
@@ -103,7 +125,7 @@ public class TopologyService {
                 // Edge to orphan pods
                 orphanPods.stream()
                         .filter(pod -> podMatchesSelector(pod, selector))
-                        .forEach(pod -> edges.add(new TopologyEdge(
+                        .forEach(pod -> edges.add(TopologyEdge.structural(
                                 nodeId("service", svc.getMetadata().getName()),
                                 nodeId("pod", pod.getMetadata().getName()))));
             }
@@ -121,23 +143,32 @@ public class TopologyService {
                 String ingressId = nodeId("ingress", ing.getMetadata().getName());
                 for (String svcName : extractBackendServiceNames(ing)) {
                     if (serviceNames.contains(svcName)) {
-                        edges.add(new TopologyEdge(ingressId, nodeId("service", svcName)));
+                        edges.add(TopologyEdge.structural(ingressId, nodeId("service", svcName)));
                     }
                 }
             }
 
-            for (Map.Entry<String, List<Pod>> entry : podsByOwnerRs.entrySet()) {
+            for (Map.Entry<String, List<Pod>> entry : podsByOwner.entrySet()) {
                 Set<String> claimNames = mountedClaimNames(entry.getValue().get(0));
                 for (String claimName : claimNames) {
-                    edges.add(new TopologyEdge(podGroupId(entry.getKey()), nodeId("persistentvolumeclaim", claimName)));
+                    edges.add(TopologyEdge.structural(podGroupId(entry.getKey()), nodeId("persistentvolumeclaim", claimName)));
                 }
             }
 
             for (Pod orphan : orphanPods) {
                 Set<String> claimNames = mountedClaimNames(orphan);
                 for (String claimName : claimNames) {
-                    edges.add(new TopologyEdge(nodeId("pod", orphan.getMetadata().getName()), nodeId("persistentvolumeclaim", claimName)));
+                    edges.add(TopologyEdge.structural(nodeId("pod", orphan.getMetadata().getName()), nodeId("persistentvolumeclaim", claimName)));
                 }
+            }
+
+            for (Map.Entry<String, List<Pod>> entry : podsByOwner.entrySet()) {
+                addServiceDependencyEdges(edges, podGroupId(entry.getKey()), entry.getValue().get(0),
+                        services, configMapsByName, secretsByName, namespace);
+            }
+            for (Pod orphan : orphanPods) {
+                addServiceDependencyEdges(edges, nodeId("pod", orphan.getMetadata().getName()), orphan,
+                        services, configMapsByName, secretsByName, namespace);
             }
 
             return new TopologyGraph(nodes, edges);
@@ -163,6 +194,21 @@ public class TopologyService {
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
+    private TopologyNode statefulSetNode(StatefulSet sts) {
+        int ready = Optional.ofNullable(sts.getStatus()).map(s -> s.getReadyReplicas()).orElse(0);
+        int desired = Optional.ofNullable(sts.getSpec()).map(s -> s.getReplicas()).orElse(0);
+        String status = desired == 0 ? "Unknown" : (ready >= desired ? "Running" : "Degraded");
+        Map<String, String> labels = Optional.ofNullable(sts.getMetadata().getLabels()).orElse(Map.of());
+        String name = sts.getMetadata().getName();
+        return new TopologyNode(
+                nodeId("statefulset", name),
+                name,
+                "StatefulSet",
+                status,
+                resourceViewUrl("statefulset", name),
+                labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
+    }
+
     private TopologyNode replicaSetNode(ReplicaSet rs) {
         int ready = Optional.ofNullable(rs.getStatus()).map(s -> s.getReadyReplicas()).orElse(0);
         int desired = Optional.ofNullable(rs.getSpec()).map(s -> s.getReplicas()).orElse(0);
@@ -178,15 +224,14 @@ public class TopologyService {
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
-    private TopologyNode podGroupNode(String rsName, List<Pod> group) {
+    private TopologyNode podGroupNode(String ownerId, List<Pod> group) {
         int count = group.size();
         String countLabel = count == 1 ? "1 Pod" : count + " Pods";
         String status = aggregatePodStatus(group);
-        // Strip the RS template-hash suffix to get the base name
-        String baseName = stripLastSegment(rsName);
+        String baseName = podGroupBaseName(ownerId);
         Map<String, String> labels = Optional.ofNullable(group.get(0).getMetadata().getLabels()).orElse(Map.of());
         return new TopologyNode(
-                podGroupId(rsName),
+                podGroupId(ownerId),
                 baseName,
                 countLabel,
                 status,
@@ -316,6 +361,109 @@ public class TopologyService {
                 .collect(Collectors.toSet());
     }
 
+    private record EnvValueCandidate(String name, String value) {}
+
+    private void addServiceDependencyEdges(List<TopologyEdge> edges, String sourceId, Pod pod, List<Service> services,
+                                            Map<String, ConfigMap> configMapsByName, Map<String, Secret> secretsByName,
+                                            String namespace) {
+        List<EnvValueCandidate> candidates = collectEnvCandidates(pod, configMapsByName, secretsByName);
+        if (candidates.isEmpty()) return;
+
+        Set<String> matchedServiceNames = new LinkedHashSet<>();
+        for (Service svc : services) {
+            String serviceName = svc.getMetadata().getName();
+            if (matchedServiceNames.contains(serviceName)) continue;
+            for (EnvValueCandidate candidate : candidates) {
+                if (referencesService(candidate.value(), serviceName, namespace)) {
+                    matchedServiceNames.add(serviceName);
+                    edges.add(TopologyEdge.serviceDependency(
+                            sourceId, nodeId("service", serviceName), candidate.name(), candidate.value()));
+                    break;
+                }
+            }
+        }
+    }
+
+    private List<EnvValueCandidate> collectEnvCandidates(Pod pod, Map<String, ConfigMap> configMapsByName,
+                                                           Map<String, Secret> secretsByName) {
+        List<Container> containers = new ArrayList<>();
+        Optional.ofNullable(pod.getSpec()).ifPresent(spec -> {
+            containers.addAll(Optional.ofNullable(spec.getContainers()).orElse(List.of()));
+            containers.addAll(Optional.ofNullable(spec.getInitContainers()).orElse(List.of()));
+        });
+
+        List<EnvValueCandidate> candidates = new ArrayList<>();
+        for (Container container : containers) {
+            for (EnvVar env : Optional.ofNullable(container.getEnv()).orElse(List.of())) {
+                if (env.getValue() != null && !env.getValue().isBlank()) {
+                    candidates.add(new EnvValueCandidate(env.getName(), env.getValue()));
+                } else if (env.getValueFrom() != null) {
+                    if (env.getValueFrom().getConfigMapKeyRef() != null) {
+                        var ref = env.getValueFrom().getConfigMapKeyRef();
+                        String value = configMapData(ref.getName(), configMapsByName).get(ref.getKey());
+                        if (value != null && !value.isBlank()) candidates.add(new EnvValueCandidate(env.getName(), value));
+                    } else if (env.getValueFrom().getSecretKeyRef() != null) {
+                        var ref = env.getValueFrom().getSecretKeyRef();
+                        String value = secretData(ref.getName(), secretsByName).get(ref.getKey());
+                        if (value != null && !value.isBlank()) candidates.add(new EnvValueCandidate(env.getName(), value));
+                    }
+                }
+            }
+            for (EnvFromSource envFrom : Optional.ofNullable(container.getEnvFrom()).orElse(List.of())) {
+                if (envFrom.getConfigMapRef() != null) {
+                    configMapData(envFrom.getConfigMapRef().getName(), configMapsByName)
+                            .forEach((key, value) -> candidates.add(new EnvValueCandidate(key, value)));
+                } else if (envFrom.getSecretRef() != null) {
+                    secretData(envFrom.getSecretRef().getName(), secretsByName)
+                            .forEach((key, value) -> candidates.add(new EnvValueCandidate(key, value)));
+                }
+            }
+        }
+        return candidates;
+    }
+
+    private Map<String, String> configMapData(String name, Map<String, ConfigMap> configMapsByName) {
+        return Optional.ofNullable(configMapsByName.get(name)).map(ConfigMap::getData).orElse(Map.of());
+    }
+
+    private Map<String, String> secretData(String name, Map<String, Secret> secretsByName) {
+        return Optional.ofNullable(secretsByName.get(name)).map(Secret::getData).orElse(Map.of())
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> decodeBase64(e.getValue())));
+    }
+
+    private String decodeBase64(String value) {
+        try {
+            return new String(Base64.getDecoder().decode(value), StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return "";
+        }
+    }
+
+    /**
+     * Substring/word-boundary match of serviceName within value, rejecting matches that are
+     * part of a cluster-DNS FQDN pointing at a different Namespace (see ADR 0018).
+     */
+    private boolean referencesService(String value, String serviceName, String activeNamespace) {
+        if (value == null || value.isBlank()) return false;
+        int idx = value.indexOf(serviceName);
+        while (idx != -1) {
+            int endIdx = idx + serviceName.length();
+            boolean leftBoundary = idx == 0 || !Character.isLetterOrDigit(value.charAt(idx - 1));
+            boolean rightBoundary = endIdx == value.length() || !Character.isLetterOrDigit(value.charAt(endIdx));
+            if (leftBoundary && rightBoundary && !referencesOtherNamespace(value, endIdx, activeNamespace)) {
+                return true;
+            }
+            idx = value.indexOf(serviceName, idx + 1);
+        }
+        return false;
+    }
+
+    private boolean referencesOtherNamespace(String value, int matchEnd, String activeNamespace) {
+        Matcher matcher = CLUSTER_DNS_SUFFIX.matcher(value.substring(matchEnd));
+        return matcher.lookingAt() && !activeNamespace.equals(matcher.group(1));
+    }
+
     private String aggregatePodStatus(List<Pod> pods) {
         boolean allRunning = pods.stream().allMatch(p ->
                 "Running".equals(Optional.ofNullable(p.getStatus()).map(s -> s.getPhase()).orElse("")));
@@ -338,12 +486,12 @@ public class TopologyService {
                 .map(ref -> nodeId("deployment", ref.getName()));
     }
 
-    private Optional<String> ownerReplicaSetName(Pod pod) {
+    private Optional<String> podOwnerId(Pod pod) {
         return Optional.ofNullable(pod.getMetadata().getOwnerReferences())
                 .flatMap(refs -> refs.stream()
-                        .filter(ref -> "ReplicaSet".equals(ref.getKind()))
+                        .filter(ref -> "ReplicaSet".equals(ref.getKind()) || "StatefulSet".equals(ref.getKind()))
                         .findFirst())
-                .map(ref -> ref.getName());
+                .map(ref -> nodeId(ref.getKind().toLowerCase(), ref.getName()));
     }
 
     private boolean isOwnedByJob(Pod pod) {
@@ -357,8 +505,24 @@ public class TopologyService {
         return selector.entrySet().stream().allMatch(e -> e.getValue().equals(podLabels.get(e.getKey())));
     }
 
-    private String podGroupId(String rsName) {
-        return "pod-group/" + rsName;
+    private String podGroupId(String ownerId) {
+        // Keeps the pre-StatefulSet ID shape ("pod-group/<name>", no kind prefix) so
+        // previously saved TopologyLayout positions for ReplicaSet-owned groups still match.
+        return "pod-group/" + ownerName(ownerId);
+    }
+
+    private String podGroupBaseName(String ownerId) {
+        // Strip the RS template-hash suffix to get the base name; StatefulSet owns Pods
+        // directly under its own name, with no such suffix to strip.
+        return "replicaset".equals(ownerKind(ownerId)) ? stripLastSegment(ownerName(ownerId)) : ownerName(ownerId);
+    }
+
+    private String ownerKind(String ownerId) {
+        return ownerId.substring(0, ownerId.indexOf('/'));
+    }
+
+    private String ownerName(String ownerId) {
+        return ownerId.substring(ownerId.indexOf('/') + 1);
     }
 
     private String partOfGroup(Map<String, String> labels) {
@@ -376,6 +540,7 @@ public class TopologyService {
     private String resourceViewUrl(String resourceType, String name) {
         return switch (resourceType) {
             case "deployment" -> "workloads/deployments?name=" + name;
+            case "statefulset" -> "workloads/statefulsets?name=" + name;
             case "replicaset" -> "workloads/replicasets?name=" + name;
             case "service" -> "networking/services?name=" + name;
             case "persistentvolumeclaim" -> "storage/pvcs?name=" + name;

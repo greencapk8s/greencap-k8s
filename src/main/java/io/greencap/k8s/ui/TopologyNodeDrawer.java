@@ -11,6 +11,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import elemental.json.JsonArray;
 import elemental.json.JsonObject;
 
 class TopologyNodeDrawer extends VerticalLayout {
@@ -49,10 +50,12 @@ class TopologyNodeDrawer extends VerticalLayout {
         String capacity = detail.getString("capacity");
         String accessMode = detail.getString("accessMode");
         JsonObject labelsJson = detail.getObject("labels");
+        JsonArray serviceDependencies = detail.getArray("serviceDependencies");
 
         removeAll();
         add(buildHeader(nodeLabel, type, status), new Hr(), buildBody(
-                type, status, readyReplicas, desiredReplicas, serviceType, capacity, accessMode, labelsJson, manifestUrl));
+                type, status, readyReplicas, desiredReplicas, serviceType, capacity, accessMode, labelsJson,
+                manifestUrl, serviceDependencies));
         setVisible(true);
     }
 
@@ -89,7 +92,7 @@ class TopologyNodeDrawer extends VerticalLayout {
 
     private VerticalLayout buildBody(String type, String status, int ready, int desired,
                                      String serviceType, String capacity, String accessMode,
-                                     JsonObject labelsJson, String manifestUrl) {
+                                     JsonObject labelsJson, String manifestUrl, JsonArray serviceDependencies) {
         VerticalLayout content = new VerticalLayout();
         content.setPadding(false);
         content.setSpacing(true);
@@ -119,10 +122,57 @@ class TopologyNodeDrawer extends VerticalLayout {
             int count = desired > 0 ? desired : ready;
             content.add(buildInfoRow("Pods", count + " pod" + (count != 1 ? "s" : "")));
             content.add(buildInfoRow("Status", status));
+            if (serviceDependencies != null && serviceDependencies.length() > 0) {
+                content.add(buildServiceDependenciesSection(serviceDependencies));
+            }
         }
 
         content.add(buildActionButton(manifestUrl, isPodGroup));
         return content;
+    }
+
+    private VerticalLayout buildServiceDependenciesSection(JsonArray serviceDependencies) {
+        VerticalLayout section = new VerticalLayout();
+        section.setPadding(false);
+        section.setSpacing(true);
+
+        Span title = new Span("Depends on");
+        title.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
+        section.add(title);
+
+        for (int i = 0; i < serviceDependencies.length(); i++) {
+            section.add(buildServiceDependencyRow(serviceDependencies.getObject(i)));
+        }
+        return section;
+    }
+
+    private VerticalLayout buildServiceDependencyRow(JsonObject dependency) {
+        String targetLabel = dependency.getString("targetLabel");
+        String targetManifestUrl = dependency.getString("targetManifestUrl");
+        String matchedEnvVar = dependency.getString("matchedEnvVar");
+        String matchedValue = dependency.getString("matchedValue");
+
+        Span nameSpan = new Span(targetLabel);
+        nameSpan.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.FontWeight.MEDIUM);
+        nameSpan.getStyle().set("flex", "1").set("overflow", "hidden").set("text-overflow", "ellipsis");
+
+        Button goToBtn = new Button(VaadinIcon.ARROW_RIGHT.create());
+        goToBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_SMALL);
+        goToBtn.getElement().setAttribute("title", "Go to " + targetLabel);
+        goToBtn.addClickListener(e -> goToBtn.getUI().ifPresent(ui -> ui.navigate(targetManifestUrl)));
+
+        HorizontalLayout nameRow = new HorizontalLayout(nameSpan, goToBtn);
+        nameRow.setWidthFull();
+        nameRow.setDefaultVerticalComponentAlignment(Alignment.CENTER);
+
+        Span evidenceSpan = new Span("via " + matchedEnvVar + "=" + matchedValue);
+        evidenceSpan.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.XSMALL);
+        evidenceSpan.getStyle().set("word-break", "break-all");
+
+        VerticalLayout row = new VerticalLayout(nameRow, evidenceSpan);
+        row.setPadding(false);
+        row.setSpacing(false);
+        return row;
     }
 
     private HorizontalLayout buildInfoRow(String key, String value) {
