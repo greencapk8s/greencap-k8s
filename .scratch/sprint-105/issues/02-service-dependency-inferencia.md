@@ -1,6 +1,6 @@
 # 02 — Inferência de ServiceDependency (backend)
 
-Status: in-progress
+Status: done
 
 Esta entrega implementa a inferência de dependência entre Workloads, o núcleo da sprint: quando um backend aponta para o Service de outro objeto (ex: um banco de dados) através de uma variável de ambiente, a Topologia passa a desenhar essa relação — sem exigir que o usuário abra o manifest para descobrir isso sozinho. Decisões de escopo fechadas na sessão de `/grill-with-docs` (ver ADR 0018 e a entrada `ServiceDependency` do `CONTEXT.md`, que documentam o raciocínio completo por trás de cada corte abaixo).
 

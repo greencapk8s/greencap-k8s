@@ -279,13 +279,9 @@ export class TopologyGraph extends LitElement {
         },
         {
           // ServiceDependency: inferred from application config, not a Kubernetes-enforced
-          // relationship — dashed and distinctly colored to signal it's a heuristic. Light
-          // blue reads clearly against both the light-gray TopologyGroup box and the dark
-          // theme canvas — amber (already used for Service nodes) clashed with the group box in dark mode.
+          // relationship — dashed to signal it's a heuristic, same color as structural edges.
           selector: 'edge[type = "SERVICE_DEPENDENCY"]',
           style: {
-            'line-color': '#38BDF8',
-            'target-arrow-color': '#38BDF8',
             'line-style': 'dashed',
           },
         },

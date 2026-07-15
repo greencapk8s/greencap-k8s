@@ -904,3 +904,17 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `MainLayout`: cluster switcher oculto para não-admin
 - `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
 - Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
+
+### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
+
+- `KubernetesClientFactory.resolveKubeconfig`: fail-closed — usuário não-admin sem `serviceaccountToken` provisionado lança `KubernetesOperationException` em vez de cair silenciosamente no kubeconfig admin do Cluster (janela de corrida entre `createUser` e `provisionUser`, transações separadas); seam `resolveKubeconfigForUser(Authentication)` extraída para teste sem mockar `SecurityContextHolder`; `KubernetesClientFactoryTest` (4 casos)
+- `Permission.java` e `ClusterProvider.java` removidos — enums órfãos sem nenhum uso real (achado do relatório `/improve-codebase-architecture`)
+- Causa raiz mais profunda descoberta durante o teste de aceite: `SecurityContextHolder` (baseado em `ThreadLocal`) não propaga para virtual threads — todo carregamento assíncrono (namespaces, dashboard, deploy wizards, topologia, logs) rodava sem usuário autenticado, e o comportamento pré-fix mascarava isso caindo direto no kubeconfig admin para qualquer usuário, não só os não provisionados
+- `UiConstants.VIRTUAL_THREADS`: `Executor` envolvido em `DelegatingSecurityContextExecutor` (spring-security-core, já dependência do projeto) — corrige de uma vez as 8 views que já reusavam esse executor compartilhado
+- `DashboardView`: executor privado duplicado removido, passou a reusar `UiConstants.VIRTUAL_THREADS`
+- `MainLayout`: `loadNamespacesForCluster` migrado de `Thread.ofVirtual().start()` para `UiConstants.VIRTUAL_THREADS.execute()`; timer de auto-refresh (`applyRefreshInterval`) envolvido em `DelegatingSecurityContextRunnable`
+- `DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`: `Thread.ofVirtual().start()` migrado para `UiConstants.VIRTUAL_THREADS.execute()` (14 pontos)
+- `BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`: pollers (`ScheduledExecutorService` próprio) envolvidos em `DelegatingSecurityContextRunnable`
+- `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
+- Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
+- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)

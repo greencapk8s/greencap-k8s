@@ -1,6 +1,6 @@
 # 03 — Renderização e evidência de ServiceDependency (frontend)
 
-Status: in-progress
+Status: done
 
 Depende da entrega 02 (a inferência precisa existir no backend antes de ter algo para desenhar). Esta entrega cobre a parte visível ao usuário: diferenciar uma aresta `SERVICE_DEPENDENCY` das arestas estruturais existentes, e mostrar a evidência que justificou a inferência.
 

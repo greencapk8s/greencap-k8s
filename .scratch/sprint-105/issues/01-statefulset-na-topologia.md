@@ -1,6 +1,6 @@
 # 01 — StatefulSet como nó na Topologia
 
-Status: in-progress
+Status: done
 
 Hoje `TopologyService.buildGraph` modela Deployment→ReplicaSet→Pod, mas não busca nem representa StatefulSet — apesar de `WorkloadService` já listar StatefulSets para as demais telas do Project. Isso é um gap real: bancos de dados normalmente rodam como StatefulSet (padrão já documentado na entrada `StatefulSet` do `CONTEXT.md`), então hoje esses objetos simplesmente não aparecem na Topologia. Esta entrega é pré-requisito da Sprint — sem ela, um `ServiceDependency` (entregas seguintes) apontaria para um Service sem nenhum Workload visível atrás dele.
 
