@@ -2,86 +2,38 @@
 
 Plataforma web para gerenciamento e monitoramento de clusters Kubernetes.
 
-## Stack
-
-- Java 21 + Spring Boot 3.3 + Vaadin Flow 24
-- PostgreSQL 16 + Flyway
-- Fabric8 Kubernetes Client 6.13
-- Gradle 8.8 (Kotlin DSL)
-
-## Quick Start (Docker)
-
-Pré-requisitos: apenas **Docker** e **Docker Compose**. Não é necessário instalar Java, Gradle ou Node — todo o build acontece dentro do container.
-
-**1. Clone o repositório e configure as variáveis de ambiente:**
+## Quick Start
 
 ```bash
-cp .env.example .env
+./setup/setup.sh
 ```
 
-Os valores padrão já funcionam para um teste local. Para um deploy em produção real, edite `.env` e troque `ENCRYPTION_KEY`, `DB_USER` e `DB_PASSWORD` por valores próprios e seguros.
+Um wizard interativo que provisiona um cluster Kubernetes real (via Minikube) e implanta o GreenCap dentro dele, pronto para uso — sem precisar instalar Java, Gradle ou configurar nada manualmente. Ao final, a aplicação estará disponível em `http://greencap.local`.
 
-**2. Suba a aplicação:**
+Pré-requisitos: apenas **Docker**. As demais ferramentas (`kubectl`, `minikube`, `helm`, `openssl`) são detectadas e, se ausentes, o próprio wizard oferece instalá-las (Linux e macOS).
+
+### O que o wizard faz
+
+O `setup.sh` conduz o provisionamento em 7 passos:
+
+1. **Checking requirements** — verifica `docker`, `minikube`, `kubectl`, `helm` e `openssl`; oferece instalar as ferramentas ausentes automaticamente.
+2. **Installation profile** — escolha do tamanho do cluster: `Minimal` (1 node, 2 CPUs, 4 GB), `Recommended` (3 nodes, 2 CPUs, 3 GB cada — padrão) ou `Custom` (você define nodes/CPUs/RAM).
+3. **Starting minikube cluster** — sobe o cluster Minikube com o profile escolhido (reaproveita um cluster já existente, se houver).
+4. **Enabling addons** — habilita `metrics-server`, `ingress`, `registry` (com PVC persistente de 8 Gi) e `olm`, aguardando cada um ficar pronto.
+5. **Building and pushing GreenCap image** — builda a imagem do GreenCap a partir do `docker/Dockerfile` e publica no registry interno do cluster.
+6. **Creating namespace and secrets** — cria o namespace `greencap-platform` e o Secret com a chave de encriptação, senha do banco e o kubeconfig do próprio cluster.
+7. **Deploying Postgres and GreenCap** — aplica os manifests em `setup/manifests/`, aguarda o rollout do Postgres e do GreenCap.
+
+Ao final, o script adiciona (ou atualiza) a entrada `greencap.local` em `/etc/hosts` apontando para o IP do Minikube.
+
+Login padrão: `admin` / `admin` (altere após o primeiro acesso).
+
+**Para desprovisionar:**
 
 ```bash
-docker compose up -d --build
+./setup/teardown.sh
 ```
 
-O primeiro build pode levar alguns minutos (compila a aplicação e o frontend Vaadin de produção). Acompanhe o progresso com:
+## Vai alterar o código-fonte?
 
-```bash
-docker compose logs -f greencap
-```
-
-**3. Acesse:**
-
-A aplicação estará disponível em `http://localhost:8080` assim que o serviço `greencap` ficar `healthy` (verifique com `docker compose ps`).
-
-Login padrão: `admin` / `admin`
-
-**Para parar:**
-
-```bash
-docker compose down
-```
-
-Os dados do PostgreSQL ficam no volume `pgdata` e persistem entre execuções. Para apagar tudo, incluindo o banco: `docker compose down -v`.
-
-## Usando um cluster Kubernetes
-
-Ao registrar um cluster, o kubeconfig precisa ter os certificados embutidos (não por caminho de arquivo). Gere uma versão portável com:
-
-```bash
-kubectl config view --flatten --minify
-```
-
-## Ambiente de demonstração
-
-O script `samples/greencap-demo/create.sh` provisiona um namespace completo com Deployments, Services, HPA e Ingress no Minikube — incluindo a ativação automática dos addons `metrics-server` e `ingress`.
-
-```bash
-cd samples/greencap-demo
-./create-demo.sh
-```
-
-## Para desenvolvedores
-
-Fluxo alternativo para quem vai alterar o código-fonte. Requer **Java 21+** e usa o Gradle Wrapper (não precisa instalar Gradle).
-
-**1. Suba apenas o banco de dados:**
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-**2. Rode o app:**
-
-```bash
-./gradlew bootRun
-```
-
-O app estará disponível em `http://localhost:8080`.
-
-Login padrão: `admin` / `admin`
-
-Em desenvolvimento, os valores padrão de `application.yaml` já funcionam sem precisar de `.env`.
+O fluxo acima é para rodar o GreenCap como usuário final. Para desenvolvimento (build local, Docker Compose, ambiente de demonstração), veja o [guia do desenvolvedor](.dev/README.md).
