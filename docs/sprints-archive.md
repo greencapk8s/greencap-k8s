@@ -888,3 +888,19 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `cluster-setup.sh`: cria service account `greencap-admin` com `cluster-admin` + token de 1 ano; exibe URL e token no final do provisionamento
 - `CONTEXT.md`: definição de `Cluster` atualizada para refletir múltiplos métodos de registro (kubeconfig e Token+URL como inputs alternativos)
 - Testes: `ClusterServiceTest`, `ClustersViewTest`, `RegistryViewTest`, `NamespacesViewTest` atualizados para remover `ClusterProvider`
+
+### Sprint 94 ✅ — K8s RBAC substituindo sistema de permissões interno
+
+- `user_permissions` table e enum `Permission` removidos; migration `V34__migrate_to_kubernetes_rbac.sql` dropa `user_permissions` e adiciona colunas `serviceaccount_name`, `cluster_role_name`, `serviceaccount_token` em `users`
+- `User`: campos `serviceaccountName`, `clusterRoleName`, `serviceaccountToken`; campo `permissions` removido
+- `UserService`: `createUser` simplificado (sem permissões); `deactivateUser` substituído por `deleteUser`; `assignKubernetesIdentity` + `clearKubernetesIdentity` para lifecycle do SA
+- `SecurityUtils.isAdmin()`: identifica admin pelo username hardcoded `"admin"` (sem verificação de `Permission`)
+- `KubernetesClientFactory`: context-aware — admin usa kubeconfig do cluster; usuário regular usa SA token encriptado armazenado no banco; `buildAdminClient` e `buildFromRawKubeconfig` para casos especiais
+- `UserProvisioningService`: cria ServiceAccount + ClusterRoleBinding + token no namespace `greencap-system`; constrói kubeconfig sintético com CA extraído do kubeconfig admin (sem double-encoding); `deprovisionUser` deleta SA + CRB; `updateClusterRole` deleta CRB antigo, cria novo e regenera token
+- `KubernetesOperationException.from()`: extrai mensagem legível do cause chain (`KubernetesClientException.getCode()` + fallback por texto "Forbidden"/"403"); exibe "permission denied" para 403, "resource not found" para 404, "conflict" para 409
+- `UserManagementView`: reescrita completa — grid sem coluna Status; ação "Edit Role" (troca ClusterRole e regenera token); ação "Remove" (substitui "Deactivate" — deleta usuário + deprovisions SA/CRB); dialog "Add User" com ComboBox de Cluster + ClusterRole dinâmico; restrita a admin via `beforeEnter`
+- 35 views Vaadin: todos os guards `SecurityUtils.hasPermission()` e `beforeEnter` de permissão removidos — K8s RBAC é o único guard de autorização
+- 14 services Fabric8: migrados de `buildClient(String)` para `buildClient(Cluster)` — factory resolve credenciais pelo SecurityContext
+- `MainLayout`: cluster switcher oculto para não-admin
+- `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
+- Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)

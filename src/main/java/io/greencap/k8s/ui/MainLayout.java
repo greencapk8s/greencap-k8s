@@ -55,6 +55,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final NamespaceService namespaceService;
     private final ClusterService clusterService;
     private final BuildProperties buildProperties;
+    private final HorizontalLayout userInfoLayout = new HorizontalLayout();
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
     private final com.vaadin.flow.component.combobox.ComboBox<String> namespaceCombo = new com.vaadin.flow.component.combobox.ComboBox<>();
@@ -80,6 +81,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         clusterInfoLayout.setSpacing(true);
         clusterInfoLayout.setPadding(false);
 
+        buildUserInfoLayout();
         buildNamespaceLayout();
         buildClusterWarningBanner();
 
@@ -341,6 +343,21 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
     }
 
+    private void buildUserInfoLayout() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+
+        Span label = new Span("User:");
+        label.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
+
+        Span name = new Span(username);
+        name.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.FontWeight.MEDIUM);
+
+        userInfoLayout.add(label, name);
+        userInfoLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
+        userInfoLayout.setSpacing(true);
+        userInfoLayout.setPadding(false);
+    }
+
     private void buildNamespaceLayout() {
         Span label = new Span("Namespace:");
         label.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
@@ -381,7 +398,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
         logout.getElement().setAttribute("title", "Logout");
 
-        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, clusterInfoLayout, logout);
+        HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, userInfoLayout, clusterInfoLayout, logout);
         navbar.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         navbar.expand(spacer);
         navbar.setWidthFull();
@@ -395,10 +412,9 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         navContent.setPadding(false);
         navContent.setSpacing(false);
         navContent.add(buildLogoSection());
-        navContent.add(buildNewApplicationNav());
+        navContent.add(buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP));
-        navContent.add(buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP));
         navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
 
         Scroller scroller = new Scroller(navContent);
@@ -482,21 +498,6 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         section.setSpacing(false);
         section.setWidthFull();
         return section;
-    }
-
-    private SideNav buildNewApplicationNav() {
-        SideNav nav = new SideNav();
-        nav.setWidthFull();
-
-        boolean canDeployApp = true;
-        SideNavItem newApp = navItem("New Application", DeployApplicationView.class, VaadinIcon.PLUS_CIRCLE, canDeployApp);
-
-        if (canDeployApp) {
-            clusterDependentNavItems.add(newApp);
-        }
-
-        nav.addItem(newApp);
-        return nav;
     }
 
     private SideNav buildVisaoGeralNav() {
@@ -659,12 +660,19 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         }
 
         boolean canSampleCatalog = true;
-        SideNavItem sampleCatalogItem = navItem("Templates Catalog", SampleCatalogView.class, VaadinIcon.GRID_H, canSampleCatalog);
+        SideNavItem sampleCatalogItem = navItem("Templates Catalog", SampleCatalogView.class, VaadinIcon.SHOP, canSampleCatalog);
         if (canSampleCatalog) {
             clusterDependentNavItems.add(sampleCatalogItem);
         }
-
         nav.addItem(sampleCatalogItem);
+
+        boolean canDeployApp = true;
+        SideNavItem newApplicationItem = navItem("New Application", DeployFromDockerfileView.class, VaadinIcon.PLUS_CIRCLE, canDeployApp);
+        if (canDeployApp) {
+            clusterDependentNavItems.add(newApplicationItem);
+        }
+        nav.addItem(newApplicationItem);
+
         return nav;
     }
 

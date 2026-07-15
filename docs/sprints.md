@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 | 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
-| 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 
 ---
 
@@ -107,6 +107,16 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 104 ✅ — Username no header + Developer Experience como 1ª seção do menu + fix de duplicação nos wizards de deploy
+
+- `MainLayout`: bloco "User: `<username>`" adicionado à navbar, à esquerda do bloco "Cluster: nome [badge]" (`userInfoLayout`, construído uma vez em `buildUserInfoLayout()`); sempre visível, inclusive sem cluster ativo — usa o username de login já disponível via `SecurityContextHolder`, sem novo campo em `User`
+- `MainLayout`: seção "DEVELOPER EXPERIENCE" movida para ser a primeira do drawer (antes de PROJECT/GLOBAL/SETTINGS); "New Application" deixou de ser item avulso sem seção e passou a fazer parte dela, abaixo de "Templates Catalog"; ícone de "Templates Catalog" trocado de `GRID_H` para `SHOP`
+- `DeployModeSelector` (novo, `io.greencap.k8s.ui`): extrai a faixa de botões "Deploy from X" antes duplicada nas 4 telas de deploy (`DeployApplicationView`, `DeployFromDockerfileView`, `ImportComposeView`, `DeployFromHelmView`) — bug descoberto durante o aceite: reordenar o botão "Deploy from Image" só na cópia de `DeployApplicationView` fazia a ordem "resetar" ao navegar para qualquer uma das outras três telas. Ordem fixa: Dockerfile, Compose, Image, Helm; botão da view atual em destaque (`LUMO_PRIMARY`, sem navegação), demais em `LUMO_TERTIARY` com navegação
+- Decisão tomada durante o aceite: item de menu "New Application" passou a apontar para `DeployFromDockerfileView` por padrão (era `DeployApplicationView`/Deploy from Image), para bater com Dockerfile agora sendo o primeiro botão em destaque da faixa
+- Testes: `MainLayoutTest` (novo) — username sempre visível, "DEVELOPER EXPERIENCE" como 1ª seção com "New Application" abaixo de "Templates Catalog"; `DeployModeSelectorTest` (novo) — ordem fixa dos botões e destaque correto por view. Registro de rotas do `MockVaadin` (necessário porque `SideNavItem` resolve a rota no construtor) feito localmente só em `MainLayoutTest` — fazê-lo na classe base `KaribuTest` quebrou 11 testes existentes, já que nenhuma view desta app tem construtor no-arg e o `MockVaadin` falha ao navegar automaticamente para `""` na configuração inicial
+- Planejamento via `/grill-with-docs` cobriu as entregas 01 e 02 (username e reorganização do menu); a entrega 03 (fix de duplicação + `DeployModeSelector`) foi causa e solução evidentes, descobertas durante o aceite manual
+- Issues: `.scratch/sprint-104/issues/` (3 issues, todas `done`)
 
 ### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
 
@@ -202,22 +212,6 @@
 - `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
 - Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
 - Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
-
-### Sprint 94 ✅ — K8s RBAC substituindo sistema de permissões interno
-
-- `user_permissions` table e enum `Permission` removidos; migration `V34__migrate_to_kubernetes_rbac.sql` dropa `user_permissions` e adiciona colunas `serviceaccount_name`, `cluster_role_name`, `serviceaccount_token` em `users`
-- `User`: campos `serviceaccountName`, `clusterRoleName`, `serviceaccountToken`; campo `permissions` removido
-- `UserService`: `createUser` simplificado (sem permissões); `deactivateUser` substituído por `deleteUser`; `assignKubernetesIdentity` + `clearKubernetesIdentity` para lifecycle do SA
-- `SecurityUtils.isAdmin()`: identifica admin pelo username hardcoded `"admin"` (sem verificação de `Permission`)
-- `KubernetesClientFactory`: context-aware — admin usa kubeconfig do cluster; usuário regular usa SA token encriptado armazenado no banco; `buildAdminClient` e `buildFromRawKubeconfig` para casos especiais
-- `UserProvisioningService`: cria ServiceAccount + ClusterRoleBinding + token no namespace `greencap-system`; constrói kubeconfig sintético com CA extraído do kubeconfig admin (sem double-encoding); `deprovisionUser` deleta SA + CRB; `updateClusterRole` deleta CRB antigo, cria novo e regenera token
-- `KubernetesOperationException.from()`: extrai mensagem legível do cause chain (`KubernetesClientException.getCode()` + fallback por texto "Forbidden"/"403"); exibe "permission denied" para 403, "resource not found" para 404, "conflict" para 409
-- `UserManagementView`: reescrita completa — grid sem coluna Status; ação "Edit Role" (troca ClusterRole e regenera token); ação "Remove" (substitui "Deactivate" — deleta usuário + deprovisions SA/CRB); dialog "Add User" com ComboBox de Cluster + ClusterRole dinâmico; restrita a admin via `beforeEnter`
-- 35 views Vaadin: todos os guards `SecurityUtils.hasPermission()` e `beforeEnter` de permissão removidos — K8s RBAC é o único guard de autorização
-- 14 services Fabric8: migrados de `buildClient(String)` para `buildClient(Cluster)` — factory resolve credenciais pelo SecurityContext
-- `MainLayout`: cluster switcher oculto para não-admin
-- `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
-- Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
 
 ---
 
