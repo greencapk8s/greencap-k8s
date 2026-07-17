@@ -71,9 +71,20 @@ flowchart TD
     Push --> Step6
 
     subgraph Step6["Step 6: Creating namespace and secrets"]
-        NS["Applies namespace<br/>greencap-platform"] --> Keys["Generates/uses<br/>GREENCAP_ENCRYPTION_KEY and DB_PASSWORD"]
-        Keys --> Kubeconfig["Extracts kubeconfig<br/>for the cluster itself"]
-        Kubeconfig --> Secret["Creates Secret<br/>greencap-secrets"]
+        direction TB
+        NS["Applies namespace<br/>greencap-platform"] --> KeyCheck
+
+        subgraph KeyCheck["For GREENCAP_ENCRYPTION_KEY and DB_PASSWORD"]
+            direction TB
+            EnvSet{"Env var already set?"}
+            EnvSet -->|"yes"| UseEnv["Uses env value"]
+            EnvSet -->|"no"| SecretExists{"Secret greencap-secrets<br/>already exists?"}
+            SecretExists -->|"yes"| ReuseSecret["Reuses value from<br/>existing secret<br/>(rerun would otherwise desync<br/>Postgres volume / encrypted kubeconfigs,<br/>which don't rotate on their own)"]
+            SecretExists -->|"no, first install"| Generate["Generates new value<br/>openssl rand -hex 16"]
+        end
+
+        KeyCheck --> Kubeconfig["Extracts kubeconfig<br/>for the cluster itself"]
+        Kubeconfig --> Secret["Applies Secret<br/>greencap-secrets<br/>(kubectl apply, idempotent)"]
     end
 
     Secret --> Step7

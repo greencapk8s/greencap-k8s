@@ -388,15 +388,35 @@ step "Step 6: Creating namespace and secrets"
 
 kubectl apply -f "$MANIFESTS_DIR/00-namespace.yaml"
 
-if [ -z "${GREENCAP_ENCRYPTION_KEY:-}" ]; then
-  GREENCAP_ENCRYPTION_KEY="$(openssl rand -hex 16)"
-  GENERATED_KEY=true
-else
-  GENERATED_KEY=false
+GENERATED_KEY=false
+if [ -n "${GREENCAP_ENCRYPTION_KEY:-}" ]; then
   ok "Using GREENCAP_ENCRYPTION_KEY from environment"
+else
+  # Reuse the existing secret's GREENCAP_ENCRYPTION_KEY on reruns — the Postgres
+  # volume persists across runs, so regenerating this key would leave any
+  # kubeconfig already encrypted with the old key undecryptable.
+  EXISTING_ENCRYPTION_KEY="$(kubectl get secret greencap-secrets -n "$NAMESPACE" -o jsonpath='{.data.GREENCAP_ENCRYPTION_KEY}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
+  if [ -n "$EXISTING_ENCRYPTION_KEY" ]; then
+    GREENCAP_ENCRYPTION_KEY="$EXISTING_ENCRYPTION_KEY"
+    warn "Secret 'greencap-secrets' already exists — reusing current GREENCAP_ENCRYPTION_KEY (previously encrypted kubeconfigs would be unreadable with a new one)"
+  else
+    GREENCAP_ENCRYPTION_KEY="$(openssl rand -hex 16)"
+    GENERATED_KEY=true
+  fi
 fi
 
-DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -hex 16)}"
+# Reuse the existing secret's DB_PASSWORD on reruns — Postgres only applies
+# POSTGRES_PASSWORD on first initdb, so regenerating it here would desync
+# the app from a password the already-provisioned PVC no longer recognizes.
+if [ -z "${DB_PASSWORD:-}" ]; then
+  EXISTING_DB_PASSWORD="$(kubectl get secret greencap-secrets -n "$NAMESPACE" -o jsonpath='{.data.DB_PASSWORD}' 2>/dev/null | base64 --decode 2>/dev/null || true)"
+  if [ -n "$EXISTING_DB_PASSWORD" ]; then
+    DB_PASSWORD="$EXISTING_DB_PASSWORD"
+    warn "Secret 'greencap-secrets' already exists — reusing current DB_PASSWORD (the already-provisioned Postgres volume would reject a new one)"
+  else
+    DB_PASSWORD="$(openssl rand -hex 16)"
+  fi
+fi
 
 echo "    Extracting kubeconfig for cluster '$PROFILE'..."
 SELF_CLUSTER_KUBECONFIG="$(kubectl config view --minify --flatten --context "$PROFILE")"
