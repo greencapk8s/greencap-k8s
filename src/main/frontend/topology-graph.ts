@@ -24,6 +24,16 @@ interface NodeData {
 interface EdgeData {
   sourceId: string;
   targetId: string;
+  type: string;
+  matchedEnvVar: string;
+  matchedValue: string;
+}
+
+interface ServiceDependencyDetail {
+  targetLabel: string;
+  targetManifestUrl: string;
+  matchedEnvVar: string;
+  matchedValue: string;
 }
 
 interface GraphData {
@@ -33,6 +43,7 @@ interface GraphData {
 
 const NODE_COLORS: Record<string, string> = {
   Deployment: '#1676F3',
+  StatefulSet: '#7C3AED',
   ReplicaSet: '#8B5CF6',
   Pod: '#10B981',
   Service: '#F59E0B',
@@ -191,7 +202,7 @@ export class TopologyGraph extends LitElement {
       ...groupElements.values(),
       ...nodeElements,
       ...graph.edges.map((e: EdgeData) => ({
-        data: { source: e.sourceId, target: e.targetId },
+        data: { source: e.sourceId, target: e.targetId, type: e.type },
       })),
     ];
 
@@ -267,6 +278,14 @@ export class TopologyGraph extends LitElement {
           },
         },
         {
+          // ServiceDependency: inferred from application config, not a Kubernetes-enforced
+          // relationship — dashed to signal it's a heuristic, same color as structural edges.
+          selector: 'edge[type = "SERVICE_DEPENDENCY"]',
+          style: {
+            'line-style': 'dashed',
+          },
+        },
+        {
           selector: 'node:selected',
           style: {
             'border-width': 4,
@@ -311,9 +330,23 @@ export class TopologyGraph extends LitElement {
     this.cy.on('tap', 'node', (event: EventObject) => {
       const node = event.target as NodeSingular;
       if (node.data('isGroup')) return;
+
+      const nodeId = node.data('id') as string;
+      const serviceDependencies: ServiceDependencyDetail[] = graph.edges
+        .filter((e: EdgeData) => e.sourceId === nodeId && e.type === 'SERVICE_DEPENDENCY')
+        .map((e: EdgeData) => {
+          const targetNode = graph.nodes.find((n: NodeData) => n.id === e.targetId);
+          return {
+            targetLabel: targetNode?.label ?? e.targetId,
+            targetManifestUrl: targetNode?.manifestUrl ?? '',
+            matchedEnvVar: e.matchedEnvVar,
+            matchedValue: e.matchedValue,
+          };
+        });
+
       this.dispatchEvent(new CustomEvent('node-clicked', {
         detail: {
-          id: node.data('id') as string,
+          id: nodeId,
           nodeLabel: node.data('nodeLabel') as string,
           type: node.data('type') as string,
           status: node.data('status') as string,
@@ -324,6 +357,7 @@ export class TopologyGraph extends LitElement {
           serviceType: node.data('serviceType') as string,
           capacity: node.data('capacity') as string,
           accessMode: node.data('accessMode') as string,
+          serviceDependencies,
         },
         bubbles: true,
         composed: true,

@@ -1,87 +1,144 @@
-# GreenCap K8s
+<div align="center">
+  <img src="docs/assets/greencap.png" alt="GreenCap K8s" width="170" />
+  <h1>GreenCap K8s</h1>
+  <p><strong>Simple Kubernetes cluster management.</strong></p>
+  <p>A lightweight web platform to monitor and operate the Kubernetes clusters you already run — a friendlier alternative to OpenShift or Rancher for individuals and small teams who study, build, and test on Kubernetes.</p>
 
-Plataforma web para gerenciamento e monitoramento de clusters Kubernetes.
+  <p>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
+    <img src="https://img.shields.io/badge/Java-21-orange" alt="Java 21" />
+    <img src="https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen" alt="Spring Boot 3.3" />
+    <img src="https://img.shields.io/badge/Vaadin-24-00b4f0" alt="Vaadin 24" />
+    <img src="https://img.shields.io/badge/Kubernetes-Fabric8-326ce5" alt="Kubernetes" />
+  </p>
 
-## Stack
+  <p>
+    <a href="https://www.greencapk8s.dev">Website</a> ·
+    <a href="#quick-start">Quick Start</a> ·
+    <a href="CONTEXT.md">Domain &amp; Docs</a> ·
+    <a href="https://github.com/greencapk8s/greencap-k8s/issues">Issues</a>
+  </p>
+</div>
 
-- Java 21 + Spring Boot 3.3 + Vaadin Flow 24
-- PostgreSQL 16 + Flyway
-- Fabric8 Kubernetes Client 6.13
-- Gradle 8.8 (Kotlin DSL)
+---
 
-## Quick Start (Docker)
+## What is GreenCap?
 
-Pré-requisitos: apenas **Docker** e **Docker Compose**. Não é necessário instalar Java, Gradle ou Node — todo o build acontece dentro do container.
+GreenCap is a web platform for **monitoring and managing external Kubernetes clusters**. You register access to clusters you already run — minikube, kind, managed, or on-prem — and GreenCap gives you a clean UI to see and operate what lives inside them.
 
-**1. Clone o repositório e configure as variáveis de ambiente:**
+It's built for a specific audience: **individuals and small/medium teams who study, develop, and test against Kubernetes**, and want the day-to-day operations without the operational weight of an enterprise platform.
+
+- **It does not provision clusters.** GreenCap is a management layer over clusters that exist outside it — not a cluster lifecycle tool.
+- **It's not read-only.** GreenCap actively creates, deletes, scales, restarts, and deploys — every action governed by the acting user's Kubernetes RBAC.
+- **It's multi-user and RBAC-native.** Each non-admin user is backed by a Kubernetes ServiceAccount; their access is exactly what Kubernetes RBAC grants — nothing more.
+
+## See it in action
+
+**Browse and one-click-deploy curated example apps from the Templates Catalog**
+
+![Templates Catalog](docs/assets/screenshots/templates-catalog.png)
+
+**See how an application's resources connect — including inferred service dependencies**
+
+![Topology view](docs/assets/screenshots/topologia.png)
+
+**Operate your workloads — scale, restart, roll back, inspect, read logs**
+
+![Deployments view](docs/assets/screenshots/workloads-deployments.png)
+
+## Why GreenCap?
+
+- **Zero to running in one command** — `./setup/setup.sh` provisions a real Kubernetes cluster (via minikube) and deploys GreenCap into it. The only prerequisite is Docker.
+- **The whole resource surface, one UI** — Workloads, Networking, Storage, Config, Autoscaling, Nodes, Events, and Metrics: browse and operate them all in one place.
+- **Deploy without hand-writing YAML** — four guided wizards: from a container image, from a Docker Compose file, from a Dockerfile (built in-cluster via Kaniko), or from a Helm chart.
+- **See how things connect** — an interactive topology graph mapping ownership, routing, storage, and even inferred service-to-service dependencies.
+- **Batteries included** — an in-cluster image registry with builds, Helm releases & repositories, Operator management via OLM, and a catalog of one-click example apps.
+
+## Features
+
+**Clusters &amp; Access**
+- Register clusters via kubeconfig, or API server URL + bearer token
+- Multi-user, governed entirely by Kubernetes RBAC — per-user ServiceAccounts
+- Live connection-status monitoring per cluster
+
+**Workloads**
+- Deployments, StatefulSets, ReplicaSets, Pods, Jobs, CronJobs
+- Scale, restart, rollback, trigger, suspend/resume, cordon, delete
+- Live pod logs — including a previous-instance view for diagnosing CrashLoopBackOff
+
+**Deploy**
+- **Deploy Application** — from a container image
+- **Import Compose** — translate a `docker-compose.yml` into Kubernetes resources
+- **Deploy from Dockerfile** — build in-cluster with Kaniko, then deploy
+- **Deploy from Helm** — install a chart as a release
+
+**Topology**
+- Interactive graph: ownership, routing, storage, and ingress relationships
+- Inferred service dependencies (e.g. a backend pointing at its database's Service)
+- Layouts saved per user + cluster + namespace
+
+**Developer Experience**
+- **Templates Catalog** — one-click deploy of curated example applications
+- **Kubernetes Operators** — install and manage via OLM
+- **Registry** — an in-cluster image registry with source-to-image builds
+
+**Observability &amp; more**
+- Dashboard, Events, and Pod metrics (top-pods)
+- Networking (Services, Ingresses), Config (ConfigMaps, Secrets), Storage (PVCs, PVs, StorageClasses), Autoscaling (HPA), Nodes
+- Edit any supported resource as YAML — Manifest → Apply
+
+## Quick Start
+
+The only prerequisite is **Docker**. Everything else (`kubectl`, `minikube`, `helm`, `openssl`) is detected and, if missing, the wizard offers to install it for you (Linux &amp; macOS).
 
 ```bash
-cp .env.example .env
+git clone https://github.com/greencapk8s/greencap-k8s.git
+cd greencap-k8s
+./setup/setup.sh
 ```
 
-Os valores padrão já funcionam para um teste local. Para um deploy em produção real, edite `.env` e troque `ENCRYPTION_KEY`, `DB_USER` e `DB_PASSWORD` por valores próprios e seguros.
+The wizard provisions a real Kubernetes cluster (minikube), builds and deploys GreenCap into it, and wires up local access. When it finishes:
 
-**2. Suba a aplicação:**
+- **URL:** http://greencap.local
+- **Login:** `admin` / `admin` &nbsp;(change it after your first login)
+
+To tear everything down:
 
 ```bash
-docker compose up -d --build
+./setup/teardown.sh
 ```
 
-O primeiro build pode levar alguns minutos (compila a aplicação e o frontend Vaadin de produção). Acompanhe o progresso com:
+> Want to work on the code (local build, Docker Compose, demo environment)? See the [developer guide](.dev/README.md).
 
-```bash
-docker compose logs -f greencap
-```
+## The story
 
-**3. Acesse:**
+GreenCap started in September 2025 as a terminal tool. Ten months and 100+ sprints later, it's a full web platform — designed, built, and documented in the open, one vertical slice at a time. The domain lives as a ubiquitous language in [`CONTEXT.md`](CONTEXT.md), and every significant decision is recorded as an [Architecture Decision Record](docs/adr/).
 
-A aplicação estará disponível em `http://localhost:8080` assim que o serviço `greencap` ficar `healthy` (verifique com `docker compose ps`).
+## Architecture
 
-Login padrão: `admin` / `admin`
+| Layer | Technology |
+|-------|------------|
+| Backend | Java 21 · Spring Boot 3.3 |
+| UI | Vaadin Flow 24 (server-driven — no separate frontend) |
+| Persistence | PostgreSQL 16 · Flyway · Spring Data JPA |
+| Kubernetes | Fabric8 Kubernetes Client |
+| Packaging | Docker — a single, plug-and-play monolith |
 
-**Para parar:**
+Go deeper:
+- [`CONTEXT.md`](CONTEXT.md) — the domain language
+- [`docs/adr/`](docs/adr/) — architectural decision records
+- [`.dev/README.md`](.dev/README.md) — developer guide
 
-```bash
-docker compose down
-```
+## Contributing
 
-Os dados do PostgreSQL ficam no volume `pgdata` e persistem entre execuções. Para apagar tudo, incluindo o banco: `docker compose down -v`.
+Contributions are welcome — bug reports, feature ideas, docs, and code. Start with the [contributing guide](CONTRIBUTING.md), and please review our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? See [SECURITY.md](SECURITY.md).
 
-## Usando um cluster Kubernetes
+## License
 
-Ao registrar um cluster, o kubeconfig precisa ter os certificados embutidos (não por caminho de arquivo). Gere uma versão portável com:
+Released under the [Apache License 2.0](LICENSE).
 
-```bash
-kubectl config view --flatten --minify
-```
+---
 
-## Ambiente de demonstração
-
-O script `samples/greencap-demo/create.sh` provisiona um namespace completo com Deployments, Services, HPA e Ingress no Minikube — incluindo a ativação automática dos addons `metrics-server` e `ingress`.
-
-```bash
-cd samples/greencap-demo
-./create-demo.sh
-```
-
-## Para desenvolvedores
-
-Fluxo alternativo para quem vai alterar o código-fonte. Requer **Java 21+** e usa o Gradle Wrapper (não precisa instalar Gradle).
-
-**1. Suba apenas o banco de dados:**
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-**2. Rode o app:**
-
-```bash
-./gradlew bootRun
-```
-
-O app estará disponível em `http://localhost:8080`.
-
-Login padrão: `admin` / `admin`
-
-Em desenvolvimento, os valores padrão de `application.yaml` já funcionam sem precisar de `.env`.
+<div align="center">
+  <sub>If GreenCap is useful to you, consider leaving a ⭐ — it genuinely helps the project grow.</sub>
+</div>

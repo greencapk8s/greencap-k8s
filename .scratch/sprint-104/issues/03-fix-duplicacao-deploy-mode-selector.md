@@ -1,0 +1,13 @@
+# 03 — Fix: duplicação da faixa "Deploy from X" nas 4 telas de deploy
+
+Status: done
+
+Descoberto durante o aceite manual da entrega 02: ao pedir para mover o botão "Deploy from Image" para depois de "Deploy from Compose" em `DeployApplicationView`, o comportamento ficou inconsistente — navegar para qualquer uma das outras três telas de deploy (`DeployFromDockerfileView`, `ImportComposeView`, `DeployFromHelmView`) fazia a ordem dos botões "resetar" para a original. Causa raiz: cada uma das 4 telas tinha sua **própria cópia colada** da faixa de botões "Deploy from Image/Dockerfile/Compose/Helm" — reordenar uma cópia não afetava as outras três.
+
+Correção: extraído `DeployModeSelector` (novo, `io.greencap.k8s.ui`, package-private), um helper único que recebe a `Class` da view atual e monta a faixa de botões sempre na mesma ordem (Dockerfile, Compose, Image, Helm), destacando (`LUMO_PRIMARY`, sem navegação) o botão que representa a view atual e deixando os demais como `LUMO_TERTIARY` com navegação (`UI.getCurrent().navigate(...)`). As 4 telas passaram a chamar `DeployModeSelector.build(SuaView.class)` em vez de duplicar o código.
+
+Decisão tomada durante o aceite (fora do planejamento original): como "Deploy from Dockerfile" passou a ser o primeiro botão da faixa, o item de menu "New Application" (`MainLayout`) passou a apontar para `DeployFromDockerfileView` por padrão em vez de `DeployApplicationView` (Deploy from Image) — para que o botão em destaque ao entrar em "New Application" bata com a nova ordem visual. `DeployApplicationView` continua existindo normalmente, acessível pelo próprio botão "Deploy from Image" na faixa.
+
+Efeito colateral no fluxo de teste: `MainLayout` constrói um `SideNavItem` por item de menu, e `SideNavItem(label, view, icon)` resolve a rota da view já no construtor — exige rotas registradas no `MockVaadin`, diferente do `MockVaadin.setup()` puro usado pelas demais views testadas. Registrar rotas globalmente na classe base `KaribuTest` quebrou 11 testes existentes (nenhuma view desta app tem construtor no-arg, então o `MockVaadin` falha ao tentar navegar automaticamente para `""` na configuração inicial, poluindo buscas globais `_get`). Solução: registro de rotas feito localmente só em `MainLayoutTest`, sem tocar a classe base — suas asserções já são todas restritas ao componente (`_find(view, ...)`), então não são afetadas pelo erro de navegação em segundo plano.
+
+Cobertura de teste: `DeployModeSelectorTest` (novo) — ordem fixa dos botões independente da view atual; apenas o botão da view atual fica marcado como `primary`, os demais como `tertiary`. `MainLayoutTest` cobre a integração (ordem do menu, ver issue 02).
