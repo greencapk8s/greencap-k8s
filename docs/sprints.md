@@ -99,6 +99,10 @@
 
 - **`setup.sh` não é mencionado no `README.md`** — o script provisiona um cluster Minikube completo (profile configurável, addons metrics-server/ingress/registry/olm, registry persistente, build+push da imagem GreenCap e deploy via manifests em `setup/manifests/`), mas hoje só é descoberto por quem navega até `setup/`. Adicionar uma seção no README principal apresentando `./setup/setup.sh` como opção de quickstart alternativa ao `docker compose up` (ex.: "quero rodar num cluster Kubernetes de verdade, não só localmente via Docker"), com o efeito esperado (`http://greencap.local`, login `admin`/`admin`) e o script de teardown correspondente (`setup/teardown.sh`).
 
+#### 🌐 Divulgação — aprofundar a landing page (`greencapk8s.dev`)
+
+- **Landing page está "discreta"** — o site (`greencapk8s.dev`, repo `../greencap-k8s-portal`) hoje tem hero + proposta de valor + 3 screenshots + botões pro GitHub, mas falta: links para a documentação, instruções de instalação (`setup.sh`/Docker Compose), demo/vídeo ao vivo, e um caminho de contribuição. Último item pendente do **Tier 3** da iniciativa de divulgação open source (ver memória `project_oss_first_contact`); Tiers 0-2 e o restante do Tier 3 (README/LICENSE/arquivos de contribuição/About + topics/social preview) já concluídos e publicados na release v0.7.7. É trabalho no repo do portal, não no `greencap-k8s`.
+
 #### 👀 Observação — `storage-provisioner` pode repetir o bug do `kube-registry-proxy`
 
 - **Contexto**: um usuário reportou, ao rodar `setup.sh` no macOS, falha `manifest for gcr.io/k8s-minikube/kube-registry-proxy:0.0.8 not found` no Step 4 (addon `registry`). Causa: a tag ficou pinada no binário do minikube instalado (não no `setup.sh`) e foi removida do GCR após o addon migrar para `registry.k8s.io/minikube/kube-registry-proxy:v0.0.11` upstream. Corrigido fixando o override `--images`/`--registries` na chamada `minikube addons enable registry` em `setup/setup.sh`, desacoplando o script da versão de minikube instalada localmente.
