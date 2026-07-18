@@ -92,21 +92,7 @@ public class DeployFromHelmView extends VerticalLayout implements BeforeEnterObs
     }
 
     private void initModeSelector() {
-        Button imageBtn      = new Button("Deploy from Image",      VaadinIcon.ROCKET.create());
-        Button dockerfileBtn = new Button("Deploy from Dockerfile", VaadinIcon.CODE.create());
-        Button composeBtn    = new Button("Deploy from Compose",    VaadinIcon.FILE_CODE.create());
-        Button helmBtn       = new Button("Deploy from Helm",       VaadinIcon.PACKAGE.create());
-
-        imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        helmBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
-
-        imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
-        dockerfileBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromDockerfileView.class));
-        composeBtn.addClickListener(e -> UI.getCurrent().navigate(ImportComposeView.class));
-
-        add(new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn) {{ setSpacing(true); }});
+        add(DeployModeSelector.build(DeployFromHelmView.class));
     }
 
     private void initStepIndicator() {

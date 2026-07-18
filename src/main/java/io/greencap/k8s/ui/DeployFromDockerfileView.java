@@ -141,27 +141,6 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         renderStep(1);
     }
 
-    private HorizontalLayout buildModeSelector() {
-        Button imageBtn = new Button("Deploy from Image", VaadinIcon.ROCKET.create());
-        Button dockerfileBtn = new Button("Deploy from Dockerfile", VaadinIcon.CODE.create());
-        Button composeBtn = new Button("Deploy from Compose", VaadinIcon.FILE_CODE.create());
-
-        Button helmBtn = new Button("Deploy from Helm", VaadinIcon.PACKAGE.create());
-
-        imageBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        dockerfileBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
-        composeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-        helmBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_SMALL);
-
-        imageBtn.addClickListener(e -> UI.getCurrent().navigate(DeployApplicationView.class));
-        composeBtn.addClickListener(e -> UI.getCurrent().navigate(ImportComposeView.class));
-        helmBtn.addClickListener(e -> UI.getCurrent().navigate(DeployFromHelmView.class));
-
-        HorizontalLayout selector = new HorizontalLayout(imageBtn, dockerfileBtn, composeBtn, helmBtn);
-        selector.setSpacing(true);
-        return selector;
-    }
-
     private void initLayout() {
         setPadding(true);
         setSpacing(true);
@@ -192,7 +171,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         stepIndicatorRow.setWidthFull();
         stepIndicatorRow.setSpacing(true);
 
-        add(buildModeSelector(), stepIndicatorRow, stepContent, footer);
+        add(DeployModeSelector.build(DeployFromDockerfileView.class), stepIndicatorRow, stepContent, footer);
     }
 
     private void initFields() {

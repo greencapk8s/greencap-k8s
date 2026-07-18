@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🔒 Report a security vulnerability
+    url: https://github.com/greencapk8s/greencap-k8s/security/advisories/new
+    about: Please report vulnerabilities privately — not as a public issue.
+  - name: 💬 Questions & discussion
+    url: https://github.com/greencapk8s/greencap-k8s/discussions
+    about: Ask questions and discuss ideas with the community.
+  - name: 🌐 Website
+    url: https://www.greencapk8s.dev
+    about: Learn more about GreenCap K8s.

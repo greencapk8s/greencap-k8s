@@ -8,6 +8,8 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
+| 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
@@ -16,8 +18,6 @@
 | 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
 | 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 | 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
-| 95 | Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users | ✅ Concluído |
-| 94 | K8s RBAC substituindo sistema de permissões interno | ✅ Concluído |
 
 ---
 
@@ -26,6 +26,12 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🟡 Média Prioridade
+
+#### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) pode não navegar corretamente
+
+- **Descoberto ao escrever a cobertura de teste da Sprint 105**: o botão "Go to resource"/"Go to `<service>`" do `TopologyNodeDrawer` navega via `ui.navigate(url)` (overload de 1 argumento) para URLs como `networking/services?name=postgres-service` (geradas por `TopologyService.resourceViewUrl`). Esse overload delega para `navigate(path, QueryParameters.empty())`, que constrói o `Location` com `parsePathToSegments(path, false)` — ou seja, não separa a query string do path quando ela já vem embutida na String (diferente do construtor de 1 argumento de `Location`, usado internamente pelo Vaadin em outros fluxos). Em tese o roteador tentaria casar a rota inteira `"networking/services?name=postgres-service"` como um único path, o que não bateria com a rota registrada `networking/services`.
+- **Mesmo padrão em outros pontos do código, não exclusivo da Sprint 105**: `CronJobsView.java` (`navigate("workloads/jobs?cronjob=" + nome)`) usa a mesma construção. Já `DeploymentsView`/`StatefulSetsView` usam o overload correto de 2 argumentos (`navigate(path, QueryParameters)`) para o mesmo tipo de link — inconsistência dentro do próprio código.
+- **Não confirmado em navegador real** — achado apenas em teste automatizado (`TopologyNodeDrawerTest`), que documenta o comportamento observado sob `-ea` (assertions ligadas, padrão da task `test` do Gradle) sem travar no achado (`assertThatThrownBy(...).isInstanceOfAny(NotFoundException.class, AssertionError.class)`); o efeito exato em produção (assertions desligadas no `bootRun`/JAR final) não foi validado manualmente. Avaliar migrar os call sites afetados para `navigate(path, QueryParameters)` explícito.
 
 #### 🐛 Bug: badge de status de Pod não reflete CrashLoopBackOff/BackOff
 
@@ -55,7 +61,8 @@
 
 #### 🟣 StatefulSet — follow-ups da Sprint 61
 
-- **StatefulSet na Topologia** — `TopologyService`/`TopologyGraphComponent` não cobrem StatefulSet. Adicionar novo tipo de nó `StatefulSet` com edge direto `StatefulSet→Pod` (sem ReplicaSet intermediário) e edge para o headless Service via `spec.serviceName`. Avaliar também os PVCs de `volumeClaimTemplates` como nodes/edges.
+> "StatefulSet na Topologia" foi entregue na Sprint 105 (nó `StatefulSet` + edge direto `StatefulSet→PodGroup`, sem ReplicaSet intermediário; edge para o Service headless resolvida pelo mesmo matching de selector já existente, sem tratamento especial; PVCs de `volumeClaimTemplates` já cobertos pela mesma lógica genérica de edge `PodGroup→PersistentVolumeClaim`).
+
 - **Coluna Owner em PersistentVolumeClaimsView** — PVCs criados via `volumeClaimTemplates` de um StatefulSet seguem o padrão de nome `<template>-<statefulset>-<ordinal>`; adicionar coluna indicando o StatefulSet de origem (ou "—" para PVCs avulsos), análogo ao Owner de `ReplicaSetView`.
 - **Events em StatefulSetsView** — adicionar `SelectionAction.of(VaadinIcon.RECORDS, "Events", sts -> EventsDialog.open(observabilityService, clusterContext, "StatefulSet", sts.name(), sts.namespace()))` na barra de seleção, mesmo padrão de `DeploymentsView` (injetar `ObservabilityService` no construtor).
 
@@ -72,6 +79,11 @@
 - **Build a partir de Git Repository privado** — a Sprint 73 implementou Build via Kaniko apenas para repositórios públicos (sem credenciais). Suporte a repositórios privados exigiria capturar credenciais (token/usuário+senha) na UI e propagá-las ao Job Kaniko (`GIT_TOKEN`/`GIT_USERNAME`/`GIT_PASSWORD`), com cuidado para não persistir as credenciais em texto plano.
 - **Histórico de Builds** — a Sprint 73 não persiste histórico: um Build finalizado não deixa rastro em GreenCap (Job efêmero com `ttlSecondsAfterFinished`). Avaliar persistir um registro mínimo (Repositório/Tag, Git Repository/branch, status, timestamps) para permitir consultar Builds anteriores.
 - **Storage do Registry interno pode estar subdimensionado com o crescimento do catálogo de Templates** — descoberto ao planejar a Sprint 99 (dois novos Templates buildados via Kaniko, empilhando mais imagens no Registry interno). O tamanho da PVC não é definido em código Java nem em manifest versionado — apenas em dois scripts shell de provisionamento, com valores **divergentes**: `samples/greencap-demo/cluster-setup.sh` usa `4Gi` (decisão original da Sprint 71, ver `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`), enquanto `setup/setup.sh` (setup "oficial") usa `8Gi`, sem ADR documentando essa evolução. Avaliar: (a) se o drift entre os dois scripts é intencional ou esquecimento, (b) se mesmo 8Gi comporta o catálogo crescendo além dos 3 Templates atuais sem exigir intervenção manual.
+- **Causa raiz mais provável do subdimensionamento: o registry (`registry:3.0.0`, addon `registry` do minikube) não faz garbage collection automático** — descoberto ao testar reruns do `setup.sh` (2026-07-17). Cada rebuild da imagem GreenCap no Step 5 (ou de um Template via Kaniko) sobrescreve só o manifest da tag; as layers antigas viram blobs órfãos e ficam ocupando espaço até alguém rodar `registry garbage-collect` manualmente dentro do Pod — não há cron/hook fazendo isso hoje. Em ambientes de dev com reruns frequentes de `setup.sh` (como os dois seguidos rodados nesse teste), o volume enche bem mais rápido do que o número de imagens "vivas" sugeriria, mesmo com poucos Templates instalados. Aumentar a PVC (4Gi/8Gi → algo maior) só adia o problema; a correção de causa raiz é habilitar `REGISTRY_STORAGE_DELETE_ENABLED=true` no addon e agendar `registry garbage-collect` periodicamente (ou disparar após cada build/push do `setup.sh`).
+
+#### 🐳 Imagem GreenCap em registry público — otimizar Step 5 do `setup.sh`
+
+- **Build local é o passo mais pesado da instalação** — descoberto ao testar reruns do `setup.sh` (2026-07-17): o Step 5 (`docker build` a partir de `docker/Dockerfile` + `docker push` para o registry interno do minikube) roda do zero em toda instalação, mesmo quando o código-fonte não mudou desde a última execução. Avaliar publicar a imagem `greencap-platform/platform` em um registry público (Docker Hub, GHCR) por release/tag via CI, e trocar o Step 5 do `setup.sh` para `docker pull` da imagem publicada (com fallback para build local em desenvolvimento, quando a imagem da versão em uso ainda não foi publicada).
 
 #### 📊 Storage — visualização de uso (sprint 72, cancelada)
 
@@ -107,6 +119,27 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 105 ✅ — Topologia: setas de ServiceDependency + StatefulSet como nó
+
+- Escopo fechado via `/grill-with-docs`, decisões registradas na **ADR 0018** (`docs/adr/0018-heuristica-service-dependency-topologia.md`): matching por substring/word-boundary do valor da env var contra nomes de Service do namespace ativo (não match exato — perderia connection strings reais), sem parse de arquivo de config montado e sem ConfigMap/Secret como nós de primeira classe (permanecem invisíveis, só resolvem o valor da env var). Fora de escopo: DaemonSet
+- **StatefulSet na Topologia** (pré-requisito): `TopologyService.buildGraph` passa a buscar `StatefulSet` do namespace, criando um nó por recurso e uma aresta estrutural direta `StatefulSet→PodGroup` (sem ReplicaSet intermediário — `podOwnerId` reconhece owner references de `Kind: StatefulSet` além de `ReplicaSet`). Nome-base do grupo, para StatefulSet, é o próprio nome do recurso (sem o `stripLastSegment` usado para remover o hash de ReplicaSet). Nenhum tratamento especial foi necessário para o Service headless (`spec.serviceName`) — a aresta Service→PodGroup já é resolvida por matching de selector contra labels do Pod, independente de o Service ser headless; PVCs de `volumeClaimTemplates` também já ficam cobertos pela mesma aresta genérica `PodGroup→PersistentVolumeClaim` existente
+- **Inferência de `ServiceDependency`** (`TopologyService`): `TopologyEdge` ganha campo `type` (`STRUCTURAL` | `SERVICE_DEPENDENCY`). Varre `env[].value`, `env[].valueFrom.configMapKeyRef`/`secretKeyRef` e `envFrom.configMapRef`/`secretRef` de cada `PodSpec` (containers + initContainers), resolvendo o valor final contra ConfigMaps/Secrets do namespace ativo (Secret decodificado de base64). O valor resolvido é comparado por substring/word-boundary contra os nomes dos Services já carregados — cobre hostname puro, `host:porta` e connection string completa (`jdbc:postgresql://postgres-service:5432/db`). FQDN no formato `<service>.<namespace>.svc.cluster.local` só gera aresta se o segmento de namespace bater com o namespace ativo (evita atribuir a um Service local de mesmo nome quando a intenção era outro namespace). Múltiplas env vars do mesmo Workload que casam com o mesmo Service colapsam numa única aresta (dedup por Service)
+- **Renderização** (`topology-graph.ts`, Cytoscape): arestas `SERVICE_DEPENDENCY` renderizadas com `line-style: dashed`; ajuste feito durante o aceite manual — a cor inicial (`#38BDF8`, azul-claro) foi trocada para herdar a mesma cor das arestas estruturais (`#64748B`), mantendo só o traço tracejado como diferencial visual
+- **Evidência no drawer** (`TopologyNodeDrawer`): ao abrir o drawer de um Workload com uma ou mais `ServiceDependency` saindo dele, uma seção "Depends on" lista cada dependência inferida com a env var e o valor que geraram o match, reaproveitando o botão "Go to" já usado para outros tipos de nó; Workloads sem dependência inferida não mostram a seção — sem alteração visual para o caso comum de hoje
+- Testes: `TopologyServiceTest` (novo, `@EnableKubernetesMockClient`) — StatefulSet como nó com status/edge de PodGroup corretos, Service headless com edge idêntica à de um Service regular, `ServiceDependency` para os três formatos de valor (hostname, host:porta, connection string), resolução via `configMapKeyRef`/`secretKeyRef`, dedup de múltiplas env vars para o mesmo Service, e o caso negativo/positivo de FQDN com namespace diferente/igual ao ativo; `TopologyNodeDrawerTest` (novo, Karibu) — seção "Depends on" aparece só quando há dependência, evidência (env var + valor) renderizada corretamente, ausência da seção quando não há dependência
+- **Achado durante a escrita dos testes, registrado no backlog** (não corrigido nesta sprint — fora do escopo original, não verificado em navegador real): o botão "Go to resource"/"Go to `<service>`" do drawer usa `ui.navigate(url)` (overload de 1 argumento) para URLs com `?name=` embutido — esse overload não separa a query string do path internamente, padrão que já existia em outros pontos do código (ex. `CronJobsView`) antes desta sprint
+- Issues: `.scratch/sprint-105/issues/` (3 issues, todas `done`)
+
+### Sprint 104 ✅ — Username no header + Developer Experience como 1ª seção do menu + fix de duplicação nos wizards de deploy
+
+- `MainLayout`: bloco "User: `<username>`" adicionado à navbar, à esquerda do bloco "Cluster: nome [badge]" (`userInfoLayout`, construído uma vez em `buildUserInfoLayout()`); sempre visível, inclusive sem cluster ativo — usa o username de login já disponível via `SecurityContextHolder`, sem novo campo em `User`
+- `MainLayout`: seção "DEVELOPER EXPERIENCE" movida para ser a primeira do drawer (antes de PROJECT/GLOBAL/SETTINGS); "New Application" deixou de ser item avulso sem seção e passou a fazer parte dela, abaixo de "Templates Catalog"; ícone de "Templates Catalog" trocado de `GRID_H` para `SHOP`
+- `DeployModeSelector` (novo, `io.greencap.k8s.ui`): extrai a faixa de botões "Deploy from X" antes duplicada nas 4 telas de deploy (`DeployApplicationView`, `DeployFromDockerfileView`, `ImportComposeView`, `DeployFromHelmView`) — bug descoberto durante o aceite: reordenar o botão "Deploy from Image" só na cópia de `DeployApplicationView` fazia a ordem "resetar" ao navegar para qualquer uma das outras três telas. Ordem fixa: Dockerfile, Compose, Image, Helm; botão da view atual em destaque (`LUMO_PRIMARY`, sem navegação), demais em `LUMO_TERTIARY` com navegação
+- Decisão tomada durante o aceite: item de menu "New Application" passou a apontar para `DeployFromDockerfileView` por padrão (era `DeployApplicationView`/Deploy from Image), para bater com Dockerfile agora sendo o primeiro botão em destaque da faixa
+- Testes: `MainLayoutTest` (novo) — username sempre visível, "DEVELOPER EXPERIENCE" como 1ª seção com "New Application" abaixo de "Templates Catalog"; `DeployModeSelectorTest` (novo) — ordem fixa dos botões e destaque correto por view. Registro de rotas do `MockVaadin` (necessário porque `SideNavItem` resolve a rota no construtor) feito localmente só em `MainLayoutTest` — fazê-lo na classe base `KaribuTest` quebrou 11 testes existentes, já que nenhuma view desta app tem construtor no-arg e o `MockVaadin` falha ao navegar automaticamente para `""` na configuração inicial
+- Planejamento via `/grill-with-docs` cobriu as entregas 01 e 02 (username e reorganização do menu); a entrega 03 (fix de duplicação + `DeployModeSelector`) foi causa e solução evidentes, descobertas durante o aceite manual
+- Issues: `.scratch/sprint-104/issues/` (3 issues, todas `done`)
 
 ### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
 
@@ -188,36 +221,6 @@
 - Fora do escopo, por decisão explícita: o `Thread.ofVirtual().start(...)` cru em `MainLayout` usado para forçar um ciclo de push separado do Vaadin — não faz chamada Kubernetes, não tem o bug de propagação de contexto que motivou a sprint
 - `AsyncTasksTest`: cobertura JUnit pura (sem Spring), verificando propagação de `SecurityContext` no disparo único, disparo repetido do polling e efeito do cancelamento
 - Issues: `.scratch/sprint-96/issues/` (3 issues, todas `done`)
-
-### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
-
-- `KubernetesClientFactory.resolveKubeconfig`: fail-closed — usuário não-admin sem `serviceaccountToken` provisionado lança `KubernetesOperationException` em vez de cair silenciosamente no kubeconfig admin do Cluster (janela de corrida entre `createUser` e `provisionUser`, transações separadas); seam `resolveKubeconfigForUser(Authentication)` extraída para teste sem mockar `SecurityContextHolder`; `KubernetesClientFactoryTest` (4 casos)
-- `Permission.java` e `ClusterProvider.java` removidos — enums órfãos sem nenhum uso real (achado do relatório `/improve-codebase-architecture`)
-- Causa raiz mais profunda descoberta durante o teste de aceite: `SecurityContextHolder` (baseado em `ThreadLocal`) não propaga para virtual threads — todo carregamento assíncrono (namespaces, dashboard, deploy wizards, topologia, logs) rodava sem usuário autenticado, e o comportamento pré-fix mascarava isso caindo direto no kubeconfig admin para qualquer usuário, não só os não provisionados
-- `UiConstants.VIRTUAL_THREADS`: `Executor` envolvido em `DelegatingSecurityContextExecutor` (spring-security-core, já dependência do projeto) — corrige de uma vez as 8 views que já reusavam esse executor compartilhado
-- `DashboardView`: executor privado duplicado removido, passou a reusar `UiConstants.VIRTUAL_THREADS`
-- `MainLayout`: `loadNamespacesForCluster` migrado de `Thread.ofVirtual().start()` para `UiConstants.VIRTUAL_THREADS.execute()`; timer de auto-refresh (`applyRefreshInterval`) envolvido em `DelegatingSecurityContextRunnable`
-- `DeployApplicationView`, `DeployFromDockerfileView`, `DeployFromHelmView`, `ImportComposeView`, `TopologiaView`: `Thread.ofVirtual().start()` migrado para `UiConstants.VIRTUAL_THREADS.execute()` (14 pontos)
-- `BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`: pollers (`ScheduledExecutorService` próprio) envolvidos em `DelegatingSecurityContextRunnable`
-- `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
-- Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
-- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
-
-### Sprint 94 ✅ — K8s RBAC substituindo sistema de permissões interno
-
-- `user_permissions` table e enum `Permission` removidos; migration `V34__migrate_to_kubernetes_rbac.sql` dropa `user_permissions` e adiciona colunas `serviceaccount_name`, `cluster_role_name`, `serviceaccount_token` em `users`
-- `User`: campos `serviceaccountName`, `clusterRoleName`, `serviceaccountToken`; campo `permissions` removido
-- `UserService`: `createUser` simplificado (sem permissões); `deactivateUser` substituído por `deleteUser`; `assignKubernetesIdentity` + `clearKubernetesIdentity` para lifecycle do SA
-- `SecurityUtils.isAdmin()`: identifica admin pelo username hardcoded `"admin"` (sem verificação de `Permission`)
-- `KubernetesClientFactory`: context-aware — admin usa kubeconfig do cluster; usuário regular usa SA token encriptado armazenado no banco; `buildAdminClient` e `buildFromRawKubeconfig` para casos especiais
-- `UserProvisioningService`: cria ServiceAccount + ClusterRoleBinding + token no namespace `greencap-system`; constrói kubeconfig sintético com CA extraído do kubeconfig admin (sem double-encoding); `deprovisionUser` deleta SA + CRB; `updateClusterRole` deleta CRB antigo, cria novo e regenera token
-- `KubernetesOperationException.from()`: extrai mensagem legível do cause chain (`KubernetesClientException.getCode()` + fallback por texto "Forbidden"/"403"); exibe "permission denied" para 403, "resource not found" para 404, "conflict" para 409
-- `UserManagementView`: reescrita completa — grid sem coluna Status; ação "Edit Role" (troca ClusterRole e regenera token); ação "Remove" (substitui "Deactivate" — deleta usuário + deprovisions SA/CRB); dialog "Add User" com ComboBox de Cluster + ClusterRole dinâmico; restrita a admin via `beforeEnter`
-- 35 views Vaadin: todos os guards `SecurityUtils.hasPermission()` e `beforeEnter` de permissão removidos — K8s RBAC é o único guard de autorização
-- 14 services Fabric8: migrados de `buildClient(String)` para `buildClient(Cluster)` — factory resolve credenciais pelo SecurityContext
-- `MainLayout`: cluster switcher oculto para não-admin
-- `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
-- Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
 
 ---
 
