@@ -131,7 +131,7 @@ Go deeper:
 
 ## Contributing
 
-GreenCap welcomes contributions — issues, ideas, and pull requests. Full contribution guidelines are on the way; in the meantime, [open an issue](https://github.com/greencapk8s/greencap-k8s/issues) to start a conversation.
+Contributions are welcome — bug reports, feature ideas, docs, and code. Start with the [contributing guide](CONTRIBUTING.md), and please review our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? See [SECURITY.md](SECURITY.md).
 
 ## License
 
