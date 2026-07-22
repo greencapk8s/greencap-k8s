@@ -2,7 +2,7 @@
   <img src="docs/assets/greencap.png" alt="GreenCap K8s" width="170" />
   <h1>GreenCap K8s</h1>
   <p><strong>Simple Kubernetes cluster management.</strong></p>
-  <p>A lightweight web platform to monitor and operate the Kubernetes clusters you already run — a friendlier alternative to OpenShift or Rancher for individuals and small teams who study, build, and test on Kubernetes.</p>
+  <p>A lightweight web platform to run and operate Kubernetes. One command brings up a local cluster with GreenCap on it — ready to study, build, and test — and you can connect clusters you already run.</p>
 
   <p>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License: Apache 2.0" /></a>
@@ -24,11 +24,11 @@
 
 ## What is GreenCap?
 
-GreenCap is a web platform for **monitoring and managing external Kubernetes clusters**. You register access to clusters you already run — minikube, kind, managed, or on-prem — and GreenCap gives you a clean UI to see and operate what lives inside them.
+GreenCap is a web platform for **operating Kubernetes through a UI instead of a terminal**. One command (`./setup/setup.sh`) brings up a local cluster with GreenCap running on it — the fastest way to start. You can also connect clusters you already run: minikube, kind, managed, or on-prem.
 
 It's built for a specific audience: **individuals and small/medium teams who study, develop, and test against Kubernetes**, and want the day-to-day operations without the operational weight of an enterprise platform.
 
-- **It does not provision clusters.** GreenCap is a management layer over clusters that exist outside it — not a cluster lifecycle tool.
+- **Two layers, one install.** `setup.sh` provisions a local cluster to get you started; the app itself is a management layer over clusters — it operates what lives inside them, it is not a cluster lifecycle tool.
 - **It's not read-only.** GreenCap actively creates, deletes, scales, restarts, and deploys — every action governed by the acting user's Kubernetes RBAC.
 - **It's multi-user and RBAC-native.** Each non-admin user is backed by a Kubernetes ServiceAccount; their access is exactly what Kubernetes RBAC grants — nothing more.
 
@@ -97,10 +97,12 @@ cd greencap-k8s
 ./setup/setup.sh
 ```
 
-The wizard provisions a real Kubernetes cluster (minikube), builds and deploys GreenCap into it, and wires up local access. When it finishes:
+The wizard provisions a real Kubernetes cluster (minikube), pulls the published GreenCap image and deploys it, and wires up local access. When it finishes:
 
 - **URL:** http://greencap.local
 - **Login:** `admin` / `admin` &nbsp;(change it after your first login)
+
+> **How the image is provided.** On `amd64` the wizard pulls the prebuilt public image from `ghcr.io/greencapk8s/platform` — no build, no authentication. On `arm64` (Apple Silicon), or when you set `BUILD_LOCAL=true`, it builds from source locally instead; if a pull ever fails, it falls back to a local build automatically, so setup never stalls. Pin a specific release with `PLATFORM_IMAGE_TAG=X.Y.Z ./setup/setup.sh` (defaults to `latest`).
 
 To tear everything down:
 
@@ -129,9 +131,17 @@ Go deeper:
 - [`docs/adr/`](docs/adr/) — architectural decision records
 - [`.dev/README.md`](.dev/README.md) — developer guide
 
+## Security
+
+- **Encrypted kubeconfig** — cluster credentials are always encrypted before they are persisted.
+- **Native Kubernetes RBAC** — each non-admin user acts through their own ServiceAccount, so every action is authorized by the cluster itself.
+- **One source of truth** — GreenCap does not maintain a parallel permission system. What Kubernetes RBAC grants is exactly what the user can do.
+
+Found a vulnerability? See [SECURITY.md](SECURITY.md).
+
 ## Contributing
 
-Contributions are welcome — bug reports, feature ideas, docs, and code. Start with the [contributing guide](CONTRIBUTING.md), and please review our [Code of Conduct](CODE_OF_CONDUCT.md). Found a security issue? See [SECURITY.md](SECURITY.md).
+Contributions are welcome — bug reports, feature ideas, docs, and code. Start with the [contributing guide](CONTRIBUTING.md), and please review our [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

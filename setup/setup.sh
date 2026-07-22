@@ -3,7 +3,13 @@ set -euo pipefail
 
 PROFILE="greencap-platform"
 NAMESPACE="greencap-platform"
-IMAGE="localhost:5000/greencap-platform/platform:latest"
+IMAGE_REPO="ghcr.io/greencapk8s/platform"
+# Tag pulled from the public registry; override PLATFORM_IMAGE_TAG to pin a release.
+IMAGE_TAG="${PLATFORM_IMAGE_TAG:-latest}"
+# Name the image is loaded into the cluster under — matches the static reference in
+# manifests/05-greencap-deployment.yaml (imagePullPolicy IfNotPresent). A pinned
+# PLATFORM_IMAGE_TAG is retagged to :latest locally so the manifest stays static.
+LOCAL_IMAGE="$IMAGE_REPO:latest"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MANIFESTS_DIR="$SCRIPT_DIR/manifests"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -19,11 +25,6 @@ step() { echo ""; echo -e "${BOLD}==> $*${RESET}"; echo ""; }
 ok()   { echo -e "    ${GREEN}✓${RESET}  $*"; }
 warn() { echo -e "    ${YELLOW}⚠${RESET}  $*"; }
 fail() { echo -e "    ${RED}✗${RESET}  $*"; exit 1; }
-
-# ─── Port-forward cleanup ──────────────────────────────────────────────────────
-PF_PID=""
-cleanup() { [ -n "$PF_PID" ] && kill "$PF_PID" 2>/dev/null || true; }
-trap cleanup EXIT
 
 echo ""
 echo -e "${GREEN}${BOLD}  GreenCap K8s — Setup${RESET}"
@@ -358,30 +359,55 @@ kubectl rollout status deployment/registry -n kube-system --timeout=120s
 ok "Registry ready and persistent (8 Gi)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-step "Step 5: Building and pushing GreenCap image"
+step "Step 5: Providing the GreenCap image"
 
-echo "    Starting port-forward to registry at localhost:5000..."
-kubectl port-forward -n kube-system service/registry 5000:80 &>/dev/null &
-PF_PID=$!
+# Decide between pulling the published image and building from source, then load
+# the result into the cluster the same way regardless of origin. Precedence:
+#   1. BUILD_LOCAL=true  → build (developer testing unreleased source)
+#   2. arch != amd64     → build (no image is published for arm64 — see ADR 0019)
+#   3. amd64             → pull; on failure, fall back to a local build
+# uname -m reports x86_64 for amd64.
+build_image() {
+  echo "    Building from $PROJECT_ROOT/docker/Dockerfile (this can take a few minutes)..."
+  docker build -t "$LOCAL_IMAGE" -f "$PROJECT_ROOT/docker/Dockerfile" "$PROJECT_ROOT"
+  ok "Image built: $LOCAL_IMAGE"
+}
 
-# Wait until port 5000 accepts connections (up to 15 s)
-for i in $(seq 1 15); do
-  nc -z localhost 5000 2>/dev/null && break
-  sleep 1
-done
-nc -z localhost 5000 2>/dev/null || fail "Registry port-forward did not become ready"
-ok "Port-forward active (PID $PF_PID)"
+pull_image() {
+  echo "    Pulling $IMAGE_REPO:$IMAGE_TAG from the public registry..."
+  docker pull "$IMAGE_REPO:$IMAGE_TAG" || return 1
+  # Normalize a pinned tag to :latest locally so the manifest reference stays static.
+  # Explicit if (not `[ ] && cmd`) — under set -e a false test in a one-liner is a
+  # footgun (see the OS-dispatch note earlier in this script).
+  if [ "$IMAGE_TAG" != "latest" ]; then
+    docker tag "$IMAGE_REPO:$IMAGE_TAG" "$LOCAL_IMAGE"
+  fi
+  ok "Image pulled: $IMAGE_REPO:$IMAGE_TAG"
+}
 
-echo "    Building from $PROJECT_ROOT/docker/Dockerfile..."
-docker build -t "$IMAGE" -f "$PROJECT_ROOT/docker/Dockerfile" "$PROJECT_ROOT"
-ok "Image built: $IMAGE"
+ARCH="$(uname -m)"
+if [ "${BUILD_LOCAL:-}" = "true" ]; then
+  echo "    BUILD_LOCAL=true — building from source."
+  build_image
+elif [ "$ARCH" != "x86_64" ]; then
+  warn "Architecture '$ARCH' has no published image — building locally."
+  build_image
+elif ! pull_image; then
+  warn "Could not pull the published image — falling back to a local build."
+  build_image
+fi
 
-echo "    Pushing to registry..."
-docker push "$IMAGE"
-ok "Image pushed"
+echo "    Loading image into the cluster..."
+minikube image load "$LOCAL_IMAGE" -p "$PROFILE"
+ok "Image loaded: $LOCAL_IMAGE"
 
-kill "$PF_PID" 2>/dev/null || true
-PF_PID=""
+# On reruns the Deployment already exists and the manifest tag (:latest) is
+# unchanged, so `kubectl apply` in Step 7 would not roll it. Restart it so the
+# freshly loaded image is picked up. Tolerated on the first run, when the
+# Deployment does not exist yet (it is created in Step 7).
+if kubectl rollout restart deployment/greencap -n "$NAMESPACE" &>/dev/null; then
+  ok "Restarted GreenCap to pick up the reloaded image"
+fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 step "Step 6: Creating namespace and secrets"

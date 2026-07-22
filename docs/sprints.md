@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 106 | Imagem da plataforma em registry público (GHCR): CI publica por tag `v*`; `setup.sh` puxa via `minikube image load` com fallback de build local | ✅ Concluído |
 | 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
 | 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
 | 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
 | 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
-| 96 | Consolidar execução assíncrona em virtual threads — AsyncTasks como ponto único | ✅ Concluído |
 
 ---
 
@@ -81,9 +81,13 @@
 - **Storage do Registry interno pode estar subdimensionado com o crescimento do catálogo de Templates** — descoberto ao planejar a Sprint 99 (dois novos Templates buildados via Kaniko, empilhando mais imagens no Registry interno). O tamanho da PVC não é definido em código Java nem em manifest versionado — apenas em dois scripts shell de provisionamento, com valores **divergentes**: `samples/greencap-demo/cluster-setup.sh` usa `4Gi` (decisão original da Sprint 71, ver `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`), enquanto `setup/setup.sh` (setup "oficial") usa `8Gi`, sem ADR documentando essa evolução. Avaliar: (a) se o drift entre os dois scripts é intencional ou esquecimento, (b) se mesmo 8Gi comporta o catálogo crescendo além dos 3 Templates atuais sem exigir intervenção manual.
 - **Causa raiz mais provável do subdimensionamento: o registry (`registry:3.0.0`, addon `registry` do minikube) não faz garbage collection automático** — descoberto ao testar reruns do `setup.sh` (2026-07-17). Cada rebuild da imagem GreenCap no Step 5 (ou de um Template via Kaniko) sobrescreve só o manifest da tag; as layers antigas viram blobs órfãos e ficam ocupando espaço até alguém rodar `registry garbage-collect` manualmente dentro do Pod — não há cron/hook fazendo isso hoje. Em ambientes de dev com reruns frequentes de `setup.sh` (como os dois seguidos rodados nesse teste), o volume enche bem mais rápido do que o número de imagens "vivas" sugeriria, mesmo com poucos Templates instalados. Aumentar a PVC (4Gi/8Gi → algo maior) só adia o problema; a correção de causa raiz é habilitar `REGISTRY_STORAGE_DELETE_ENABLED=true` no addon e agendar `registry garbage-collect` periodicamente (ou disparar após cada build/push do `setup.sh`).
 
-#### 🐳 Imagem GreenCap em registry público — otimizar Step 5 do `setup.sh`
+#### ✅ ~~Imagem GreenCap em registry público — otimizar Step 5 do `setup.sh`~~ (Sprint 106)
 
-- **Build local é o passo mais pesado da instalação** — descoberto ao testar reruns do `setup.sh` (2026-07-17): o Step 5 (`docker build` a partir de `docker/Dockerfile` + `docker push` para o registry interno do minikube) roda do zero em toda instalação, mesmo quando o código-fonte não mudou desde a última execução. Avaliar publicar a imagem `greencap-platform/platform` em um registry público (Docker Hub, GHCR) por release/tag via CI, e trocar o Step 5 do `setup.sh` para `docker pull` da imagem publicada (com fallback para build local em desenvolvimento, quando a imagem da versão em uso ainda não foi publicada).
+> **Entregue na Sprint 106.** O Step 5 do `setup.sh` deixou de buildar do zero em toda instalação: publica-se `ghcr.io/greencapk8s/platform` (público, só `linux/amd64`) por push de tag `v*` (`.github/workflows/publish-image.yml`); o `setup.sh` decide pull-vs-build por `uname -m` com fallback automático de build; a imagem entra no cluster via `minikube image load`, aposentando o registry interno para a imagem da plataforma (mantido só para o Kaniko dos Templates). Ver ADR 0019 e a entrada da Sprint 106 em "Sprints Concluídas". Follow-up remanescente (fora do escopo): trocar o `docker-compose.yml` para a imagem publicada — item próprio no backlog acima.
+
+#### 🐳 Imagem publicada no `docker-compose.yml` — follow-up da sprint de imagem em registry público
+
+- **O `docker compose up` também builda localmente** — descoberto durante o `/grill-with-docs` da sprint de imagem em registry público: o `docker-compose.yml` (o *outro* quickstart apresentado no README, para uso local puro sem cluster) tem `build: context + docker/Dockerfile` e sofre da mesma fricção do build pesado que a sprint resolveu no `setup.sh`. A sprint ficou deliberadamente restrita ao `setup.sh`. Follow-up: trocar o `docker-compose.yml` para `image: ghcr.io/greencapk8s/platform:latest` e migrar o bloco `build:` para o override de desenvolvimento (`docker-compose.dev.yml`) — usuário final faz `docker compose up` e puxa; dev usa o override e builda. No Mac/Apple Silicon o compose puxa a imagem amd64 e roda sob emulação transparente do Docker Desktop (não precisa do fallback de build que o minikube exige). O workflow `docker-compose-validate` deve continuar buildando via override `.dev.yml` — validar o build faz parte do seu propósito.
 
 #### 📊 Storage — visualização de uso (sprint 72, cancelada)
 
@@ -98,6 +102,16 @@
 #### 📄 Documentação — divulgar `setup/setup.sh` no README principal
 
 - **`setup.sh` não é mencionado no `README.md`** — o script provisiona um cluster Minikube completo (profile configurável, addons metrics-server/ingress/registry/olm, registry persistente, build+push da imagem GreenCap e deploy via manifests em `setup/manifests/`), mas hoje só é descoberto por quem navega até `setup/`. Adicionar uma seção no README principal apresentando `./setup/setup.sh` como opção de quickstart alternativa ao `docker compose up` (ex.: "quero rodar num cluster Kubernetes de verdade, não só localmente via Docker"), com o efeito esperado (`http://greencap.local`, login `admin`/`admin`) e o script de teardown correspondente (`setup/teardown.sh`).
+
+#### 🌐 Divulgação — aprofundar a landing page (`greencapk8s.dev`)
+
+- **Landing page está "discreta"** — o site (`greencapk8s.dev`, repo `../greencap-k8s-portal`) hoje tem hero + proposta de valor + 3 screenshots + botões pro GitHub, mas falta: links para a documentação, instruções de instalação (`setup.sh`/Docker Compose), demo/vídeo ao vivo, e um caminho de contribuição. Último item pendente do **Tier 3** da iniciativa de divulgação open source (ver memória `project_oss_first_contact`); Tiers 0-2 e o restante do Tier 3 (README/LICENSE/arquivos de contribuição/About + topics/social preview) já concluídos e publicados na release v0.7.7. É trabalho no repo do portal, não no `greencap-k8s`.
+
+#### ✅ ~~Documentação — refletir no README o posicionamento "setup-first" da landing~~ (resolvido em jul/2026)
+
+> **Resolvido** no commit `dbed7c4` (direto na `main`, propagado para a `develop` por merge). O subtítulo e o "What is" passaram a liderar pela jornada de onboarding real; o bullet contraditório virou **"Two layers, one install"**, separando a camada do `setup.sh` da camada do app; e foi adicionada uma seção **Security** espelhando a landing. Ficaram deliberadamente de fora: a tabela de Diferenciais (comparação direta com OpenShift/Rancher soa agressiva em README de repo) e o Público-Alvo como seção própria (já coberto no "What is"). Pendência remanescente: a tagline de fecho da landing — "Kubernetes que você já tem. Interface que faltava." — ainda carrega a premissa antiga; ajuste no repo do portal.
+
+- **A landing (`../greencap-k8s-portal`) foi revisada em jul/2026 e passou a liderar pela jornada de onboarding real; o "What is" do README deveria acompanhar para os dois ficarem consistentes.** A cópia da landing agora distingue explicitamente a camada do **app** (UI RBAC-native que *opera* um cluster — não faz ciclo de vida de cluster) da camada do **setup** (`setup.sh` sobe um minikube local para estudo/dev), e apresenta "conectar a um cluster já existente" como **opção**, não como premissa. O README tem uma tensão interna nesse ponto: o "What is" afirma *"It does not provision clusters"* (verdadeiro para o app), enquanto o Quick Start descreve o `setup.sh` provisionando um cluster minikube. Considerar reescrever o "What is" para deixar essa distinção clara — evita que o leitor veja "não provisiona clusters" e o `setup.sh` como contraditórios —, mantendo o diferencial RBAC-native. Trechos que a landing passou a usar e que servem de referência: "operar Kubernetes com uma interface poderosa", "um único comando sobe um cluster local para estudo, dev e testes". Relacionado ao item "divulgar `setup/setup.sh` no README principal" acima; trabalho no `README.md`/`CONTEXT.md` deste repo, decorrente da revisão no repo do portal.
 
 #### 👀 Observação — `storage-provisioner` pode repetir o bug do `kube-registry-proxy`
 
@@ -119,6 +133,18 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 106 ✅ — Imagem da plataforma em registry público (GHCR): setup.sh puxa via `minikube image load`
+
+- Escopo fechado via `/grill-with-docs`; decisões e trade-offs em `docs/adr/0019-imagem-plataforma-em-ghcr-via-minikube-image-load.md`. Objetivo: eliminar o build local — o passo mais pesado da instalação — trocando-o por um pull de imagem publicada.
+- `.github/workflows/publish-image.yml` (novo): publica `ghcr.io/greencapk8s/platform` a cada push de git tag `v*` (+ `workflow_dispatch` como rede de segurança). Constrói só `linux/amd64`; aplica tags `X.Y.Z` (via `docker/metadata-action` `type=semver`) e `latest` **apenas** em release estável (nunca RC). Login no GHCR com o `GITHUB_TOKEN` (`packages: write`), sem secret externo. Pacote precisa ser tornado público uma vez na UI (passo manual documentado na issue).
+- `setup/setup.sh` Step 5 reescrito ("Providing the GreenCap image"): decide pull-vs-build por precedência `BUILD_LOCAL=true` > arquitetura ≠ `amd64` (via `uname -m`) > pull; se o pull falhar, cai automaticamente no build local com aviso (nunca trava). Tag puxada é `latest` por padrão, sobrescrevível por `PLATFORM_IMAGE_TAG`. Ambos os caminhos convergem para `ghcr.io/greencapk8s/platform:latest` local (tag fixada é normalizada via `docker tag`) e entram no cluster via `minikube image load` — eliminando o port-forward + `docker push` para o registry interno (e a dependência implícita de `nc`). Após o load, `kubectl rollout restart deployment/greencap` (tolerante ao primeiro run, quando o Deployment ainda não existe) garante que reruns peguem a imagem recarregada.
+- `setup/manifests/05-greencap-deployment.yaml`: imagem passa a `ghcr.io/greencapk8s/platform:latest` com `imagePullPolicy: IfNotPresent` (era `localhost:5000/...` com `Always`). O registry interno permanece no cluster, usado só pelo Kaniko dos Templates e pela view de Registry.
+- `.github/workflows/setup-script-validate.yml`: roda `setup.sh` com `BUILD_LOCAL=true` — o CI continua validando que o Dockerfile e o código sobem, mesmo com o padrão do script virando pull.
+- `README.md`: Quick Start passa a descrever "pulls the published image and deploys it" com nota sobre `BUILD_LOCAL`/`PLATFORM_IMAGE_TAG`/fallback.
+- Sprint sem código Java — validação por CI + aceite manual (fluxo do usuário final): fallback de build (pré-publicação), pull público, normalização de tag, e `rollout restart` nos dois ramos (ausente no install limpo, presente no rerun) exercitados ponta a ponta com uma imagem publicada manualmente sob tag `smoke-test`. Gate de testes Karibu/integração não se aplica.
+- Follow-up registrado no backlog: trocar o `docker-compose.yml` (o outro quickstart que também builda localmente) para a imagem publicada.
+- Issues: `.scratch/sprint-106/issues/` (3 issues, todas `done`).
 
 ### Sprint 105 ✅ — Topologia: setas de ServiceDependency + StatefulSet como nó
 
@@ -211,16 +237,6 @@
 - `AsyncTasks.schedulePolling`: `DelegatingSecurityContextExecutor` captura o `SecurityContext` da thread que chama `.execute()` — para o tick recorrente, essa chamada acontecia na thread do `CLOCK`, que nunca tem usuário autenticado (WARN "Unable to resolve Kubernetes credentials: no authenticated user"); fix: captura o contexto da thread chamadora (UI) no momento de `schedulePolling()` e envolve `command` com `DelegatingSecurityContextRunnable` antes de despachar para `VIRTUAL_THREADS` — corrige os 5 call sites (`BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`) sem exigir mudança neles
 - `DeployFromDockerfileView.waitForBuild`: `fetchPodLogs` isolado em `fetchAndDisplayBuildLogs()` com try/catch próprio — falha transitória ao ler logs do pod Kaniko (container de vida curta terminando) não deve abortar a checagem de status do Job, única fonte de verdade sobre sucesso/falha do build
 - Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
-
-### Sprint 96 ✅ — Consolidar execução assíncrona em virtual threads
-
-- `AsyncTasks` (novo, `io.greencap.k8s.ui`): ponto único de execução assíncrona do projeto — `execute(Runnable)` para disparo único e `schedulePolling(Runnable, Duration, Duration)` para polling recorrente, ambos com propagação de `SecurityContext` via `DelegatingSecurityContextExecutor`; internamente, o polling usa um único "clock" de thread de plataforma compartilhado que apenas dispara o tick, despachando o trabalho real para o mesmo executor do disparo único — elimina tanto a duplicação de código quanto o custo de criar/destruir um `ScheduledExecutorService` por view visitada
-- `docs/adr/0014-async-tasks-clock-compartilhado.md`: decisão do clock compartilhado em vez de um scheduler por chamador
-- `UiConstants.VIRTUAL_THREADS` removido — a classe volta a conter apenas helpers de construção de UI; 12 views (`DashboardView`, `DeployApplicationView`, `DeployFromHelmView`, `DeploymentsView`, `HelmReleasesView`, `InstalledOperatorsView`, `MainLayout`, `NamespacesView`, `OperatorCatalogView`, `PodsView`, `StatefulSetsView`, `TopologiaView`) migradas para `AsyncTasks.execute(...)`; pontos que usavam `CompletableFuture.runAsync(runnable, VIRTUAL_THREADS)` como fire-and-forget simplificados para chamada direta a `AsyncTasks.execute(...)`
-- `BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`: `ScheduledExecutorService` próprio e `shutdown()` no detach removidos — passam a usar `AsyncTasks.schedulePolling(...)`, sem wrapping manual de `DelegatingSecurityContextRunnable`; comportamento observável (intervalo, pause/resume, cancelamento ao sair da view) inalterado
-- Fora do escopo, por decisão explícita: o `Thread.ofVirtual().start(...)` cru em `MainLayout` usado para forçar um ciclo de push separado do Vaadin — não faz chamada Kubernetes, não tem o bug de propagação de contexto que motivou a sprint
-- `AsyncTasksTest`: cobertura JUnit pura (sem Spring), verificando propagação de `SecurityContext` no disparo único, disparo repetido do polling e efeito do cancelamento
-- Issues: `.scratch/sprint-96/issues/` (3 issues, todas `done`)
 
 ---
 
