@@ -48,6 +48,10 @@ jobs:
       AUTO_INSTALL: "y"
       PROFILE_CHOICE: "1"
       INSTALL_ONLY: ${{ matrix.install_only }}
+      # Force the local build path: setup.sh now defaults to pulling the published
+      # image, but this workflow exists to validate that docker/Dockerfile and the
+      # source still build. On PRs (pre-release) no image is published yet anyway.
+      BUILD_LOCAL: "true"
     steps:
       - uses: actions/checkout@v6
 

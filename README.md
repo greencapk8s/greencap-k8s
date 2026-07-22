@@ -97,10 +97,12 @@ cd greencap-k8s
 ./setup/setup.sh
 ```
 
-The wizard provisions a real Kubernetes cluster (minikube), builds and deploys GreenCap into it, and wires up local access. When it finishes:
+The wizard provisions a real Kubernetes cluster (minikube), pulls the published GreenCap image and deploys it, and wires up local access. When it finishes:
 
 - **URL:** http://greencap.local
 - **Login:** `admin` / `admin` &nbsp;(change it after your first login)
+
+> **How the image is provided.** On `amd64` the wizard pulls the prebuilt public image from `ghcr.io/greencapk8s/platform` — no build, no authentication. On `arm64` (Apple Silicon), or when you set `BUILD_LOCAL=true`, it builds from source locally instead; if a pull ever fails, it falls back to a local build automatically, so setup never stalls. Pin a specific release with `PLATFORM_IMAGE_TAG=X.Y.Z ./setup/setup.sh` (defaults to `latest`).
 
 To tear everything down:
 
