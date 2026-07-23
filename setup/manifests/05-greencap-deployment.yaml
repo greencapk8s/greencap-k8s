@@ -20,8 +20,8 @@ spec:
     spec:
       containers:
         - name: greencap
-          image: localhost:5000/greencap-platform/platform:latest
-          imagePullPolicy: Always
+          image: ghcr.io/greencapk8s/platform:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           env:

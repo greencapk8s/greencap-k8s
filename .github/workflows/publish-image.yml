@@ -1,0 +1,66 @@
+name: Publish Image
+
+# Publishes the platform image to GHCR on every release tag. setup.sh pulls this
+# image by default (see ADR 0019), turning the heavy local build into a fast pull.
+#
+# NOTE: the ghcr.io/greencapk8s/platform package must be made public once, manually,
+# after the first publish — GHCR creates packages as private by default. Public
+# visibility lets setup.sh pull with no imagePullSecret.
+
+on:
+  push:
+    tags:
+      - "v*"
+  # workflow_dispatch is for re-publishing a release whose original run failed.
+  # Run it against a tag ref (not a branch) — otherwise no image tag is derived and
+  # the build fails cleanly instead of publishing a stray :latest from a branch.
+  workflow_dispatch:
+
+jobs:
+  publish:
+    # Fixed version, not ubuntu-latest — that tag moves to a newer image over time
+    # without notice, risking non-reproducible CI runs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/greencapk8s/platform
+          # latest is added explicitly below; disable metadata-action's auto-latest
+          flavor: latest=false
+          # {{version}} strips the leading v (v0.7.8 -> 0.7.8). latest is applied
+          # only to stable release tags — never a pre-release (v0.7.8-rc.1 contains
+          # a '-'), so an RC never hijacks the latest that end users pull.
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-') }}
+
+      - name: Build and push (linux/amd64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          # amd64 only — arm64 would need QEMU emulation on the runner, slowing every
+          # release to serve the macOS/Apple Silicon minority (setup.sh builds arm64
+          # locally instead — see ADR 0019)
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
