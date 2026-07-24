@@ -369,7 +369,14 @@ step "Step 5: Providing the GreenCap image"
 # uname -m reports x86_64 for amd64.
 build_image() {
   echo "    Building from $PROJECT_ROOT/docker/Dockerfile (this can take a few minutes)..."
-  docker build -t "$LOCAL_IMAGE" -f "$PROJECT_ROOT/docker/Dockerfile" "$PROJECT_ROOT"
+  # The build stage has no .git (see .dockerignore), so the version shown in the UI has
+  # to be handed in. Only an exact release tag counts — any other checkout is source in
+  # flux and keeps the -dev suffix the Gradle build derives on its own.
+  local release_tag
+  release_tag="$(git -C "$PROJECT_ROOT" describe --tags --exact-match 2>/dev/null || true)"
+  docker build -t "$LOCAL_IMAGE" \
+    --build-arg "APP_VERSION=${release_tag#v}" \
+    -f "$PROJECT_ROOT/docker/Dockerfile" "$PROJECT_ROOT"
   ok "Image built: $LOCAL_IMAGE"
 }
 

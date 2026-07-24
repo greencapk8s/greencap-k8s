@@ -31,11 +31,16 @@ val baseVersion = project.property("version.base") as String
 val rcIteration = project.property("version.rc") as String
 val branch = detectBranch()
 
-version = when (branch) {
-    "main"    -> lastGitTag(fallback = baseVersion)
-    "staging" -> "$baseVersion-rc.$rcIteration"
-    else      -> "$baseVersion-dev"
-}
+// Explicit override wins over branch detection. The release image is compiled inside
+// the Docker build stage, where neither the CI env vars nor .git are available (see
+// .dockerignore) — branch detection there always falls back to "unknown" and would
+// stamp a -dev suffix on a stable release. publish-image.yml passes the tag version in.
+version = System.getenv("GREENCAP_VERSION")?.takeIf { it.isNotBlank() }
+    ?: when (branch) {
+        "main"    -> lastGitTag(fallback = baseVersion)
+        "staging" -> "$baseVersion-rc.$rcIteration"
+        else      -> "$baseVersion-dev"
+    }
 
 java {
     toolchain {
