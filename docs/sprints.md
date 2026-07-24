@@ -78,7 +78,7 @@
 
 - **Build a partir de Git Repository privado** — a Sprint 73 implementou Build via Kaniko apenas para repositórios públicos (sem credenciais). Suporte a repositórios privados exigiria capturar credenciais (token/usuário+senha) na UI e propagá-las ao Job Kaniko (`GIT_TOKEN`/`GIT_USERNAME`/`GIT_PASSWORD`), com cuidado para não persistir as credenciais em texto plano.
 - **Histórico de Builds** — a Sprint 73 não persiste histórico: um Build finalizado não deixa rastro em GreenCap (Job efêmero com `ttlSecondsAfterFinished`). Avaliar persistir um registro mínimo (Repositório/Tag, Git Repository/branch, status, timestamps) para permitir consultar Builds anteriores.
-- **Storage do Registry interno pode estar subdimensionado com o crescimento do catálogo de Templates** — descoberto ao planejar a Sprint 99 (dois novos Templates buildados via Kaniko, empilhando mais imagens no Registry interno). O tamanho da PVC não é definido em código Java nem em manifest versionado — apenas em dois scripts shell de provisionamento, com valores **divergentes**: `samples/greencap-demo/cluster-setup.sh` usa `4Gi` (decisão original da Sprint 71, ver `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`), enquanto `setup/setup.sh` (setup "oficial") usa `8Gi`, sem ADR documentando essa evolução. Avaliar: (a) se o drift entre os dois scripts é intencional ou esquecimento, (b) se mesmo 8Gi comporta o catálogo crescendo além dos 3 Templates atuais sem exigir intervenção manual.
+- **Storage do Registry interno pode estar subdimensionado com o crescimento do catálogo de Templates** — descoberto ao planejar a Sprint 99 (dois novos Templates buildados via Kaniko, empilhando mais imagens no Registry interno). O tamanho da PVC não é definido em código Java nem em manifest versionado — apenas em dois scripts shell de provisionamento, com valores **divergentes**: `samples/greencap-demo/cluster-setup.sh` usa `4Gi` (decisão original da Sprint 71, ver `.issue-tracker/archive/sprint-71/issues/01-pvc-persistencia-registry.md`), enquanto `setup/setup.sh` (setup "oficial") usa `8Gi`, sem ADR documentando essa evolução. Avaliar: (a) se o drift entre os dois scripts é intencional ou esquecimento, (b) se mesmo 8Gi comporta o catálogo crescendo além dos 3 Templates atuais sem exigir intervenção manual.
 - **Causa raiz mais provável do subdimensionamento: o registry (`registry:3.0.0`, addon `registry` do minikube) não faz garbage collection automático** — descoberto ao testar reruns do `setup.sh` (2026-07-17). Cada rebuild da imagem GreenCap no Step 5 (ou de um Template via Kaniko) sobrescreve só o manifest da tag; as layers antigas viram blobs órfãos e ficam ocupando espaço até alguém rodar `registry garbage-collect` manualmente dentro do Pod — não há cron/hook fazendo isso hoje. Em ambientes de dev com reruns frequentes de `setup.sh` (como os dois seguidos rodados nesse teste), o volume enche bem mais rápido do que o número de imagens "vivas" sugeriria, mesmo com poucos Templates instalados. Aumentar a PVC (4Gi/8Gi → algo maior) só adia o problema; a correção de causa raiz é habilitar `REGISTRY_STORAGE_DELETE_ENABLED=true` no addon e agendar `registry garbage-collect` periodicamente (ou disparar após cada build/push do `setup.sh`).
 
 #### 🐳 Imagem publicada no `docker-compose.yml` — follow-up da sprint de imagem em registry público
@@ -141,7 +141,7 @@
 - `README.md`: Quick Start passa a descrever "pulls the published image and deploys it" com nota sobre `BUILD_LOCAL`/`PLATFORM_IMAGE_TAG`/fallback.
 - Sprint sem código Java — validação por CI + aceite manual (fluxo do usuário final): fallback de build (pré-publicação), pull público, normalização de tag, e `rollout restart` nos dois ramos (ausente no install limpo, presente no rerun) exercitados ponta a ponta com uma imagem publicada manualmente sob tag `smoke-test`. Gate de testes Karibu/integração não se aplica.
 - Follow-up registrado no backlog: trocar o `docker-compose.yml` (o outro quickstart que também builda localmente) para a imagem publicada.
-- Issues: `.scratch/sprint-106/issues/` (3 issues, todas `done`).
+- Issues: `.issue-tracker/sprint-106/issues/` (3 issues, todas `done`).
 
 ### Sprint 105 ✅ — Topologia: setas de ServiceDependency + StatefulSet como nó
 
@@ -152,7 +152,7 @@
 - **Evidência no drawer** (`TopologyNodeDrawer`): ao abrir o drawer de um Workload com uma ou mais `ServiceDependency` saindo dele, uma seção "Depends on" lista cada dependência inferida com a env var e o valor que geraram o match, reaproveitando o botão "Go to" já usado para outros tipos de nó; Workloads sem dependência inferida não mostram a seção — sem alteração visual para o caso comum de hoje
 - Testes: `TopologyServiceTest` (novo, `@EnableKubernetesMockClient`) — StatefulSet como nó com status/edge de PodGroup corretos, Service headless com edge idêntica à de um Service regular, `ServiceDependency` para os três formatos de valor (hostname, host:porta, connection string), resolução via `configMapKeyRef`/`secretKeyRef`, dedup de múltiplas env vars para o mesmo Service, e o caso negativo/positivo de FQDN com namespace diferente/igual ao ativo; `TopologyNodeDrawerTest` (novo, Karibu) — seção "Depends on" aparece só quando há dependência, evidência (env var + valor) renderizada corretamente, ausência da seção quando não há dependência
 - **Achado durante a escrita dos testes, registrado no backlog** (não corrigido nesta sprint — fora do escopo original, não verificado em navegador real): o botão "Go to resource"/"Go to `<service>`" do drawer usa `ui.navigate(url)` (overload de 1 argumento) para URLs com `?name=` embutido — esse overload não separa a query string do path internamente, padrão que já existia em outros pontos do código (ex. `CronJobsView`) antes desta sprint
-- Issues: `.scratch/sprint-105/issues/` (3 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-105/issues/` (3 issues, todas `done`)
 
 ### Sprint 104 ✅ — Username no header + Developer Experience como 1ª seção do menu + fix de duplicação nos wizards de deploy
 
@@ -162,7 +162,7 @@
 - Decisão tomada durante o aceite: item de menu "New Application" passou a apontar para `DeployFromDockerfileView` por padrão (era `DeployApplicationView`/Deploy from Image), para bater com Dockerfile agora sendo o primeiro botão em destaque da faixa
 - Testes: `MainLayoutTest` (novo) — username sempre visível, "DEVELOPER EXPERIENCE" como 1ª seção com "New Application" abaixo de "Templates Catalog"; `DeployModeSelectorTest` (novo) — ordem fixa dos botões e destaque correto por view. Registro de rotas do `MockVaadin` (necessário porque `SideNavItem` resolve a rota no construtor) feito localmente só em `MainLayoutTest` — fazê-lo na classe base `KaribuTest` quebrou 11 testes existentes, já que nenhuma view desta app tem construtor no-arg e o `MockVaadin` falha ao navegar automaticamente para `""` na configuração inicial
 - Planejamento via `/grill-with-docs` cobriu as entregas 01 e 02 (username e reorganização do menu); a entrega 03 (fix de duplicação + `DeployModeSelector`) foi causa e solução evidentes, descobertas durante o aceite manual
-- Issues: `.scratch/sprint-104/issues/` (3 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-104/issues/` (3 issues, todas `done`)
 
 ### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
 
@@ -174,9 +174,9 @@
 - `CONTEXT.md`: entrada **Uninstall Template** adicionada ao glossário
 - Testes (`SampleCatalogViewTest`): card instalado renderiza a lixeira (localizada pela `Tooltip`, botão só-ícone) e card não-instalado não a renderiza; guard do botão "Uninstall" — desabilitado ao abrir, continua desabilitado com texto errado, habilita só com o Namespace exato; confirmar dispara `deleteNamespace` e marca o card "Uninstalling…"
 - Sem gate de permissão (ADR 0013) — Kubernetes API autoriza (ou 403) a deleção via o service account do usuário
-- Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.scratch/sprint-103/issues/`
+- Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.issue-tracker/sprint-103/issues/`
 - Backlog: registrado follow-up para extrair a lógica de deploy+build da `SampleCatalogView` (construtor cresceu para 7 dependências com a chegada de `NamespaceService`)
-- Issues: `.scratch/sprint-103/issues/` (1 issue, `done`)
+- Issues: `.issue-tracker/sprint-103/issues/` (1 issue, `done`)
 
 ### Sprint 102 ✅ — Templates Catalog: ação "Open Topology" no card de Template instalado
 
@@ -187,11 +187,11 @@
 - Fix cosmético incluído: no badge "Installed", ícone de check e texto estavam colados — adicionado `margin-inline-start` no label
 - `CONTEXT.md`: entrada **Templates Catalog** atualizada descrevendo a ação "Open Topology" no card instalado, explicitando que é distinta do botão "Go to resource" do painel de detalhe da própria Topologia
 - Testes: `SampleCatalogViewTest` (Karibu) estendido — card instalado renderiza "Open Topology" junto ao badge; card não-instalado não o mostra (só "Deploy"); clicar troca o Namespace ativo para o do Template (`clusterContext.setNamespace` + `userService.updateActiveNamespace` verificados, absorvendo o `NotFoundException` de `navigate` no ambiente de teste sem rotas)
-- Issues: `.scratch/sprint-102/issues/` (1 issue, `done`)
+- Issues: `.issue-tracker/sprint-102/issues/` (1 issue, `done`)
 
 ### Sprint 101 ✅ — Bug fixes do selector de Namespace no header (refresh pós-deploy + seleção no F5)
 
-- Dois bugs do combobox de Namespaces do `MainLayout`, ambos registrados no backlog durante os aceites das Sprints 98/99 — fluxo de bug fix pontual (sem `/grill-with-docs` nem issues formais em `.scratch/`)
+- Dois bugs do combobox de Namespaces do `MainLayout`, ambos registrados no backlog durante os aceites das Sprints 98/99 — fluxo de bug fix pontual (sem `/grill-with-docs` nem issues formais em `.issue-tracker/`)
 - **Selector desatualizado após deploy**: Deploy Application, Deploy from Dockerfile e Import Compose criam uma Namespace nova e navegam direto para a `TopologiaView`, mas não recarregavam a lista do combobox no header (a Namespace nova só aparecia após trocar de Cluster e voltar, pois `updateNamespaceSelector()` só recarrega quando o Cluster ativo muda). Fix: os três fluxos passam a chamar o refresh do `MainLayout` após `setNamespace`, antes do `navigate` — mesmo mecanismo já usado por `NamespacesView`/`SampleCatalogView`
 - **Seleção perdida no full reload (F5)**: o valor selecionado sumia após F5 (voltava para "Select...") enquanto a lista continuava correta. Causa: o valor só era aplicado via `@Push` assíncrono — num F5 a `UI` nova abre o canal push apenas após a resposta HTML inicial, então o push do valor podia chegar antes do canal estar pronto e ser descartado pelo cliente (a implementação anterior ainda o piorava usando um *segundo* push disparado de uma virtual thread solta). Fix: `loadNamespacesForCluster()` semeia o combo **sincronamente** com o Namespace da sessão (item único + valor) antes do load assíncrono — como o `ClusterContext` é `@VaadinSessionScope` e sobrevive ao F5, o valor entra no render HTML inicial sem depender de push; o task assíncrono depois substitui pela lista completa de Namespaces
 - **Limpeza de duplicação**: o helper que localiza o `MainLayout` a partir da view e chama `refreshClusterState()` estava copiado idêntico em `NamespacesView` e `SampleCatalogView`; com mais três fluxos precisando dele, foi extraído para o estático `MainLayout.refreshNamespaceSelector(UI)` e os cinco call sites apontam para lá
@@ -205,7 +205,7 @@
 - Novo workflow `.github/workflows/setup-script-validate.yml`: matrix `ubuntu-24.04` (fluxo completo: setup → reachability com retry → teardown) e `macos-14` (`INSTALL_ONLY=true` — só valida os instaladores Homebrew, sem provisionar cluster). `docker-compose-validate.yml` também migrado de `ubuntu-latest` para `ubuntu-24.04` — tags `*-latest` são realocadas pelo GitHub sem aviso, arriscando invalidar premissas específicas de Apple Silicon
 - Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
 - **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
-- Issues: `.scratch/sprint-100/issues/` (3 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-100/issues/` (3 issues, todas `done`)
 
 ### Sprint 99 ✅ — Dois novos Templates no catálogo: CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis
 
@@ -213,7 +213,7 @@
 - **Template `crud-flask-mongodb`**: análogo ao `crud-flask-postgres` seed trocando o datastore relacional pelo documental — mesma entidade `items` (`name`/`description`), mesmas rotas CRUD, mesma UI HTML servida pelo próprio Flask; persistência via `pymongo` direto (sem ODM, espelhando o uso de `psycopg2` no template Postgres) com retry de conexão no boot; MongoDB `mongo:8.0` com autenticação obrigatória via Secret (padrão `postgres-credentials`) e PVC de 1Gi; backend buildado via Kaniko (sentinela `__BUILD__backend`); Ingress fixo `crud-flask-mongodb.greencap.local`. Objetivo didático: comparar diretamente conexão relacional vs. documental sob o mesmo padrão Deployment stateless + storage stateful na Namespace
 - **Template `cache-aside-flask-postgres-redis`**: demonstra o padrão cache-aside (decisão do `CONTEXT.md`: Redis pelo seu papel idiomático de cache, não como datastore primário de um CRUD); reaproveita a app do `crud-flask-postgres` adicionando cache na listagem — `GET /` lê a chave `items:all` no Redis antes de consultar o Postgres, populando-a com TTL de 60s no miss; escritas invalidam ativamente a chave além do TTL; Redis `redis:8-alpine` com `requirepass` via Secret e **sem PVC** (cache descartável — perder no restart é esperado, a próxima leitura repopula a partir do Postgres); backend via Kaniko; Ingress fixo `cache-aside-flask-postgres-redis.greencap.local`
 - Ambos com entrada em `catalog.json` (title/description/technologies); imagens `mongo:8.0` e `redis:8-alpine` fixadas após validar as versões estáveis mais recentes (as issues previam `7.0`/`7.4-alpine` como piso)
-- Issues: `.scratch/sprint-99/issues/` (2 issues, ambas `done`)
+- Issues: `.issue-tracker/sprint-99/issues/` (2 issues, ambas `done`)
 
 ### Sprint 98 ✅ — Templates Catalog: catálogo de Templates (greencap-templates) com deploy em um clique
 
@@ -226,14 +226,14 @@
 - Infraestrutura: `local-path-provisioner` instalado no `greencap-demo` (vendorizado em `samples/greencap-demo/local-path-storage.yaml`, aplicado por `cluster-setup.sh`) e definido como StorageClass default, resolvendo a limitação de `nodeAffinity` do hostpath-provisioner já registrada no backlog (Sprint 71) — descoberta reativada ao ver o Postgres do Template em `CreateContainerConfigError` num node diferente do node com os dados
 - Testes: `SampleCatalogServiceTest` e `TemplateDeploymentServiceTest` (parsing de fixtures, `isInstalled` via `@EnableKubernetesMockClient`, substituição de sentinela, abort-sem-rollback em conflito) em `kubernetes/`; `SampleCatalogViewTest` (badge Installed oculta/mostra o botão Deploy, preview abre somente-leitura sem disparar deploy antes da confirmação) em `ui/` — `forceReload()` da view tornado síncrono (mesmo padrão de `NamespacesView.loadNamespaces()`) para permitir dirigir o teste sem correr atrás de uma thread virtual
 - Dois bugs pré-existentes encontrados durante o aceite manual e registrados no backlog (não corrigidos nesta sprint): badge de status de Pod não reflete `CrashLoopBackOff`; combobox de Namespaces não atualiza após Deploy Application/Deploy from Dockerfile/Import Compose (mesma causa corrigida aqui para Deploy Template)
-- Issues: `.scratch/sprint-98/issues/` (5 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-98/issues/` (5 issues, todas `done`)
 
 ### Sprint 97 ✅ — Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling)
 
 - Encontrado durante validação manual pós-Sprint 96: Deploy from Dockerfile mostrava "Build failed. Check the logs above." mesmo com o Job Kaniko completando com sucesso e a imagem sendo pushada ao registry
 - `AsyncTasks.schedulePolling`: `DelegatingSecurityContextExecutor` captura o `SecurityContext` da thread que chama `.execute()` — para o tick recorrente, essa chamada acontecia na thread do `CLOCK`, que nunca tem usuário autenticado (WARN "Unable to resolve Kubernetes credentials: no authenticated user"); fix: captura o contexto da thread chamadora (UI) no momento de `schedulePolling()` e envolve `command` com `DelegatingSecurityContextRunnable` antes de despachar para `VIRTUAL_THREADS` — corrige os 5 call sites (`BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`) sem exigir mudança neles
 - `DeployFromDockerfileView.waitForBuild`: `fetchPodLogs` isolado em `fetchAndDisplayBuildLogs()` com try/catch próprio — falha transitória ao ler logs do pod Kaniko (container de vida curta terminando) não deve abortar a checagem de status do Job, única fonte de verdade sobre sucesso/falha do build
-- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
+- Sem issues formais em `.issue-tracker/` — fluxo de bug fix pontual (causa e solução evidentes)
 
 ---
 

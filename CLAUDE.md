@@ -107,7 +107,7 @@ ui/          # Views Vaadin e MainLayout
 
 ### Issue tracker
 
-Issues ficam como arquivos markdown em `.scratch/`. Ver `docs/agents/issue-tracker.md`.
+Issues ficam como arquivos markdown em `.issue-tracker/`. Ver `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
@@ -119,14 +119,14 @@ Single-context: `CONTEXT.md` na raiz + `docs/adr/`. Ver `docs/agents/domain.md`.
 
 ### Sprint archiving
 
-`docs/sprints.md` mostra só as últimas 10 sprints em "Sprints Concluídas"; o restante vai para `docs/sprints-archive.md` e `.scratch/archive/`. Ver `docs/agents/sprint-archiving.md`.
+`docs/sprints.md` mostra só as últimas 10 sprints em "Sprints Concluídas"; o restante vai para `docs/sprints-archive.md` e `.issue-tracker/archive/`. Ver `docs/agents/sprint-archiving.md`.
 
 ### Fluxo de Sprint
 
 Toda sprint segue este ciclo antes de qualquer código:
 
 1. **Planejamento** — antes de iniciar, lembrar o usuário de alterar o effort para `high` (`/effort high`); usar `/grill-with-docs` para definir escopo, requisitos e restrições da sprint
-2. **Issues** — criar uma issue por entrega em `.scratch/sprint-N/issues/NN-slug.md` (ver `docs/agents/issue-tracker.md`)
+2. **Issues** — criar uma issue por entrega em `.issue-tracker/sprint-N/issues/NN-slug.md` (ver `docs/agents/issue-tracker.md`)
 3. **Implementação** — antes de iniciar, lembrar o usuário de alterar o effort para `medium` (`/effort medium`); codificar seguindo as convenções deste guia, marcando a issue como `in-progress`
 4. **Compilação** — compilar (`./gradlew compileJava`) após cada mudança relevante; reportar erros imediatamente
 5. **Aceite manual** — aguardar o usuário validar os fluxos no browser e confirmar o aceite; não avançar sem essa confirmação

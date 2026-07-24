@@ -1,18 +1,18 @@
 # Issue tracker: Local Markdown
 
-Issues and PRDs for this repo live as markdown files in `.scratch/`.
+Issues and PRDs for this repo live as markdown files in `.issue-tracker/`.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The PRD is `.scratch/<feature-slug>/PRD.md`
-- Implementation issues are `.scratch/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`
+- One feature per directory: `.issue-tracker/<feature-slug>/`
+- The PRD is `.issue-tracker/<feature-slug>/PRD.md`
+- Implementation issues are `.issue-tracker/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01`
 - Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/<feature-slug>/` (creating the directory if needed).
+Create a new file under `.issue-tracker/<feature-slug>/` (creating the directory if needed).
 
 ## When a skill says "fetch the relevant ticket"
 
@@ -20,4 +20,4 @@ Read the file at the referenced path. The user will normally pass the path or th
 
 ## Archived sprints
 
-`.scratch/sprint-N/` directories for sprints outside the active window are moved to `.scratch/archive/sprint-N/`. They keep the same structure and remain greppable, just out of the active working set. See `docs/agents/sprint-archiving.md`.
+`.issue-tracker/sprint-N/` directories for sprints outside the active window are moved to `.issue-tracker/archive/sprint-N/`. They keep the same structure and remain greppable, just out of the active working set. See `docs/agents/sprint-archiving.md`.
