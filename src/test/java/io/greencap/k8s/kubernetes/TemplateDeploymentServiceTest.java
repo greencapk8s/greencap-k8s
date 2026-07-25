@@ -5,6 +5,7 @@ import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.BuildContextSource;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.TemplateBuild;
 import io.greencap.k8s.kubernetes.dto.TemplateManifest;
@@ -128,8 +129,8 @@ class TemplateDeploymentServiceTest {
 
         BuildRequest request = templateDeploymentService.toBuildRequest(TEMPLATE, build);
 
-        assertThat(request.gitRepositoryUrl()).isEqualTo("https://github.com/greencapk8s/greencap-templates");
-        assertThat(request.branch()).isEqualTo("main");
+        assertThat(request.source()).isEqualTo(new BuildContextSource.GitRepository(
+                "https://github.com/greencapk8s/greencap-templates", "main"));
         assertThat(request.contextPath()).isEqualTo("crud-flask-postgres/app");
         assertThat(request.dockerfilePath()).isEqualTo("Dockerfile");
         assertThat(request.repository()).isEqualTo("crud-flask-postgres/backend");

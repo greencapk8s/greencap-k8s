@@ -32,6 +32,8 @@ O `Job` é efêmero: define `ttlSecondsAfterFinished` para que o Kubernetes remo
 
 **Upload de Dockerfile/contexto via UI**: descartado — mesmo restrito a um único Dockerfile autocontido, exigiria ConfigMap; para contexto completo (múltiplos arquivos via `COPY`), exigiria PVC e reabriria o problema de `nodeAffinity` da Sprint 71. O contexto Git do Kaniko resolve "contexto completo" sem nenhuma transferência de arquivo.
 
+> **Revisto pela ADR 0020.** Ambas as premissas caíram: o problema de `nodeAffinity` foi resolvido na Sprint 98 (`local-path-provisioner` como StorageClass default) e, mais importante, nem ConfigMap nem PVC são necessários — o contexto alcança o Pod pela API de exec do Kubernetes, num `emptyDir`. O upload de pasta local passou a ser uma origem adicional de Build Context; o contexto Git desta ADR permanece o padrão e a única origem aceita por Deploy Template e pelo Build da view de Registry.
+
 ## Consequences
 
 - Build limitado a repositórios Git **públicos** no v1 — repositórios privados exigiriam credenciais (token), um novo conceito de credencial não coberto por esta decisão. Registrado no backlog como follow-up.

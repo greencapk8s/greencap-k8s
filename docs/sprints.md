@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 107 | Build Context a partir de pasta local: Deploy from Dockerfile e Deploy from Compose passam a aceitar upload do computador, além de Git | ✅ Concluído |
 | 106 | Imagem da plataforma em registry público (GHCR): CI publica por tag `v*`; `setup.sh` puxa via `minikube image load` com fallback de build local | ✅ Concluído |
 | 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
 | 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 | 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
 | 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
-| 97 | Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling) | ✅ Concluído |
 
 ---
 
@@ -73,6 +73,11 @@
 #### 🐳 Deploy from Compose — follow-ups da Sprint 83
 
 - **Ingress no Deploy from Compose** — a Sprint 83 deixou Ingress fora do escopo v1 (decisão registrada no `/grill-with-docs`). Cada serviço com `ports:` expõe apenas um ClusterIP Service. Follow-up: na tela de revisão, adicionar toggle "Expor externamente (Ingress)" por serviço com porta exposta, com campos de host e IngressClass editáveis — mesmo padrão do Deploy from Image. Avaliar também a criação de um único Ingress com múltiplos path rules (um por serviço), o que permite agrupar todos os endpoints sob um único host.
+
+#### 🗂 Build Context local — follow-up da Sprint 107
+
+- **"Build Image" do Registry ainda só aceita Git** — a Sprint 107 levou o Build Context a partir de pasta local para os dois wizards de New Application (Deploy from Dockerfile e Import Compose), mas deixou de fora o dialog "Build Image" da `RegistryView`, que continua exigindo URL de repositório Git. Decisão consciente de escopo (o mecanismo já teria sido provado nos dois wizards, e uma terceira superfície só aumentaria o aceite manual sem exercitar nada de novo), mas cria inconsistência visível: quem aprende a subir uma pasta em New Application encontra só o campo de Git ao abrir o dialog do Registry. Como todo o mecanismo (empacotamento no navegador, transporte via exec, `BuildRequest` com duas origens) já existe, o custo marginal é a UI do dialog. Deploy Template permanece deliberadamente fora — o repositório é curado pela equipe, onde origem local não faz sentido.
+- **Arrastar e soltar a pasta como alternativa ao seletor nativo** — hoje a única forma de escolher uma pasta é o seletor nativo do sistema operacional, e o comportamento dele não é controlável pela plataforma: o `webkitdirectory` delega o diálogo inteiro ao SO. No aceite da Sprint 107 isso apareceu como atrito real (no KDE, o segundo clique sobre uma pasta já selecionada abre o rename inline em vez de entrar nela) — atrito que recai justamente sobre o público iniciante que a ADR 0020 quis desobstruir, e que varia por desktop sem que o GreenCap possa uniformizar. Follow-up: adicionar uma zona de drop ao `BuildContextPicker`, lendo a árvore do diretório arrastado via `DataTransferItem.webkitGetAsEntry()` e alimentando o mesmo empacotamento já existente — o seletor nativo continua como caminho alternativo, não é substituído. Custo marginal baixo (só a entrada dos arquivos muda; exclusões, tar.gz, teto de 50 MB e upload seguem iguais), mas mexe no componente central da sprint, então não entrou no escopo já validado.
 
 #### 📦 Registry — follow-ups da Sprint 73
 
@@ -130,6 +135,22 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 107 ✅ — Build Context a partir de pasta local (Deploy from Dockerfile e Deploy from Compose)
+
+- Escopo fechado via `/grill-with-docs`; decisões e alternativas descartadas em `docs/adr/0020-contexto-de-build-local-via-upload.md`, que revisa a ADR 0007 (as duas premissas que rejeitavam upload caíram: `nodeAffinity` resolvido na Sprint 98, e nem ConfigMap nem PVC são necessários). Objetivo: remover a exigência de publicar um repositório Git público só para experimentar a plataforma — barreira desproporcional para o público iniciante declarado no `CONTEXT.md`.
+- `build-context-picker.ts` (novo): seleção via seletor nativo de pastas (`webkitdirectory`), exclusões, empacotamento em `tar.gz` com escritor USTAR próprio e `CompressionStream` nativa — sem dependência nova no `package.json`. Os arquivos entram no archive como partes de `Blob`, então só os headers de 512 bytes passam pelo heap do JS e uma pasta grande não derruba a aba antes de comprimir. Empacotar no cliente é o que preserva a estrutura de subpastas: o `vaadin-upload` descarta o `webkitRelativePath`, e `static/style.css` chegaria ao servidor como `style.css`.
+- Exclusões em duas camadas compostas: lista embutida (`.git`, `node_modules`, `venv`, `__pycache__`, `target`, `dist`, `build`) sempre exclui; um `.dockerignore` na raiz **acrescenta** exclusões por cima. Negação (`!node_modules`) não repõe o que a lista embutida removeu — assimétrico em relação ao Docker de propósito. Subconjunto pragmático de sintaxe; padrão não compreendido é ignorado e aparece no resumo em vez de falhar silenciosamente. Resumo pré-envio mostra arquivos, tamanho comprimido e exclusões separadas por procedência, antes de qualquer byte sair do navegador. Teto de 50 MB comprimido, recusado nomeando as maiores pastas incluídas.
+- `BuildContextPicker.java` (novo): upload por `StreamReceiver` bufferizado em disco temporário (não em heap, diferente do `MemoryBuffer` do kubeconfig na `ClustersView`), descartado ao trocar de seleção e ao sair da view. O nome do recurso é obrigatoriamente `upload`: `HandlerHelper.isUploadRequest` só reconhece `.../<uiId>/<securityKey>/upload` como requisição interna do framework, e qualquer outro nome cai no `CsrfFilter` do Spring, que rejeita o POST com 403 — descoberto no aceite manual e fixado em teste.
+- `BuildContextSource` (novo, sealed) + `BuildRequest` com factories: a origem passou a ser expressa por tipo, tornando impossível construir um request com Git e pasta local ao mesmo tempo. Os 4 call sites existentes seguem em Git, sem mudança de comportamento.
+- `RegistryService`: Job Kaniko com origem local ganha `initContainer` busybox compartilhando um `emptyDir` com o Kaniko, bloqueado numa sentinela com espera limitada; o contexto entra pela API de exec (`file(...).upload(InputStream)`, que só exige `sh`/`cat`/`wc` no container) e o Kaniko roda com `--context=tar:///workspace/context.tar.gz`. Falha em qualquer etapa apaga o Job em vez de deixá-lo bloqueado até o TTL. Montagem do Job extraída para `buildKanikoJob`, testável sem cluster. Sobrecarga de `startBuild` com `Consumer<String>` de progresso: com origem local o Pod precisa subir e receber o archive antes da primeira linha de log existir, e só o serviço conhece essas fases.
+- Nova exigência de RBAC: `create` em `pods/exec` no Namespace `greencap-system`. Sem verificação prévia (a ADR 0013 removeu esse padrão); o 403 já é traduzido pelo `KubernetesOperationException`.
+- `DeployFromDockerfileView` e `ImportComposeView`: escolha de origem com Git como padrão, limpeza da origem abandonada na troca, namespace sugerido a partir do nome da pasta, e Review descrevendo a origem local honestamente (pasta, arquivos, tamanho) em vez de reaproveitar o texto de Git. A detecção de porta do Dockerfile lê o arquivo direto da pasta ainda aberta no navegador; `ComposeParser.parse` virou público — o parser antes só era alcançável pelo caminho de busca HTTP.
+- Nas duas telas, a etapa 1 passou a ser construída uma vez e apenas ocultada quando o wizard avança. Reconstruí-la desanexava o picker, e o `onDetach` descartava o archive já enviado — a validação da etapa 1 passava e o build começava sem contexto, com a exceção estourando numa thread de background e a tela parada em "Pending". Encontrado no aceite manual e fixado em teste nas duas views.
+- Selecionar o arquivo Compose isolado, previsto no desenho original da issue 04, foi retirado durante o aceite: era o único ponto da plataforma onde um Build Context era opcional, e produzia um estado de tela em que serviços com `build:` não tinham como ser buildados — estado que só se resolvia com aviso acionável e bloqueio de deploy existindo unicamente por causa dessa forma. Alinhar as duas telas eliminou o estado inteiro.
+- Testes: `RegistryServiceTest` cobrindo montagem do Job nas duas origens (initContainer, volume compartilhado, argumentos do Kaniko, sentinela) e rejeição de `BuildRequest` malformado; `ComposeParserTest` (novo) sobre o parsing de conteúdo local; `DeployFromDockerfileViewTest` e `ImportComposeViewTest` (novos) cobrindo alternância de origem sem resíduo, recusa de avanço sem pasta, sugestão de namespace, formato da URL de upload e o invariante do picker fora do container substituído a cada passo. Empacotamento, exclusões e `.dockerignore` vivem no TypeScript, fora do alcance do Karibu — validados no aceite manual.
+- Follow-ups registrados no backlog: "Build Image" da `RegistryView` ainda só aceita Git, e arrastar-e-soltar a pasta como alternativa ao seletor nativo (cujo comportamento é do sistema operacional e não da plataforma).
+- Issues: `.issue-tracker/sprint-107/issues/` (5 issues, todas `done`).
 
 ### Sprint 106 ✅ — Imagem da plataforma em registry público (GHCR): setup.sh puxa via `minikube image load`
 
@@ -227,13 +248,6 @@
 - Testes: `SampleCatalogServiceTest` e `TemplateDeploymentServiceTest` (parsing de fixtures, `isInstalled` via `@EnableKubernetesMockClient`, substituição de sentinela, abort-sem-rollback em conflito) em `kubernetes/`; `SampleCatalogViewTest` (badge Installed oculta/mostra o botão Deploy, preview abre somente-leitura sem disparar deploy antes da confirmação) em `ui/` — `forceReload()` da view tornado síncrono (mesmo padrão de `NamespacesView.loadNamespaces()`) para permitir dirigir o teste sem correr atrás de uma thread virtual
 - Dois bugs pré-existentes encontrados durante o aceite manual e registrados no backlog (não corrigidos nesta sprint): badge de status de Pod não reflete `CrashLoopBackOff`; combobox de Namespaces não atualiza após Deploy Application/Deploy from Dockerfile/Import Compose (mesma causa corrigida aqui para Deploy Template)
 - Issues: `.issue-tracker/sprint-98/issues/` (5 issues, todas `done`)
-
-### Sprint 97 ✅ — Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling)
-
-- Encontrado durante validação manual pós-Sprint 96: Deploy from Dockerfile mostrava "Build failed. Check the logs above." mesmo com o Job Kaniko completando com sucesso e a imagem sendo pushada ao registry
-- `AsyncTasks.schedulePolling`: `DelegatingSecurityContextExecutor` captura o `SecurityContext` da thread que chama `.execute()` — para o tick recorrente, essa chamada acontecia na thread do `CLOCK`, que nunca tem usuário autenticado (WARN "Unable to resolve Kubernetes credentials: no authenticated user"); fix: captura o contexto da thread chamadora (UI) no momento de `schedulePolling()` e envolve `command` com `DelegatingSecurityContextRunnable` antes de despachar para `VIRTUAL_THREADS` — corrige os 5 call sites (`BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`) sem exigir mudança neles
-- `DeployFromDockerfileView.waitForBuild`: `fetchPodLogs` isolado em `fetchAndDisplayBuildLogs()` com try/catch próprio — falha transitória ao ler logs do pod Kaniko (container de vida curta terminando) não deve abortar a checagem de status do Job, única fonte de verdade sobre sucesso/falha do build
-- Sem issues formais em `.issue-tracker/` — fluxo de bug fix pontual (causa e solução evidentes)
 
 ---
 

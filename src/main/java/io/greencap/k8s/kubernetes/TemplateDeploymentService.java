@@ -43,7 +43,7 @@ public class TemplateDeploymentService {
         // not to the repository root — same convention as Deploy from Dockerfile's "Dockerfile path"
         // field ("Leave blank to use 'Dockerfile' at the context root"). Only contextPath is prefixed
         // with the Template's own directory; dockerfilePath is used as declared in template.yaml.
-        return new BuildRequest(
+        return BuildRequest.fromGitRepository(
                 TEMPLATES_REPOSITORY_GIT_URL,
                 TEMPLATES_REPOSITORY_BRANCH,
                 template.path() + "/" + build.contextPath(),
