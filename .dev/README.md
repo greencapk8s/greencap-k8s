@@ -81,9 +81,9 @@ kubectl config view --flatten --minify
 
 ## Ambiente de demonstração
 
-O script `samples/greencap-demo/create.sh` provisiona um namespace completo com Deployments, Services, HPA e Ingress no Minikube — incluindo a ativação automática dos addons `metrics-server` e `ingress`.
+O script `.dev/greencap-demo/create-demo.sh` provisiona um namespace completo com Deployments, Services, HPA e Ingress no Minikube — incluindo a ativação automática dos addons `metrics-server` e `ingress`.
 
 ```bash
-cd samples/greencap-demo
+cd .dev/greencap-demo
 ./create-demo.sh
 ```

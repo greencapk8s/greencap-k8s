@@ -17,6 +17,7 @@ node_modules/
 .git/
 .issue-tracker/
 docs/
+.dev/
 
 # Env / secrets
 .env
