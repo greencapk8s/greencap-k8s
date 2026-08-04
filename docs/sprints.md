@@ -25,6 +25,16 @@
 
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
+### 🔴 Alta Prioridade
+
+#### 🧨 `setup.sh` não valida os limites de inotify do host — cluster multi-nó quebra em silêncio
+
+- **Diagnosticado no ambiente local em 04/08/2026**, durante a validação manual do release pendente: vários Deployments e ReplicaSets apareceram como `0/1` na plataforma (`demo-compose-build-ns/backend`, `demo-compose-build-v3/backend`, `demo-dockerfile-ns`, `unifametro` e uma réplica do `olm/packageserver`). Todos os pods afetados estavam no **mesmo nó** (`greencap-demo-m03`); nenhum pod em outro nó foi impactado.
+- **Causa raiz**: o host tinha `fs.inotify.max_user_instances = 128`. Os nós do minikube são containers que rodam como **root (uid 0) no host**, ou seja, os três nós dividem o mesmo orçamento de instâncias inotify desse único UID — junto com `dockerd`, `containerd` e o systemd do host. Só dentro dos nós já havia 111 instâncias em uso (56 + 35 + 20). O `kube-proxy` do terceiro nó perde a corrida pelo último slot e morre no boot com `failed complete: too many open files`, entrando em `CrashLoopBackOff`.
+- **Por que o sintoma é enganoso**: sem `kube-proxy`, o nó fica sem nenhuma regra de Service (`0` cadeias `KUBE-SVC` no `iptables-save`, contra 78 nos nós saudáveis). O `registry-proxy` daquele nó então nunca alcança o Service do registry interno e nunca faz o bind do `hostPort: 5000` — nada escuta na porta 5000 do nó. Todo pull de `localhost:5000/...` falha com `connection refused`, e o usuário vê apenas `ImagePullBackOff` em deploys que funcionaram no build e no push. O nó continua reportando `Ready`, e deploys idênticos funcionam ou não conforme o agendamento — o que faz o problema parecer intermitente ou parecer bug dos wizards de deploy.
+- **Impacto no plug-and-play**: 128 é o padrão de distribuições Ubuntu correntes, e o `setup.sh` sobe um cluster minikube multi-nó — qualquer usuário novo em Linux pode bater exatamente nisso logo no primeiro uso, com um sintoma que não aponta para a causa. Nem o `setup.sh` nem a documentação mencionam inotify hoje.
+- **Direção de solução**: fazer o `setup.sh` verificar `fs.inotify.max_user_instances` e `fs.inotify.max_user_watches` antes de subir o cluster, dimensionando o mínimo pelo número de nós; havendo folga insuficiente, elevar via `sysctl` persistido em `/etc/sysctl.d/` (exige privilégio — decidir entre pedir `sudo` explicitamente ou apenas abortar com orientação clara). Avaliar também um diagnóstico na própria plataforma: `kube-proxy` ausente ou em crash em um nó é uma condição detectável e hoje invisível na UI. Verificar se o macOS tem equivalente ou se o item é exclusivo de Linux.
+
 ### 🟡 Média Prioridade
 
 #### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) pode não navegar corretamente
