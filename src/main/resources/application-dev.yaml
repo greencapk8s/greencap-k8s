@@ -10,7 +10,7 @@ vaadin:
     hotdeploy: true
   devmode:
     devTools:
-      enabled: false
+      enabled: true
 
 logging:
   level:

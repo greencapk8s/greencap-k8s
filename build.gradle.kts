@@ -113,7 +113,7 @@ tasks.named<BootJar>("bootJar") {
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.run.BootRun>("bootRun") {
-    systemProperty("vaadin.devmode.devTools.enabled", "false")
+    systemProperty("vaadin.devmode.devTools.enabled", "true")
 }
 
 vaadin {
