@@ -10,6 +10,7 @@ interface NodeData {
   label: string;
   type: string;
   status: string;
+  severity: string;
   manifestUrl: string;
   labels: Record<string, string>;
   readyReplicas: number;
@@ -51,14 +52,18 @@ const NODE_COLORS: Record<string, string> = {
   Ingress: '#06B6D4',
 };
 
-const STATUS_BORDER: Record<string, string> = {
-  Running: '#10B981',
-  Active: '#10B981',
-  Degraded: '#F59E0B',
-  Failed: '#EF4444',
-  Pending: '#94A3B8',
-  Unknown: '#94A3B8',
+// Colour follows the severity decided server-side, never the status text: the labels are an
+// open set that grows with Kubernetes, so recognising words here would silently paint every
+// future reason neutral — the very defect this replaced.
+const SEVERITY_BORDER: Record<string, string> = {
+  HEALTHY: '#10B981',
+  NEUTRAL: '#94A3B8',
+  DEGRADED: '#F59E0B',
+  PROBLEM: '#EF4444',
 };
+
+const PROBLEM_BORDER_WIDTH = 6;
+const DEFAULT_BORDER_WIDTH = 3;
 
 interface SavedPosition {
   x: number;
@@ -184,6 +189,7 @@ export class TopologyGraph extends LitElement {
         label: `${n.label}\n${n.type}`,
         type: n.type,
         status: n.status,
+        severity: n.severity,
         manifestUrl: n.manifestUrl,
         labels: n.labels,
         readyReplicas: n.readyReplicas,
@@ -193,7 +199,8 @@ export class TopologyGraph extends LitElement {
         accessMode: n.accessMode,
         nodeLabel: n.label,
         color: NODE_COLORS[n.type] ?? '#64748B',
-        borderColor: STATUS_BORDER[n.status] ?? '#94A3B8',
+        borderColor: SEVERITY_BORDER[n.severity] ?? SEVERITY_BORDER.PROBLEM,
+        borderWidth: n.severity === 'PROBLEM' ? PROBLEM_BORDER_WIDTH : DEFAULT_BORDER_WIDTH,
         parent: this._resolveParent(n, groupElements),
       },
     }));
@@ -227,7 +234,7 @@ export class TopologyGraph extends LitElement {
           style: {
             'background-color': 'data(color)',
             'border-color': 'data(borderColor)',
-            'border-width': 3,
+            'border-width': 'data(borderWidth)',
             label: 'data(label)',
             color: '#fff',
             'text-valign': 'center',
@@ -286,11 +293,16 @@ export class TopologyGraph extends LitElement {
           },
         },
         {
+          // Selection draws its own ring instead of repainting the border: severity lives in
+          // that border, and the moment a user clicks a broken node to inspect it is exactly
+          // when its colour matters most.
           selector: 'node:selected',
           style: {
-            'border-width': 4,
-            'border-color': '#1676F3',
-          },
+            'outline-width': 4,
+            'outline-color': '#1676F3',
+            'outline-offset': 2,
+            // Cast: outline-* is supported by Cytoscape 3.30 but missing from its type defs.
+          } as cytoscape.Css.Node,
         },
       ],
       userZoomingEnabled: true,

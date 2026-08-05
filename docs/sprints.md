@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 108 | `PodState`: badge de Pod deixa de exibir a fase crua e passa a refletir o estado real (`CrashLoopBackOff`, `ImagePullBackOff`, `ContainersNotReady`), com severidade própria alimentando cor na listagem e na Topologia | ✅ Concluído |
 | 107 | Build Context a partir de pasta local: Deploy from Dockerfile e Deploy from Compose passam a aceitar upload do computador, além de Git | ✅ Concluído |
 | 106 | Imagem da plataforma em registry público (GHCR): CI publica por tag `v*`; `setup.sh` puxa via `minikube image load` com fallback de build local | ✅ Concluído |
 | 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 | 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
-| 98 | Templates Catalog — Developer Experience: catálogo de Templates (repositório greencap-templates) com deploy em um clique | ✅ Concluído |
 
 ---
 
@@ -26,6 +26,22 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🔴 Alta Prioridade
+
+#### 🐛 Bug: "Go to resource" nos nós de Pod e PodGroup da Topologia não leva ao Pod certo
+
+- **Reportado no aceite manual da Sprint 108**: clicar num nó de Pod na Topologia e usar "Go to resource" abre a listagem de Pods, mas seleciona o **primeiro item da lista** em vez do Pod de origem.
+- **Duas causas somadas, ambas confirmadas no código**: em `TopologyService`, os nós de Pod e de PodGroup recebem a URL `"workloads/pods"` **pura, sem `?name=`** — todos os outros tipos de nó recebem `?name=<nome>` via `resourceViewUrl`. E o `PodsView.beforeEnter` lê **apenas** o parâmetro `job`, não tendo suporte a `name` de qualquer forma. Sem filtro aplicado, o `selectFirstOrPreserve` seleciona a primeira linha — o sintoma observado.
+- **Não confundir com o item de `UI.navigate(String)` com query string embutida**: aquele trata de a navegação em si falhar quando a query já vem dentro da String; aqui a navegação funciona, só nunca houve alvo para o Pod. São defeitos independentes, embora a correção deste vá esbarrar naquele ao passar a montar uma URL com `?name=`.
+- **A correção alinha o código à documentação, não o contrário**: o `CONTEXT.md` já descreve o botão como navegando "pre-filtered by name" na entrada de `TopologyGraph` — hoje isso é verdade para todos os tipos de nó menos Pod.
+- **Pergunta de design a resolver antes**: um nó de PodGroup representa N réplicas e não tem um Pod único a apontar. Filtrar pelo prefixo do owner (o próprio `baseName` do grupo) cobre o caso, mas exigiria um parâmetro diferente de `name` no `PodsView` — avaliar se vira `owner=` ou se o `name` passa a ser tratado como prefixo.
+
+#### 🗺 Topologia — redesenho dos nós no modelo OpenShift (corpo neutro, estado no anel)
+
+- **Levantado no planejamento da Sprint 108**, ao decidir como a severidade do `PodState` chega ao grafo. Hoje o corpo do nó é colorido **por tipo de recurso** (`NODE_COLORS[n.type]` em `topology-graph.ts`) e o estado fica numa borda de 3px — ou seja, a borda disputa atenção com um fundo saturado, e o sinal de problema sai fraco. A Sprint 108 mitiga engrossando a borda no caso de problema, sem mexer na codificação.
+- **Modelo de referência**: o OpenShift mantém o corpo do nó neutro (branco), move o tipo para um ícone no centro mais um badge de letra no pill de rótulo (`DS`, `R`, `S`, `CS`), usa nós circulares com o rótulo abaixo, e deixa o anel colorido ser o único sinal cromático — o estado vira a informação dominante da tela.
+- **Por que não coube na Sprint 108**: não é troca de cor, é troca de canal de codificação. Tirar a cor do corpo obriga o tipo a migrar para ícone ou badge (qual conjunto de ícones?), muda o rótulo hoje centralizado em texto branco sobre fundo escuro, e leva à discussão de forma circular com rótulo externo. Misturar isso com a correção de status faria o aceite manual validar duas coisas ao mesmo tempo.
+- **Peso do item**: o GreenCap se posiciona em Developer Experience além de Kubernetes, e a Topologia é a porta de entrada mais atrativa do produto — é a tela que demonstra o valor da plataforma antes de o usuário entender qualquer conceito. Investir na legibilidade dela rende mais do que a maioria dos itens de UI.
+- **Pergunta em aberto**: no OpenShift, o anel é cor sólida por estado ou um donut segmentado com uma fatia por Pod (3 réplicas = 3 segmentos, a quebrada em vermelho)? Se for segmentado, resolve a ressalva aceita na Sprint 108 — o nó de PodGroup assume a razão do primeiro Pod problemático, o que soa mais grave do que é quando só 1 de 3 réplicas está quebrada.
 
 #### 🧨 `setup.sh` não valida os limites de inotify do host — cluster multi-nó quebra em silêncio
 
@@ -37,15 +53,19 @@
 
 ### 🟡 Média Prioridade
 
+#### 🧰 Dev bundle do Vaadin não invalida em mudança de conteúdo de TS — trabalho de frontend some em dev
+
+- **Custou tempo real no aceite da Sprint 108, e já havia acontecido antes**: alterações no `src/main/frontend/topology-graph.ts` simplesmente não apareciam no browser. O backend recarregava normalmente (devtools), os testes passavam, e a tela continuava servindo o JavaScript de duas semanas antes.
+- **Causa**: o `src/main/bundles/dev.bundle` é um artefato pré-compilado e **versionado no git** (o README do diretório manda commitá-lo). O Vaadin só o reconstrói quando detecta *adição* de arquivos — `@JsModule`, `@NpmPackage`, tema, dependência npm. **Mudança de conteúdo de um arquivo TS já existente e já importado não é gatilho**, e o Vaadin nem chega a subir o Vite: serve o bundle como está, sem aviso.
+- **Por que é mais perigoso do que parece**: produz *falso negativo de aceite*. O comportamento correto foi implementado, testado e commitado, mas a validação manual no browser mostra o comportamento antigo — o risco é concluir que a correção não funciona e reverter código que estava certo. Também atinge qualquer pessoa que puxe um branch com mudança de TS sem o bundle regenerado junto.
+- **Contorno usado**: apagar `src/main/bundles/dev.bundle` e reiniciar a aplicação; o Vaadin reconstrói em ~15s (`TaskRunDevBundleBuild`). O bundle regenerado precisa entrar no commit.
+- **Solução estrutural a avaliar**: `vaadin.frontend.hotdeploy: true` no `application-dev.yaml` faz o Vite servir o TS direto, com hot reload e sem bundle intermediário — custo é startup mais lento em desenvolvimento. Avaliar também documentar o contorno no guia de contribuição, já que atinge qualquer colaborador que mexa em frontend.
+
 #### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) pode não navegar corretamente
 
 - **Descoberto ao escrever a cobertura de teste da Sprint 105**: o botão "Go to resource"/"Go to `<service>`" do `TopologyNodeDrawer` navega via `ui.navigate(url)` (overload de 1 argumento) para URLs como `networking/services?name=postgres-service` (geradas por `TopologyService.resourceViewUrl`). Esse overload delega para `navigate(path, QueryParameters.empty())`, que constrói o `Location` com `parsePathToSegments(path, false)` — ou seja, não separa a query string do path quando ela já vem embutida na String (diferente do construtor de 1 argumento de `Location`, usado internamente pelo Vaadin em outros fluxos). Em tese o roteador tentaria casar a rota inteira `"networking/services?name=postgres-service"` como um único path, o que não bateria com a rota registrada `networking/services`.
 - **Mesmo padrão em outros pontos do código, não exclusivo da Sprint 105**: `CronJobsView.java` (`navigate("workloads/jobs?cronjob=" + nome)`) usa a mesma construção. Já `DeploymentsView`/`StatefulSetsView` usam o overload correto de 2 argumentos (`navigate(path, QueryParameters)`) para o mesmo tipo de link — inconsistência dentro do próprio código.
 - **Não confirmado em navegador real** — achado apenas em teste automatizado (`TopologyNodeDrawerTest`), que documenta o comportamento observado sob `-ea` (assertions ligadas, padrão da task `test` do Gradle) sem travar no achado (`assertThatThrownBy(...).isInstanceOfAny(NotFoundException.class, AssertionError.class)`); o efeito exato em produção (assertions desligadas no `bootRun`/JAR final) não foi validado manualmente. Avaliar migrar os call sites afetados para `navigate(path, QueryParameters)` explícito.
-
-#### 🐛 Bug: badge de status de Pod não reflete CrashLoopBackOff/BackOff
-
-- **Status do Pod ignora o estado real do container** — descoberto durante o teste manual do Sample Catalog (Sprint 98): com o Postgres fora do ar, o container `backend` entrou em `CrashLoopBackOff`, mas o badge de status na listagem de Pods continuou mostrando "Running". Provável causa: a derivação do badge usa `pod.status.phase` (que permanece `Running` enquanto o Pod em si não falhou totalmente) em vez de inspecionar `containerStatuses[].state.waiting.reason` (`CrashLoopBackOff`, `ErrImagePull`, etc.) e `restartCount`. Afeta pelo menos `PodsView`; avaliar se `DeploymentsView`/`StatefulSetsView` têm o mesmo problema ao agregar status a partir dos Pods.
 
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
@@ -146,6 +166,22 @@
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
 
+### Sprint 108 ✅ — `PodState`: o status do Pod deixa de exibir a fase crua na listagem e na Topologia
+
+- Escopo fechado via `/grill-with-docs`, partindo de um item de backlog aberto desde a Sprint 98 (badge mostrando "Running" para Pod em `CrashLoopBackOff`) cuja causa foi **confirmada no código** durante a investigação: `WorkloadService.listPods` expunha `pod.status.phase`, e o `containerStatuses` só era lido para somar `restartCount` — `state.waiting.reason` nunca era consultado
+- Evidência ao vivo que ampliou o diagnóstico: com o nó `m03` do cluster de desenvolvimento sem `kube-proxy`, 9 Pods estavam comprovadamente quebrados e **5 reportavam `phase=Running`**, quatro deles com `restartCount=0` — badge verde, zero restarts, Pod que nunca subiu. Descoberto também que a fase **não regride**: Pods com `phase=Running` e zero containers rodando
+- Novo conceito **`PodState`** no `CONTEXT.md` e ADR 0021: rótulo único derivado, resolvido numa escada de precedência (`Terminating` por `deletionTimestamp` → init container com problema, prefixado `Init:` → container regular com problema, desempate pela ordem do `spec` → `ContainersNotReady` pela razão da condition `Ready` → fase como fallback). Vocabulário é a razão crua do Kubernetes, sem tradução e sem lista branca — pesquisável, e alinhado ao resto do glossário (PVC, Node, operator). Container é "problemático" em espera com qualquer razão, ou terminado com exit code diferente de zero (sem o exit code, um container concluído roubaria o rótulo de um irmão rodando)
+- Nova enum **`Severity`** (`HEALTHY`/`NEUTRAL`/`DEGRADED`/`PROBLEM`): o conjunto fechado que a UI pode chavear, já que os rótulos são conjunto aberto. Default é `PROBLEM` — razão desconhecida alarma, mesma postura fail-closed do controle de acesso. `DEGRADED` é exclusiva dos nós de controlador, preservando o âmbar de "réplicas prontas < desejadas"
+- `PodStateResolver` (stateless, em `kubernetes/`) percorre o **`spec`** e busca o status por nome, não a lista de `containerStatuses` — a ordem devolvida pela API não é garantida como sendo a do `spec`, e o desempate depende disso. Confirmado empiricamente contra um Pod real de dois containers que o `kubectl` resolve da mesma forma
+- `PodsView`: badge exibe o rótulo, cor vem da severidade, tooltip carrega a mensagem da razão (mesmo padrão do badge de operator com falha), filtro passa a casar pelo rótulo exibido em vez da fase, e o branch morto `Active` (fase de Namespace) foi removido. `PodInfo` mantém `phase` — o toggle de Pods de Job concluídos depende dela
+- Topologia: nó de Pod carrega o mesmo `PodState` da listagem; nó de PodGroup passa a **pior severidade vencer** (desempate por nome) em vez de agregar para "Degraded"/"Failed", que nomeavam o problema sem nomear a causa. O par de nós passa a se ler junto — o controlador responde *quantos* prontos, o grupo responde *por quê*. `STATUS_BORDER` (tabela de status→cor duplicada em TypeScript) removida em favor da severidade decidida no servidor; borda de 6px quando há problema
+- Regra de seleção do grafo corrigida: `node:selected` sobrescrevia `border-color` para azul, apagando a severidade justamente ao clicar num nó quebrado para investigá-lo. Passou a desenhar um `outline` próprio, preservando a borda embaixo
+- Testes: `PodStateResolverTest` (14 casos, tabela-verdade da escada, incluindo `phase=Running` com zero containers rodando), `PodsViewTest` (novo — 9 casos Karibu), extensões em `TopologyServiceTest` (5) e `WorkloadServiceTest` (1). Suíte total: 128, todos verdes
+- Descobertas registradas no backlog durante a sprint: bug do "Go to resource" nos nós de Pod (URL sem `?name=` e `PodsView` sem suporte ao parâmetro), dev bundle do Vaadin não invalidando em mudança de conteúdo de TS (custou um falso negativo de aceite), e o redesenho da Topologia no modelo OpenShift
+- Issues: `.issue-tracker/sprint-108/issues/` (3 issues, todas `done`)
+
+---
+
 ### Sprint 107 ✅ — Build Context a partir de pasta local (Deploy from Dockerfile e Deploy from Compose)
 
 - Escopo fechado via `/grill-with-docs`; decisões e alternativas descartadas em `docs/adr/0020-contexto-de-build-local-via-upload.md`, que revisa a ADR 0007 (as duas premissas que rejeitavam upload caíram: `nodeAffinity` resolvido na Sprint 98, e nem ConfigMap nem PVC são necessários). Objetivo: remover a exigência de publicar um repositório Git público só para experimentar a plataforma — barreira desproporcional para o público iniciante declarado no `CONTEXT.md`.
@@ -245,19 +281,6 @@
 - **Template `cache-aside-flask-postgres-redis`**: demonstra o padrão cache-aside (decisão do `CONTEXT.md`: Redis pelo seu papel idiomático de cache, não como datastore primário de um CRUD); reaproveita a app do `crud-flask-postgres` adicionando cache na listagem — `GET /` lê a chave `items:all` no Redis antes de consultar o Postgres, populando-a com TTL de 60s no miss; escritas invalidam ativamente a chave além do TTL; Redis `redis:8-alpine` com `requirepass` via Secret e **sem PVC** (cache descartável — perder no restart é esperado, a próxima leitura repopula a partir do Postgres); backend via Kaniko; Ingress fixo `cache-aside-flask-postgres-redis.greencap.local`
 - Ambos com entrada em `catalog.json` (title/description/technologies); imagens `mongo:8.0` e `redis:8-alpine` fixadas após validar as versões estáveis mais recentes (as issues previam `7.0`/`7.4-alpine` como piso)
 - Issues: `.issue-tracker/sprint-99/issues/` (2 issues, ambas `done`)
-
-### Sprint 98 ✅ — Templates Catalog: catálogo de Templates (greencap-templates) com deploy em um clique
-
-- Escopo fechado via `/grill-with-docs`: item de backlog "Diferencial — Onboarding e Aprendizado" desdobrado em dois conceitos novos no `CONTEXT.md` — **Templates Catalog** (view em Developer Experience, lista de cards) e **Template** (unidade: app de estudo completa, multi-recurso), mais a operação **Deploy Template**. Raciocínio completo registrado na ADR 0015 (`docs/adr/0015-sample-catalog-templates-via-indice-raw-http.md`): índice `catalog.json` + manifest `template.yaml` por Template, buscados via HTTP raw (sem cliente Git); componentes sem imagem pública são buildados via Kaniko (reaproveitando o mecanismo de Deploy from Dockerfile/Import Compose), publicando no Registry interno do Cluster; "Installed" é por Cluster (Namespace de nome fixo no índice), não por usuário; deploy aborta no primeiro conflito, sem rollback; sem gate de permissão (ADR 0013 já eliminou o sistema de permissões interno — RBAC do Kubernetes autoriza)
-- Novo repositório público `greencapk8s/greencap-templates` (em inglês — primeiro repositório do ecossistema a adotar esse padrão): `catalog.json`, e o Template seed `crud-flask-postgres` (Flask + PostgreSQL, sem frontend separado, com Ingress fixo `crud-flask-postgres.greencap.local`, labels `app.kubernetes.io/part-of`/`component` em todos os recursos para agrupamento correto na Topologia, e páginas HTML com CSS próprio via `static/style.css`)
-- `SampleCatalogService`: fetch e parsing do índice/manifest via HTTP simples, sem cache; `isInstalled` verifica existência da Namespace declarada no índice
-- `TemplateDeploymentService`: aplica o arquivo de recurso da Namespace primeiro; roda Kaniko por entrada em `builds` (`dockerfilePath` resolvido relativo ao `contextPath`, não à raiz do repo — mesma convenção de Deploy from Dockerfile); substitui o valor-sentinela `__BUILD__<name>` pela imagem publicada; aplica os demais recursos via client genérico do Fabric8 (`resourceList`/`NamespaceableResource`, tipos não conhecidos de antemão)
-- `SampleCatalogView` (rota `developer-experience/sample-catalog`, menu "Templates Catalog"): lista de cards com CSS próprio (grid responsivo, sombra com hover, chips de tecnologia, badge Installed/botão Deploy), preview somente-leitura antes de confirmar deploy, log de build inline durante o Kaniko; após deploy bem-sucedido, força o recarregamento do combobox de Namespaces do `MainLayout` (`refreshClusterState()`, mesmo mecanismo já usado por `NamespacesView`)
-- Menu **Operators** ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false` em `MainLayout`) — ainda beta, rotas continuam funcionando
-- Infraestrutura: `local-path-provisioner` instalado no `greencap-demo` (vendorizado em `samples/greencap-demo/local-path-storage.yaml`, aplicado por `cluster-setup.sh`) e definido como StorageClass default, resolvendo a limitação de `nodeAffinity` do hostpath-provisioner já registrada no backlog (Sprint 71) — descoberta reativada ao ver o Postgres do Template em `CreateContainerConfigError` num node diferente do node com os dados
-- Testes: `SampleCatalogServiceTest` e `TemplateDeploymentServiceTest` (parsing de fixtures, `isInstalled` via `@EnableKubernetesMockClient`, substituição de sentinela, abort-sem-rollback em conflito) em `kubernetes/`; `SampleCatalogViewTest` (badge Installed oculta/mostra o botão Deploy, preview abre somente-leitura sem disparar deploy antes da confirmação) em `ui/` — `forceReload()` da view tornado síncrono (mesmo padrão de `NamespacesView.loadNamespaces()`) para permitir dirigir o teste sem correr atrás de uma thread virtual
-- Dois bugs pré-existentes encontrados durante o aceite manual e registrados no backlog (não corrigidos nesta sprint): badge de status de Pod não reflete `CrashLoopBackOff`; combobox de Namespaces não atualiza após Deploy Application/Deploy from Dockerfile/Import Compose (mesma causa corrigida aqui para Deploy Template)
-- Issues: `.issue-tracker/sprint-98/issues/` (5 issues, todas `done`)
 
 ---
 

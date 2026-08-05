@@ -7,6 +7,7 @@ public record TopologyNode(
         String label,
         String type,
         String status,
+        Severity severity,
         String manifestUrl,
         Map<String, String> labels,
         int readyReplicas,

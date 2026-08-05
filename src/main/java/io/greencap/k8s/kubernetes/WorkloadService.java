@@ -39,6 +39,7 @@ public class WorkloadService {
                             pod.getMetadata().getName(),
                             pod.getMetadata().getNamespace(),
                             Optional.ofNullable(pod.getStatus()).map(s -> s.getPhase()).orElse("Unknown"),
+                            PodStateResolver.resolve(pod),
                             Optional.ofNullable(pod.getSpec()).map(s -> s.getNodeName()).orElse("-"),
                             Optional.ofNullable(pod.getStatus())
                                     .map(s -> s.getContainerStatuses())

@@ -17,6 +17,8 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.TopologyEdge;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
+import io.greencap.k8s.kubernetes.dto.PodState;
+import io.greencap.k8s.kubernetes.dto.Severity;
 import io.greencap.k8s.kubernetes.dto.TopologyNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -190,6 +193,7 @@ public class TopologyService {
                 name,
                 "Deployment",
                 status,
+                controllerSeverity(status),
                 resourceViewUrl("deployment", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -205,6 +209,7 @@ public class TopologyService {
                 name,
                 "StatefulSet",
                 status,
+                controllerSeverity(status),
                 resourceViewUrl("statefulset", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -220,6 +225,7 @@ public class TopologyService {
                 name,
                 "ReplicaSet",
                 status,
+                controllerSeverity(status),
                 resourceViewUrl("replicaset", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -227,27 +233,29 @@ public class TopologyService {
     private TopologyNode podGroupNode(String ownerId, List<Pod> group) {
         int count = group.size();
         String countLabel = count == 1 ? "1 Pod" : count + " Pods";
-        String status = aggregatePodStatus(group);
+        PodState state = aggregatePodState(group);
         String baseName = podGroupBaseName(ownerId);
         Map<String, String> labels = Optional.ofNullable(group.get(0).getMetadata().getLabels()).orElse(Map.of());
         return new TopologyNode(
                 podGroupId(ownerId),
                 baseName,
                 countLabel,
-                status,
+                state.label(),
+                state.severity(),
                 "workloads/pods",
                 Map.of(), 0, count, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
     private TopologyNode podNode(Pod pod) {
-        String phase = Optional.ofNullable(pod.getStatus()).map(s -> s.getPhase()).orElse("Unknown");
+        PodState state = PodStateResolver.resolve(pod);
         Map<String, String> labels = Optional.ofNullable(pod.getMetadata().getLabels()).orElse(Map.of());
         String name = pod.getMetadata().getName();
         return new TopologyNode(
                 nodeId("pod", name),
                 name,
                 "1 Pod",
-                phase,
+                state.label(),
+                state.severity(),
                 "workloads/pods",
                 labels, 0, 0, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -261,6 +269,7 @@ public class TopologyService {
                 name,
                 "Service",
                 "Active",
+                Severity.HEALTHY,
                 resourceViewUrl("service", name),
                 labels, 0, 0, serviceType, "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -288,6 +297,7 @@ public class TopologyService {
                 name,
                 "Ingress",
                 "Active",
+                Severity.HEALTHY,
                 resourceViewUrl("ingress", name),
                 Map.of(), 0, 0, ingressClass, hosts, hasTls ? "Secure" : "Plain", "", "");
     }
@@ -335,6 +345,7 @@ public class TopologyService {
                 name,
                 "PersistentVolumeClaim",
                 status,
+                Severity.NEUTRAL,
                 resourceViewUrl("persistentvolumeclaim", name),
                 Map.of(), 0, 0, storageClass, capacity, accessMode, partOfGroup(labels), componentGroup(labels));
     }
@@ -464,13 +475,34 @@ public class TopologyService {
         return matcher.lookingAt() && !activeNamespace.equals(matcher.group(1));
     }
 
-    private String aggregatePodStatus(List<Pod> pods) {
-        boolean allRunning = pods.stream().allMatch(p ->
-                "Running".equals(Optional.ofNullable(p.getStatus()).map(s -> s.getPhase()).orElse("")));
-        if (allRunning) return "Running";
-        boolean anyFailed = pods.stream().anyMatch(p ->
-                "Failed".equals(Optional.ofNullable(p.getStatus()).map(s -> s.getPhase()).orElse("")));
-        return anyFailed ? "Failed" : "Degraded";
+    /**
+     * The cause wins: the group speaks for its worst-off Pod rather than summarising it away,
+     * so a group whose replicas cannot pull their image says so instead of saying "Degraded".
+     * Ties are broken by Pod name to keep the graph stable between refreshes.
+     */
+    private PodState aggregatePodState(List<Pod> pods) {
+        return pods.stream()
+                .sorted(Comparator.comparing(pod -> pod.getMetadata().getName()))
+                .map(PodStateResolver::resolve)
+                .min(Comparator.comparingInt(state -> severityRank(state.severity())))
+                .orElseGet(() -> new PodState("Running", Severity.HEALTHY, ""));
+    }
+
+    private int severityRank(Severity severity) {
+        return switch (severity) {
+            case PROBLEM -> 0;
+            case DEGRADED -> 1;
+            case NEUTRAL -> 2;
+            case HEALTHY -> 3;
+        };
+    }
+
+    private Severity controllerSeverity(String status) {
+        return switch (status) {
+            case "Running" -> Severity.HEALTHY;
+            case "Degraded" -> Severity.DEGRADED;
+            default -> Severity.NEUTRAL;
+        };
     }
 
     private String stripLastSegment(String name) {

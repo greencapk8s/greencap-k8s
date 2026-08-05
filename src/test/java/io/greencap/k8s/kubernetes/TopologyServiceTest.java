@@ -9,6 +9,7 @@ import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.Severity;
 import io.greencap.k8s.kubernetes.dto.TopologyEdge;
 import io.greencap.k8s.kubernetes.dto.TopologyEdgeType;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
@@ -107,6 +108,112 @@ class TopologyServiceTest {
 
         assertThat(graph.edges()).contains(
                 TopologyEdge.structural("statefulset/postgres", "pod-group/postgres"));
+    }
+
+    @Test
+    void podNode_carriesTheSamePodStateTheListingShows() {
+        createOrphanPod("standalone", "ImagePullBackOff");
+
+        TopologyNode pod = node(topologyService.buildGraph(cluster, NAMESPACE), "pod/standalone");
+
+        assertThat(pod.status()).isEqualTo("ImagePullBackOff");
+        assertThat(pod.severity()).isEqualTo(Severity.PROBLEM);
+    }
+
+    @Test
+    void podGroup_withOneBrokenReplicaOfThree_reportsTheCauseInsteadOfSummarisingIt() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", "CrashLoopBackOff");
+        createOwnedPod("api", "api-2", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.status()).isEqualTo("CrashLoopBackOff");
+        assertThat(group.severity()).isEqualTo(Severity.PROBLEM);
+    }
+
+    @Test
+    void podGroup_withEveryReplicaHealthy_isRunning() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.status()).isEqualTo("Running");
+        assertThat(group.severity()).isEqualTo(Severity.HEALTHY);
+    }
+
+    /** The controller keeps answering "how many are ready" — the likeliest regression here. */
+    @Test
+    void controllerNode_withFewerReadyThanDesired_staysDegraded() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", "ImagePullBackOff");
+
+        TopologyNode statefulSet = node(topologyService.buildGraph(cluster, NAMESPACE), "statefulset/api");
+
+        assertThat(statefulSet.status()).isEqualTo("Degraded");
+        assertThat(statefulSet.severity()).isEqualTo(Severity.DEGRADED);
+    }
+
+    @Test
+    void serviceNode_keepsTheHealthySeverityItAlreadyHad() {
+        createService("postgres-service");
+
+        TopologyNode service = node(topologyService.buildGraph(cluster, NAMESPACE), "service/postgres-service");
+
+        assertThat(service.severity()).isEqualTo(Severity.HEALTHY);
+    }
+
+    private TopologyNode node(TopologyGraph graph, String id) {
+        return graph.nodes().stream().filter(n -> n.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private void createStatefulSet(String name, int desired, int ready) {
+        client.apps().statefulSets().inNamespace(NAMESPACE).resource(
+                new StatefulSetBuilder()
+                        .withNewMetadata().withName(name).withNamespace(NAMESPACE).endMetadata()
+                        .withNewSpec().withReplicas(desired).withServiceName(name).endSpec()
+                        .withNewStatus().withReadyReplicas(ready).endStatus()
+                        .build()
+        ).create();
+    }
+
+    private void createOwnedPod(String ownerName, String podName, String waitingReason) {
+        var ownerRef = new OwnerReferenceBuilder()
+                .withApiVersion("apps/v1").withKind("StatefulSet").withName(ownerName).withController(true)
+                .build();
+        client.pods().inNamespace(NAMESPACE).resource(
+                podBuilder(podName, waitingReason).editMetadata().withOwnerReferences(ownerRef).endMetadata().build()
+        ).create();
+    }
+
+    private void createOrphanPod(String podName, String waitingReason) {
+        client.pods().inNamespace(NAMESPACE).resource(podBuilder(podName, waitingReason).build()).create();
+    }
+
+    /** Phase stays Running even when nothing runs inside — the case the sprint exists for. */
+    private PodBuilder podBuilder(String podName, String waitingReason) {
+        PodBuilder builder = new PodBuilder()
+                .withNewMetadata().withName(podName).withNamespace(NAMESPACE).endMetadata()
+                .withNewSpec().addNewContainer().withName("app").endContainer().endSpec()
+                .withNewStatus().withPhase("Running").endStatus();
+
+        if (waitingReason == null) {
+            return builder.editStatus()
+                    .addNewContainerStatus()
+                        .withName("app")
+                        .withNewState().withNewRunning().endRunning().endState()
+                    .endContainerStatus()
+                    .endStatus();
+        }
+        return builder.editStatus()
+                .addNewContainerStatus()
+                    .withName("app")
+                    .withNewState().withNewWaiting().withReason(waitingReason).endWaiting().endState()
+                .endContainerStatus()
+                .endStatus();
     }
 
     @Test

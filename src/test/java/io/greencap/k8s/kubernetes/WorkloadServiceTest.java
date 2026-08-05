@@ -8,6 +8,7 @@ import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.dto.DeploymentInfo;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
+import io.greencap.k8s.kubernetes.dto.Severity;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -67,6 +68,29 @@ class WorkloadServiceTest {
         assertThat(pod.phase()).isEqualTo("Running");
         assertThat(pod.node()).isEqualTo("node-1");
         assertThat(pod.restarts()).isEqualTo(3);
+    }
+
+    @Test
+    void listPods_derivesPodStateFromContainers_whileKeepingTheRawPhase() {
+        client.pods().inNamespace("payments").resource(
+            new PodBuilder()
+                .withNewMetadata().withName("backend").withNamespace("payments").endMetadata()
+                .withNewSpec().addNewContainer().withName("backend").endContainer().endSpec()
+                .withNewStatus()
+                    .withPhase("Running")
+                    .addNewContainerStatus()
+                        .withName("backend")
+                        .withNewState().withNewWaiting().withReason("ImagePullBackOff").endWaiting().endState()
+                    .endContainerStatus()
+                .endStatus()
+                .build()
+        ).create();
+
+        PodInfo pod = workloadService.listPods(cluster, "payments").get(0);
+
+        assertThat(pod.state().label()).isEqualTo("ImagePullBackOff");
+        assertThat(pod.state().severity()).isEqualTo(Severity.PROBLEM);
+        assertThat(pod.phase()).isEqualTo("Running");
     }
 
     @Test
