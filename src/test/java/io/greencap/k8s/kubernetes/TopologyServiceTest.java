@@ -2,13 +2,16 @@ package io.greencap.k8s.kubernetes;
 
 import io.fabric8.kubernetes.api.model.ConfigMapBuilder;
 import io.fabric8.kubernetes.api.model.OwnerReferenceBuilder;
+import io.fabric8.kubernetes.api.model.PersistentVolumeClaimBuilder;
 import io.fabric8.kubernetes.api.model.PodBuilder;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.StatefulSetBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.greencap.k8s.domain.cluster.Cluster;
+import io.greencap.k8s.kubernetes.dto.Severity;
 import io.greencap.k8s.kubernetes.dto.TopologyEdge;
 import io.greencap.k8s.kubernetes.dto.TopologyEdgeType;
 import io.greencap.k8s.kubernetes.dto.TopologyGraph;
@@ -59,6 +62,10 @@ class TopologyServiceTest {
                 .forEach(c -> client.configMaps().inNamespace(c.getMetadata().getNamespace()).resource(c).delete());
         client.secrets().inAnyNamespace().list().getItems()
                 .forEach(s -> client.secrets().inNamespace(s.getMetadata().getNamespace()).resource(s).delete());
+        client.persistentVolumeClaims().inAnyNamespace().list().getItems()
+                .forEach(p -> client.persistentVolumeClaims().inNamespace(p.getMetadata().getNamespace()).resource(p).delete());
+        client.network().v1().ingresses().inAnyNamespace().list().getItems()
+                .forEach(i -> client.network().v1().ingresses().inNamespace(i.getMetadata().getNamespace()).resource(i).delete());
     }
 
     private void createStatefulSetWithPod(String name, java.util.Map<String, String> podLabels) {
@@ -107,6 +114,303 @@ class TopologyServiceTest {
 
         assertThat(graph.edges()).contains(
                 TopologyEdge.structural("statefulset/postgres", "pod-group/postgres"));
+    }
+
+    @Test
+    void podNode_carriesTheSamePodStateTheListingShows() {
+        createOrphanPod("standalone", "ImagePullBackOff");
+
+        TopologyNode pod = node(topologyService.buildGraph(cluster, NAMESPACE), "pod/standalone");
+
+        assertThat(pod.status()).isEqualTo("ImagePullBackOff");
+        assertThat(pod.severity()).isEqualTo(Severity.PROBLEM);
+    }
+
+    @Test
+    void podGroup_withOneBrokenReplicaOfThree_reportsTheCauseInsteadOfSummarisingIt() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", "CrashLoopBackOff");
+        createOwnedPod("api", "api-2", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.status()).isEqualTo("CrashLoopBackOff");
+        assertThat(group.severity()).isEqualTo(Severity.PROBLEM);
+    }
+
+    @Test
+    void podGroup_withEveryReplicaHealthy_isRunning() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.status()).isEqualTo("Running");
+        assertThat(group.severity()).isEqualTo(Severity.HEALTHY);
+    }
+
+    /** The controller keeps answering "how many are ready" — the likeliest regression here. */
+    @Test
+    void controllerNode_withFewerReadyThanDesired_staysDegraded() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", "ImagePullBackOff");
+
+        TopologyNode statefulSet = node(topologyService.buildGraph(cluster, NAMESPACE), "statefulset/api");
+
+        assertThat(statefulSet.status()).isEqualTo("Degraded");
+        assertThat(statefulSet.severity()).isEqualTo(Severity.DEGRADED);
+    }
+
+    @Test
+    void podNode_pointsAtItsOwnPod_notAtTheUnfilteredListing() {
+        createOrphanPod("standalone", null);
+
+        TopologyNode pod = node(topologyService.buildGraph(cluster, NAMESPACE), "pod/standalone");
+
+        assertThat(pod.manifestUrl()).isEqualTo("workloads/pods?name=standalone");
+    }
+
+    /** The base name prefixes every replica, so a substring filter reaches the whole group. */
+    @Test
+    void podGroupNode_pointsAtTheGroupBaseName() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.manifestUrl()).isEqualTo("workloads/pods?name=api");
+    }
+
+    /** Green is reserved for what runs: a Service routes, and routing has no health of its own. */
+    @Test
+    void serviceNode_isNeutral_soGreenKeepsMeaningSomething() {
+        createService("postgres-service");
+
+        TopologyNode service = node(topologyService.buildGraph(cluster, NAMESPACE), "service/postgres-service");
+
+        assertThat(service.severity()).isEqualTo(Severity.NEUTRAL);
+    }
+
+    @Test
+    void ingressNode_isNeutral_forTheSameReasonAsService() {
+        createIngress("api-ingress");
+
+        TopologyNode ingress = node(topologyService.buildGraph(cluster, NAMESPACE), "ingress/api-ingress");
+
+        assertThat(ingress.severity()).isEqualTo(Severity.NEUTRAL);
+    }
+
+    /** A lost volume is lost data, and it used to draw the same grey as a healthy one. */
+    @Test
+    void pvcNode_whenLost_alarms() {
+        createPvc("data", "Lost");
+
+        TopologyNode pvc = node(topologyService.buildGraph(cluster, NAMESPACE), "persistentvolumeclaim/data");
+
+        assertThat(pvc.status()).isEqualTo("Lost");
+        assertThat(pvc.severity()).isEqualTo(Severity.PROBLEM);
+    }
+
+    @Test
+    void pvcNode_whenPending_asksForAttentionWithoutAlarming() {
+        createPvc("data", "Pending");
+
+        TopologyNode pvc = node(topologyService.buildGraph(cluster, NAMESPACE), "persistentvolumeclaim/data");
+
+        assertThat(pvc.status()).isEqualTo("Pending");
+        assertThat(pvc.severity()).isEqualTo(Severity.DEGRADED);
+    }
+
+    /** No status yet is not damage — a fresh claim must not flash red before the phase lands. */
+    @Test
+    void pvcNode_withNoPhaseYet_asksForAttentionInsteadOfAlarming() {
+        client.persistentVolumeClaims().inNamespace(NAMESPACE).resource(
+                new PersistentVolumeClaimBuilder()
+                        .withNewMetadata().withName("data").withNamespace(NAMESPACE).endMetadata()
+                        .withNewSpec().endSpec()
+                        .build()
+        ).create();
+
+        TopologyNode pvc = node(topologyService.buildGraph(cluster, NAMESPACE), "persistentvolumeclaim/data");
+
+        assertThat(pvc.status()).isEqualTo("Unknown");
+        assertThat(pvc.severity()).isEqualTo(Severity.DEGRADED);
+    }
+
+    @Test
+    void pvcNode_whenBound_staysNeutral() {
+        createPvc("data", "Bound");
+
+        TopologyNode pvc = node(topologyService.buildGraph(cluster, NAMESPACE), "persistentvolumeclaim/data");
+
+        assertThat(pvc.status()).isEqualTo("Bound");
+        assertThat(pvc.severity()).isEqualTo(Severity.NEUTRAL);
+    }
+
+    /** The count used to live in `type`, which is why the graph's colour table never matched a Pod. */
+    @Test
+    void podNode_carriesPodAsTypeAndTheCountAsSubtitle() {
+        createOrphanPod("standalone", null);
+
+        TopologyNode pod = node(topologyService.buildGraph(cluster, NAMESPACE), "pod/standalone");
+
+        assertThat(pod.type()).isEqualTo("Pod");
+        assertThat(pod.subtitle()).isEqualTo("1 Pod");
+    }
+
+    @Test
+    void podGroupNode_carriesPodGroupAsTypeAndTheReplicaCountAsSubtitle() {
+        createStatefulSet("api", 3, 3);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+        createOwnedPod("api", "api-2", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.type()).isEqualTo("PodGroup");
+        assertThat(group.subtitle()).isEqualTo("3 Pods");
+    }
+
+    @Test
+    void podGroupNode_withASingleReplica_usesTheSingularSubtitle() {
+        createStatefulSet("api", 1, 1);
+        createOwnedPod("api", "api-0", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.type()).isEqualTo("PodGroup");
+        assertThat(group.subtitle()).isEqualTo("1 Pod");
+    }
+
+    @Test
+    void nodesOfEveryOtherType_repeatTheKindInTypeAndSubtitle() {
+        createStatefulSet("api", 1, 1);
+        createService("postgres-service");
+
+        TopologyGraph graph = topologyService.buildGraph(cluster, NAMESPACE);
+
+        assertThat(node(graph, "statefulset/api").type()).isEqualTo("StatefulSet");
+        assertThat(node(graph, "statefulset/api").subtitle()).isEqualTo("StatefulSet");
+        assertThat(node(graph, "service/postgres-service").type()).isEqualTo("Service");
+        assertThat(node(graph, "service/postgres-service").subtitle()).isEqualTo("Service");
+    }
+
+    /** The proportion ADR 0021 promised was visible next to the group, and never was. */
+    @Test
+    void degradedController_writesTheReadyProportionOnTheNode() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", "CrashLoopBackOff");
+
+        TopologyNode statefulSet = node(topologyService.buildGraph(cluster, NAMESPACE), "statefulset/api");
+
+        assertThat(statefulSet.alert()).isEqualTo("2/3 ready");
+    }
+
+    @Test
+    void healthyController_saysNothingOnTheNode() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode statefulSet = node(topologyService.buildGraph(cluster, NAMESPACE), "statefulset/api");
+
+        assertThat(statefulSet.alert()).isEmpty();
+    }
+
+    /** The group answers "why" with the raw reason, never with a second count of its own. */
+    @Test
+    void troubledPodGroup_writesTheReasonOnTheNode() {
+        createStatefulSet("api", 3, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", "CrashLoopBackOff");
+        createOwnedPod("api", "api-2", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.alert()).isEqualTo("CrashLoopBackOff");
+    }
+
+    @Test
+    void healthyPodGroup_saysNothingOnTheNode() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.alert()).isEmpty();
+    }
+
+    @Test
+    void lostPvc_writesItsPhaseOnTheNode() {
+        createPvc("data", "Lost");
+
+        TopologyNode pvc = node(topologyService.buildGraph(cluster, NAMESPACE), "persistentvolumeclaim/data");
+
+        assertThat(pvc.alert()).isEqualTo("Lost");
+    }
+
+    /** Neutral nodes never speak: a Service has nothing to report, so it must stay quiet. */
+    @Test
+    void serviceNode_saysNothingOnTheNode() {
+        createService("postgres-service");
+
+        TopologyNode service = node(topologyService.buildGraph(cluster, NAMESPACE), "service/postgres-service");
+
+        assertThat(service.alert()).isEmpty();
+    }
+
+    private TopologyNode node(TopologyGraph graph, String id) {
+        return graph.nodes().stream().filter(n -> n.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private void createStatefulSet(String name, int desired, int ready) {
+        client.apps().statefulSets().inNamespace(NAMESPACE).resource(
+                new StatefulSetBuilder()
+                        .withNewMetadata().withName(name).withNamespace(NAMESPACE).endMetadata()
+                        .withNewSpec().withReplicas(desired).withServiceName(name).endSpec()
+                        .withNewStatus().withReadyReplicas(ready).endStatus()
+                        .build()
+        ).create();
+    }
+
+    private void createOwnedPod(String ownerName, String podName, String waitingReason) {
+        var ownerRef = new OwnerReferenceBuilder()
+                .withApiVersion("apps/v1").withKind("StatefulSet").withName(ownerName).withController(true)
+                .build();
+        client.pods().inNamespace(NAMESPACE).resource(
+                podBuilder(podName, waitingReason).editMetadata().withOwnerReferences(ownerRef).endMetadata().build()
+        ).create();
+    }
+
+    private void createOrphanPod(String podName, String waitingReason) {
+        client.pods().inNamespace(NAMESPACE).resource(podBuilder(podName, waitingReason).build()).create();
+    }
+
+    /** Phase stays Running even when nothing runs inside — the case the sprint exists for. */
+    private PodBuilder podBuilder(String podName, String waitingReason) {
+        PodBuilder builder = new PodBuilder()
+                .withNewMetadata().withName(podName).withNamespace(NAMESPACE).endMetadata()
+                .withNewSpec().addNewContainer().withName("app").endContainer().endSpec()
+                .withNewStatus().withPhase("Running").endStatus();
+
+        if (waitingReason == null) {
+            return builder.editStatus()
+                    .addNewContainerStatus()
+                        .withName("app")
+                        .withNewState().withNewRunning().endRunning().endState()
+                    .endContainerStatus()
+                    .endStatus();
+        }
+        return builder.editStatus()
+                .addNewContainerStatus()
+                    .withName("app")
+                    .withNewState().withNewWaiting().withReason(waitingReason).endWaiting().endState()
+                .endContainerStatus()
+                .endStatus();
     }
 
     @Test
@@ -253,6 +557,25 @@ class TopologyServiceTest {
 
         assertThatThrownBy(() -> failingService.buildGraph(cluster, NAMESPACE))
                 .isInstanceOf(KubernetesOperationException.class);
+    }
+
+    private void createPvc(String name, String phase) {
+        client.persistentVolumeClaims().inNamespace(NAMESPACE).resource(
+                new PersistentVolumeClaimBuilder()
+                        .withNewMetadata().withName(name).withNamespace(NAMESPACE).endMetadata()
+                        .withNewSpec().endSpec()
+                        .withNewStatus().withPhase(phase).endStatus()
+                        .build()
+        ).create();
+    }
+
+    private void createIngress(String name) {
+        client.network().v1().ingresses().inNamespace(NAMESPACE).resource(
+                new IngressBuilder()
+                        .withNewMetadata().withName(name).withNamespace(NAMESPACE).endMetadata()
+                        .withNewSpec().endSpec()
+                        .build()
+        ).create();
     }
 
     private void createService(String name) {

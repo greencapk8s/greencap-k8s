@@ -25,6 +25,8 @@ import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.WorkloadService;
 import io.greencap.k8s.kubernetes.dto.PodInfo;
+import io.greencap.k8s.kubernetes.dto.PodState;
+import io.greencap.k8s.kubernetes.dto.Severity;
 import jakarta.annotation.security.PermitAll;
 
 import lombok.extern.slf4j.Slf4j;
@@ -102,6 +104,12 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         if (hasCluster) {
             loadPodsAsync(UI.getCurrent());
         }
+
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildJobFilterBanner() {
@@ -144,7 +152,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         nodeFilter   = buildFilterField();
 
         var nameCol   = podGrid.addColumn(PodInfo::name).setHeader("Name").setSortable(true).setFlexGrow(2).setResizable(true);
-        var statusCol = podGrid.addComponentColumn(p -> phaseBadge(p.phase())).setHeader("Status").setWidth("120px").setResizable(true);
+        var statusCol = podGrid.addComponentColumn(p -> podStateBadge(p.state())).setHeader("Status").setWidth("120px").setResizable(true);
         var nodeCol   = podGrid.addColumn(PodInfo::node).setHeader("Node").setFlexGrow(1).setResizable(true);
         podGrid.addColumn(PodInfo::restarts).setHeader("Restarts").setWidth("90px").setResizable(true);
         podGrid.addColumn(PodInfo::age).setHeader("Age").setWidth("80px").setResizable(true);
@@ -160,7 +168,7 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
         dataProvider.setFilter(item ->
             matches(item.name(), nameFilter.getValue()) &&
-            matches(item.phase(), statusFilter.getValue()) &&
+            matches(item.state().label(), statusFilter.getValue()) &&
             matches(item.node(), nodeFilter.getValue()) &&
             (jobFilter.isBlank() || jobFilter.equals(item.jobName())) &&
             (!hideCompletedJobPodsCheckbox.getValue() || !isCompletedJobPod(item)));
@@ -265,16 +273,22 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         dialog.open();
     }
 
-    private Span phaseBadge(String phase) {
-        Span badge = new Span(phase);
+    private Span podStateBadge(PodState state) {
+        Span badge = new Span(state.label());
         badge.getElement().getThemeList().add("badge");
-        switch (phase) {
-            case "Running", "Active" -> badge.getElement().getThemeList().add("success");
-            case "Pending"           -> badge.getElement().getThemeList().add("contrast");
-            case "Failed"            -> badge.getElement().getThemeList().add("error");
-            default                  -> {}
+        badge.getElement().getThemeList().add(themeVariantFor(state.severity()));
+        if (!state.message().isBlank()) {
+            badge.getElement().setAttribute("title", state.message());
         }
         return badge;
+    }
+
+    private String themeVariantFor(Severity severity) {
+        return switch (severity) {
+            case HEALTHY -> "success";
+            case NEUTRAL -> "contrast";
+            case DEGRADED, PROBLEM -> "error";
+        };
     }
 
     private TextField buildFilterField() {

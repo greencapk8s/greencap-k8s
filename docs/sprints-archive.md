@@ -498,19 +498,19 @@
 - `MainLayout`: `BuildProperties` injetado via construtor; `buildDrawer()` refatorado para separar nav content em `Scroller` + `VerticalLayout` externo com `expand(scroller)` para empurrar o rodapé ao fundo
 - `buildVersionFooter()`: `Div` centralizado com `Span` `v{version}` em `FontSize.XXSMALL` + `TextColor.TERTIARY`, fixado no fundo do drawer em todas as páginas
 
-### Sprint 54 — Manutenção: archiving de sprints.md e .scratch
+### Sprint 54 — Manutenção: archiving de sprints.md e .issue-tracker
 
-- `docs/agents/sprint-archiving.md` (novo): documenta a regra de archiving — "Sprints Concluídas" mantém só as últimas 10 sprints, restante vai para `docs/sprints-archive.md`; `.scratch/sprint-N/` antigos vão para `.scratch/archive/sprint-N/`; executado na etapa 6 (Fechamento) do fluxo de sprint
+- `docs/agents/sprint-archiving.md` (novo): documenta a regra de archiving — "Sprints Concluídas" mantém só as últimas 10 sprints, restante vai para `docs/sprints-archive.md`; `.issue-tracker/sprint-N/` antigos vão para `.issue-tracker/archive/sprint-N/`; executado na etapa 6 (Fechamento) do fluxo de sprint
 - `CLAUDE.md`: referência ao novo doc em "Agent skills"; etapa 6 do fluxo de sprint passa a citar a verificação de archiving
-- `docs/agents/issue-tracker.md`: nota sobre `.scratch/archive/`
+- `docs/agents/issue-tracker.md`: nota sobre `.issue-tracker/archive/`
 - `docs/sprints-archive.md` (novo): detalhamento das sprints 1-43 em ordem cronológica crescente, migrado de `docs/sprints.md` (que estava fora de ordem); sprint 38 marcada com nota de detalhamento não registrado na época
 - `docs/sprints.md`: "Sprints Concluídas" reduzida de 47 para as últimas 10 entradas; tabela "Status Geral" mantida completa; seção "Backlog" removida (sprints 28-32 já cobertas no archive); itens pendentes de Dockerfile/`GREENCAP_ENCRYPTION_KEY` realocados para "Candidatos para Próximas Sprints" sob novo grupo "🐳 Infraestrutura de Produção"
-- `.scratch/`: diretórios `sprint-4` a `sprint-43` movidos para `.scratch/archive/sprint-N/` via `git mv`, preservando histórico
+- `.issue-tracker/`: diretórios `sprint-4` a `sprint-43` movidos para `.issue-tracker/archive/sprint-N/` via `git mv`, preservando histórico
 
 ### Sprint 55 ✅ — Docker: Quick Start ponta a ponta (Dockerfile + compose + profile prod)
 
 - `docker/Dockerfile` (novo): build multi-stage — stage `builder` (`eclipse-temurin:21-jdk`) roda `./gradlew bootJar -x jar` (gera o frontend Vaadin de produção via plugin, sem Node instalado no host); stage `runtime` (`eclipse-temurin:21-jre` + `curl`) só com o JAR final
-- `.dockerignore` (novo): exclui `build/`, `bin/`, `node_modules/`, `.git/`, `.gradle/`, `.scratch/`, `docs/` do contexto de build
+- `.dockerignore` (novo): exclui `build/`, `bin/`, `node_modules/`, `.git/`, `.gradle/`, `.issue-tracker/`, `docs/` do contexto de build
 - `docker-compose.yml`: corrigido bug pré-existente em `build.context: ..` (apontava um nível acima do diretório do projeto, fazendo `docker compose up` falhar sempre); adicionado `SPRING_PROFILES_ACTIVE: prod` e `healthcheck` via `/actuator/health` no serviço `greencap`
 - `src/main/resources/application-prod.yaml` (novo): `greencap.encryption.key: ${GREENCAP_ENCRYPTION_KEY}` sem fallback — falha rápido no startup se a variável não estiver definida (testado isoladamente: erro claro de placeholder não resolvido)
 - `.env.example`: `ENCRYPTION_KEY`, `DB_USER`, `DB_PASSWORD` agora com valores padrão funcionais para Quick Start, com aviso para troca em produção real; `GREENCAP_ENCRYPTION_KEY` documentado separadamente para o fluxo Gradle/dev
@@ -527,7 +527,7 @@
 - `StorageService`: `listNodes()` popula `schedulingDisabled` a partir de `spec.unschedulable`; novo método `cordonNode(Cluster, String, boolean)` faz patch via `client.nodes().withName(name).edit(...)`
 - `NodesView`: nova coluna "Scheduling" com badge `Schedulable`/`Cordoned`; botão toggle Cordon/Uncordon (`PAUSE`/`PLAY`) na coluna de ações, desabilitado para Viewer, mesmo padrão de Suspend/Resume do `CronJobsView`; `HELP_TEXT` atualizado
 - `UserManagementView` não foi alterado — segue o mesmo gap pré-existente dos 9 `_DELETE` da sprint 51 (permission concedida via migration, sem editor por usuário)
-- Issue: `.scratch/sprint-56/issues/01-node-cordon-uncordon.md`
+- Issue: `.issue-tracker/sprint-56/issues/01-node-cordon-uncordon.md`
 
 ### Sprint 57 ✅ — UX: barra de seleção e ações na barra de título (14 views)
 
@@ -543,7 +543,7 @@
   - **Auto Scaling / Storage**: `HorizontalScalerView` (mantém Edit Limits; barra: Delete, Manifest), `PersistentVolumeClaimsView` (coluna removida; barra: Delete, Manifest)
   - **Infrastructure** (recursos cluster-scoped, sem Delete/Events): `NodesView` (mantém Cordon/Uncordon; barra: Manifest), `PersistentVolumesView`, `StorageClassesView` (colunas removidas; barra: Manifest)
 - Fix encontrado no aceite manual: ao abrir "View Manifest" e voltar (Back), o Vaadin recria a View (nova `Grid`, novo `ListDataProvider`) e a seleção voltava sempre para o primeiro item. Novo bean `GridSelectionMemory` (`@VaadinSessionScope`, `Map<viewKey, itemName>`) + nova sobrecarga `configureSingleSelection(grid, selectionMemory, viewKey, nameExtractor)` que registra o nome do item selecionado a cada mudança; `selectFirstOrPreserve` consulta essa memória (via `ComponentUtil`) antes de cair no fallback "primeiro item". `viewKey = getClass().getSimpleName()` em todas as 14 views
-- Issues: `.scratch/sprint-57/issues/01-shared-selection-toolbar.md` a `07-selection-memory-across-navigation.md`
+- Issues: `.issue-tracker/sprint-57/issues/01-shared-selection-toolbar.md` a `07-selection-memory-across-navigation.md`
 
 ### Sprint 58 — Polish de listagens: nome do recurso na confirmação de remoção e espaçamento das colunas de ações
 
@@ -552,7 +552,7 @@
 - `UiConstants.actionsColumnWidth`: agora soma `ACTION_BUTTON_WIDTH_PX` (48px) por botão + `ACTIONS_COLUMN_RIGHT_PADDING_PX` (8px) de respiro
 - Novo helper `UiConstants.addActionsColumn(grid, buttonCount, buttonsProvider)`: monta a coluna de ações com `HorizontalLayout` sem padding/spacing padrão e `padding-right` consistente — substitui o padrão duplicado em 8 views: `NodesView`, `DeploymentsView`, `PodsView`, `JobsView`, `CronJobsView`, `HorizontalScalerView`, `ClustersView`, `UserManagementView`
 - `CronJobsView`: `buildActionsLayout` refatorado para `buildActionButtons` (retorna `List<Button>`); `ClustersView`/`UserManagementView`: `buildActions` passam a retornar `List<Button>` em vez de `HorizontalLayout`
-- Issues: `.scratch/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`
+- Issues: `.issue-tracker/sprint-58/issues/01-nome-do-recurso-no-dialogo-de-remocao.md` e `02-espacamento-coluna-de-acoes.md`
 
 ### Sprint 59 ✅ — YAML do Manifest editável (Edit + Apply)
 
@@ -562,13 +562,13 @@
 - `V19__add_manifest_edit_permission.sql`: concede `MANIFEST_EDIT` a usuários com `SETTINGS_CLUSTERS_WRITE` (Admin/Operator)
 - `ManifestService`: novo método `applyYaml()` — parseia o YAML editado via `YAMLMapper`, valida `kind`/`metadata.name`/`metadata.namespace` contra os parâmetros da URL (bloqueia divergências sem chamar a API), remove campos gerenciados pelo servidor e o nó `status`, e aplica via `client.resource(yaml).inNamespace(namespace).update()`; novo `isEditable(resourceType)` com o mapa dos 11 tipos editáveis → `kind` esperado
 - `ManifestView`: botões **Edit** e **Apply** no header — Edit alterna para Cancelar (descarta alterações e volta ao YAML original), Apply só visível em modo edição e abre `ConfirmDialog` antes de enviar; editor é um `TextArea` monoespaçado que substitui o `Pre` em modo edição e recebe foco automático; sucesso re-busca o YAML e volta ao modo leitura com notificação, falha mantém o texto editado com notificação de erro; Edit visível apenas para os 11 tipos editáveis e desabilitado (com tooltip) sem `MANIFEST_EDIT`
-- Issue: `.scratch/sprint-59/issues/01-yaml-manifest-editavel.md`
+- Issue: `.issue-tracker/sprint-59/issues/01-yaml-manifest-editavel.md`
 
 ### Sprint 60 ✅ — Fix: scroll horizontal em views de YAML/logs
 
 - `ManifestView.java`: estilo de `yamlContent` (`Pre`, leitura) — `white-space: pre` → `pre-wrap`, adicionado `overflow-wrap: anywhere`, mantido `overflow: auto` existente e adicionado `overflow-x: hidden`; linhas longas de YAML quebram visualmente em vez de gerar scroll horizontal. `yamlEditor` (TextArea, edição) inalterado — Vaadin já aplica `pre-wrap`/`min-width: 0` internamente
 - `PodLogsView.java`: mesmo padrão aplicado a `logContent` (`Pre`, logs do Pod) em `styleLogContent()`
-- Issues: `.scratch/sprint-60/issues/01-fix-scroll-manifestview.md`, `.scratch/sprint-60/issues/02-fix-scroll-podlogsview.md`
+- Issues: `.issue-tracker/sprint-60/issues/01-fix-scroll-manifestview.md`, `.issue-tracker/sprint-60/issues/02-fix-scroll-podlogsview.md`
 
 ### Sprint 61 ✅ — Workloads: StatefulSets
 
@@ -584,14 +584,14 @@
 - `MainLayout.buildWorkloadsNavItem()`: item "StatefulSets" adicionado entre "Deployments" e "ReplicaSets", controlado por `WORKLOADS_STATEFULSETS_VIEW`
 - Fix encontrado no aceite manual: `UserManagementView.buildWorkloadsGroup` não incluía o novo grupo de permissões na treeview — adicionado `statefulSetsSubGroup` (Scale/Restart/Rollback), posicionado entre Deployments e Jobs, espelhando a ordem de navegação
 - Registrados como candidatos para próximas sprints: StatefulSet na Topologia, coluna Owner em `PersistentVolumeClaimsView` (PVCs de `volumeClaimTemplates`, incluindo PVCs órfãos quando o StatefulSet é removido), Events em `StatefulSetsView`
-- Issues: `.scratch/sprint-61/issues/01-statefulset-backend.md`, `02-statefulset-ui.md`
+- Issues: `.issue-tracker/sprint-61/issues/01-statefulset-backend.md`, `02-statefulset-ui.md`
 
 ### Sprint 62 — User Management: treeview de permissões expansível/colapsável
 - `UserManagementView.GroupNode` (painel `PermissionTreePanel` do diálogo de Permissões): cada grupo de topo (Workloads, Networking, Parameters, Auto Scaling, Storage, Topology, Observability, Clusters, Infrastructure, Users, Platform Settings) ganhou um chevron (`VaadinIcon.CHEVRON_DOWN`/`CHEVRON_RIGHT`, `LUMO_SMALL/TERTIARY/ICON`) ao lado do `Checkbox` do header, em uma `HorizontalLayout`; novo método `setExpanded(boolean)` alterna a visibilidade de um `itemsContainer` (`VerticalLayout`) com os itens do grupo e atualiza o ícone/tooltip — `SubGroupNode` (Deployments/StatefulSets/Jobs/CronJobs dentro de Workloads) permanece sempre expandido
 - `itemsContainer` recebe `margin-left: var(--lumo-size-s)` para compensar a largura do chevron e manter o alinhamento das checkboxes filhas com o checkbox do header (mesmo `margin-left: var(--lumo-space-l)` de `PermissionNode`)
 - Estado inicial de cada grupo: expandido se ≥1 das suas permissões já estiver marcada em `initial` (calculado no construtor de `GroupNode`), senão colapsado — uniforme para todos os grupos, inclusive os de 1 item (Topology, Storage, Infrastructure, Platform Settings); no diálogo "New User" (nada marcado) todos os grupos iniciam colapsados
 - `Select All` / `Deselect All` (já existentes) continuam alterando apenas os checkboxes, sem afetar o collapse; novos botões `Expand All` / `Collapse All` na `bulkActions` expandem/colapsam todos os grupos de uma vez
-- Issue: `.scratch/sprint-62/issues/01-permission-treeview-collapsible.md`
+- Issue: `.issue-tracker/sprint-62/issues/01-permission-treeview-collapsible.md`
 
 ### Sprint 63 ✅ — UX: seção GLOBAL no drawer, ícone de contexto (i) e Observability como submenu de PROJECT
 
@@ -602,7 +602,7 @@
 - `ClustersView`, `NodesView`, `PersistentVolumesView`, `StorageClassesView`: referências às permissões renomeadas atualizadas
 - `Observability` (Dashboard, Events, Metrics) deixou de ser seção própria do drawer e passou a ser item expansível dentro de **PROJECT**, logo após `Topology`, com ícone `VaadinIcon.EYE` e navegação padrão para `DashboardView` (mesmo padrão de `Workloads`/`Networking`); permissões `OBSERVABILITY_*` mantidas sem renomear
 - `UserManagementView.PermissionTreePanel`: árvore de permissões espelha a nova estrutura — seção `GLOBAL` (grupos Clusters/Infrastructure) entre PROJECT e SETTINGS; grupo `Observability` movido para dentro da seção PROJECT, logo após `Topology`
-- Issues: `.scratch/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
+- Issues: `.issue-tracker/sprint-63/issues/01-secao-global-no-drawer.md`, `02-renomear-permissoes-global.md`, `03-icone-contexto-namespace-cluster.md`, `04-observability-submenu-de-project.md`
 
 ### Sprint 64 ✅ — DevOps: pipeline GitHub Actions para validar docker-compose
 
@@ -610,7 +610,7 @@
 - Steps: `actions/checkout@v4` → `cp .env.example .env` (replica o Quick Start, sem GitHub Secrets) → `docker compose up -d --build --wait --wait-timeout 120` (sem cache de build) → `curl --fail -L http://localhost:8080/` (valida porta publicada e frontend Vaadin de produção servido) → dump de `docker compose logs` em caso de falha → `docker compose down -v` sempre (`if: always()`)
 - Fix encontrado na primeira execução no GitHub Actions: `.gitignore` ignorava `gradle/wrapper/gradle-wrapper.jar` — a regra `!gradle/wrapper/gradle-wrapper.jar` (seção Gradle) era sobrescrita pela regra `*.jar` declarada mais abaixo (seção Spring Boot), então o jar nunca foi commitado; checkout limpo (CI) ficava sem o jar e `./gradlew` falhava com `ClassNotFoundException: GradleWrapperMain`. Corrigido movendo a negação para depois de `*.jar` e commitando `gradle/wrapper/gradle-wrapper.jar`
 - Validado ponta a ponta: push para `main` disparou o workflow, build + healthcheck (`db`/`greencap` `healthy`) + `curl http://localhost:8080/` (200, página de login Vaadin) passaram — pipeline verde
-- Issue: `.scratch/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
+- Issue: `.issue-tracker/sprint-64/issues/01-pipeline-validacao-docker-compose.md`
 
 ### Sprint 65 ✅ — Infraestrutura de Demo: migrar greencap-demo para driver docker multi-node
 
@@ -619,7 +619,7 @@
 - `samples/greencap-demo/README.md` (novo): quick start, tabela de trade-offs de drivers (docker/virtualbox/kvm2), troubleshooting do bug do virtualbox e do reboot com driver docker, requisitos
 - Validado ponta a ponta: provisionamento com 3 nodes via driver `docker` OK, `create-demo.sh` (rollout + addon ingress) OK, acesso a `http://greencap-demo.local` OK
 - Aceite manual (reboot do host): cluster com 3 nodes volta `Running`/`OK` sem reprovisionar; com driver `docker` os containers dos nodes não religam automaticamente no boot — é necessário rodar `minikube start -p greencap-demo` manualmente, documentado no README; `http://greencap-demo.local` volta a responder em seguida sem passos adicionais
-- Issue: `.scratch/archive/sprint-65/issues/01-migrar-driver-docker-multinode.md`
+- Issue: `.issue-tracker/archive/sprint-65/issues/01-migrar-driver-docker-multinode.md`
 
 ### Sprint 66 ✅ — Workloads: coluna/filtro Nodes em Deployments/ReplicaSets/StatefulSets/Jobs/Pods
 
@@ -631,14 +631,14 @@
 - `PodsView`: coluna "Node" existente ganhou filtro de texto (mesmo padrão das demais)
 - Validado ponta a ponta no `greencap-demo` (3 Nodes, driver docker, sprint 65): coluna Nodes/Node preenchida corretamente e filtro funcionando nas 5 views
 - CronJob de exemplo `node-spread-test` (novo, `samples/greencap-demo/manifests/13-node-spread-cronjob.yaml`): roda a cada minuto no namespace `greencap-demo`, útil para observar a distribuição de Pods entre Nodes na `JobsView`/`PodsView`
-- Issues: `.scratch/archive/sprint-66/issues/01-nodes-backend.md`, `.scratch/archive/sprint-66/issues/02-nodes-ui.md`
+- Issues: `.issue-tracker/archive/sprint-66/issues/01-nodes-backend.md`, `.issue-tracker/archive/sprint-66/issues/02-nodes-ui.md`
 
 ### Sprint 67 ✅ — PodsView: esconder Pods Succeeded de Jobs por padrão (toggle)
 
 - `CONTEXT.md`: termo `Pod` atualizado — a listagem de Pods esconde por padrão Pods de Job já concluídos (`Succeeded`), via toggle ativo por padrão; Pods filtrados por um Job específico (`?job=`) sempre aparecem, independente da fase
 - `PodsView`: novo `Checkbox` "Hide completed Job pods" (marcado por padrão); novo predicado `isCompletedJobPod` (`jobName` não vazio + `phase == "Succeeded"`) combinado ao filtro existente do `ListDataProvider`, junto com Name/Status/Node e o filtro de Job — Pods `Failed` de Jobs permanecem sempre visíveis, independente do toggle
 - Ao abrir via `?job=<nome>` (botão "View Pods" de `JobsView`/`CronJobsView`), o checkbox inicia desmarcado — evita grid vazia ao ver os pods de um Job já `Complete`; volta a marcado ao limpar o filtro de Job pelo `jobFilterBanner`
-- Issue: `.scratch/sprint-67/issues/01-hide-completed-job-pods.md`
+- Issue: `.issue-tracker/sprint-67/issues/01-hide-completed-job-pods.md`
 
 ### Sprint 68 ✅ — Container Registry: menu Global, listagem de Repositories e Tags
 
@@ -650,13 +650,13 @@
 - `RegistryTagsView` (nova): rota `registry/:repository*` (wildcard para repositories com `/` no nome, ex. `greencap-demo/backend`); cabeçalho com nome do repository + botão Back para `RegistryView`; grid de Tags (Tag/Digest/Size/Created) — coluna Digest com `overflow:hidden`/`text-overflow:ellipsis`/`title` (tooltip) em vez de truncamento fixo
 - `samples/greencap-demo/cluster-provision.sh`: addon `registry` habilitado junto de `metrics-server`/`ingress`; `create-demo.sh` refatorado — addons (antes espalhados entre os dois scripts) agora centralizados em `cluster-provision.sh`, `create-demo.sh` passa a só aplicar os manifests do demo; `README.md` atualizado
 - Validado ponta a ponta no `greencap-demo`: addon `registry` habilitado, imagens de teste (`greencap-demo/hello` com tags `v1`/`v2`/`latest`, `greencap-demo/backend` com tag `v1`) buildadas e enviadas via port-forward + `docker push`; menu "Container Registry" lista os repositories com contagem de tags e "View Tags" exibe nome/digest/size/created corretamente
-- Issues: `.scratch/archive/sprint-68/issues/01-registry-menu-and-repository-listing.md`, `02-repository-tags-view.md`
+- Issues: `.issue-tracker/archive/sprint-68/issues/01-registry-menu-and-repository-listing.md`, `02-repository-tags-view.md`
 
 ### Sprint 69 ✅ — Fix: Container Registry — item ausente na treeview de permissões + ação View Tags na grid
 
 - `UserManagementView.buildGlobalGroups()`: novo grupo "Container Registry" (`GLOBAL_REGISTRY_VIEW`) — permission introduzida na sprint 68 que não havia sido exposta na treeview de permissões (GLOBAL), mesmo padrão de grupo único do "Infrastructure"
 - `RegistryView`: ação "View Tags" sai da barra de título (selection action) e passa para uma coluna de ações na própria grid (`UiConstants.addActionsColumn`, botão por linha), mesmo padrão de `JobsView` ("View Pods")
-- Issue: `.scratch/archive/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
+- Issue: `.issue-tracker/archive/sprint-69/issues/01-fix-registry-permission-treeview-view-tags.md`
 
 ### Sprint 70 ✅ — Platform Settings: auto-refresh — nova opção "3 seconds" e novo default
 
@@ -664,7 +664,7 @@
 - `RefreshInterval`: novo valor `THREE_SECONDS("3 seconds", 3)`, posicionado entre `NONE` e `FIVE_SECONDS`
 - `PlatformSettingsView.buildRefreshCard()`: fallback do ComboBox (sem preferência salva) passa de `NONE` para `THREE_SECONDS`
 - `MainLayout`: default do field `currentRefreshInterval` e fallback em `onAttach()` passam de `NONE` para `THREE_SECONDS` — auto-refresh a 3s ativo desde o login para quem nunca configurou; usuários que já salvaram explicitamente "No auto refresh" (0) ou outro valor continuam inalterados; aplicado uniformemente a todas as views `Refreshable`, sem migration Flyway (mesmo padrão do fallback de tema `"DARK"`)
-- Issue: `.scratch/archive/sprint-70/issues/01-auto-refresh-3-seconds-default.md`
+- Issue: `.issue-tracker/archive/sprint-70/issues/01-auto-refresh-3-seconds-default.md`
 
 ### Sprint 71 ✅ — Infraestrutura de Demo: PVC para persistir o Container Registry interno
 
@@ -674,7 +674,7 @@
 - `samples/greencap-demo/README.md`: nova seção "Container Registry" documentando a persistência via PVC, o caveat do `nodeSelector` (control-plane sempre existe no demo de 3 nodes) e que os dados só são perdidos com `minikube delete -p greencap-demo`
 - Problema geral de `nodeAffinity` da StorageClass (afeta qualquer PVC) registrado no backlog como candidato de substituição por `local-path-provisioner`; ODF/Ceph avaliado e descartado — over-engineering para o posicionamento "plataforma leve" do GreenCap
 - Validado ponta a ponta no `greencap-demo`: `cluster-provision.sh` roda do zero e idempotente (PVC `unchanged`, patch `no change`); push de imagens de teste via port-forward; após `minikube stop`/`start -p greencap-demo`, pod do registry voltou no mesmo node e os 3 repositories continuaram visíveis
-- Issue: `.scratch/archive/sprint-71/issues/01-pvc-persistencia-registry.md`
+- Issue: `.issue-tracker/archive/sprint-71/issues/01-pvc-persistencia-registry.md`
 
 ### Sprint 73 ✅ — Container Registry: Build & push de imagem via Kaniko a partir de Git Repository público
 
@@ -687,7 +687,7 @@
 - `BuildLogsView` (nova, rota `registry/build/:jobName`): log ao vivo com polling de 3s, pausar/retomar
 - Fix no aceite: prefixo `git://` no `--context`; `fetchTagInfo` aceita manifesto OCI além de Docker v2
 - Validado ponta a ponta no `greencap-demo`: Build de `https://github.com/joseafilho/uni-flask-app`
-- Issue: `.scratch/archive/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
+- Issue: `.issue-tracker/archive/sprint-73/issues/01-build-push-imagem-registry-kaniko-git.md`
 
 ### Sprint 74 ✅ — Container Registry: Remove Repository e Remove Tags com multi-seleção
 
@@ -695,7 +695,7 @@
 - `CONTEXT.md`: termos `Remove Repository` e `Remove Tags` adicionados
 - `RegistryMaintenanceService` (novo): `deleteRepository` + `deleteTags`
 - `RegistryTagsView`: ações "Remove Tags" (multi-seleção, dialog de confirmação type-to-confirm) e confirmação de "Remove Repository" propagada para o serviço de manutenção
-- Issues: `.scratch/archive/sprint-74/issues/`
+- Issues: `.issue-tracker/archive/sprint-74/issues/`
 
 ### Sprint 75 ✅ — Deploy Application: wizard multi-step a partir de imagem
 
@@ -704,7 +704,7 @@
 - `DeployApplicationService` (novo): cria Namespace + Deployment + Service ClusterIP (quando porta informada) + PVC (opcional) + Ingress (opcional); `DeployApplicationRequest`/`DeployApplicationResult` DTOs
 - `DeployApplicationView` (nova, rota `/deploy`): wizard 6 passos (Name, Image & Port, Resources, Volume, External Access, Review); sugestões de StorageClass e IngressClass carregadas do cluster; sugestão de host `<namespace>.greencap.local`; execução assíncrona em thread virtual; em sucesso navega para Topologia
 - `Permission.PROJECT_DEPLOY_APPLICATION` (novo): `V25__add_deploy_application_permission.sql`
-- Issues: `.scratch/archive/sprint-75/issues/`
+- Issues: `.issue-tracker/archive/sprint-75/issues/`
 
 
 ### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
@@ -712,7 +712,7 @@
 - `NamespaceService`: `listNamespacesWithCounts()`, `createNamespace()`, `deleteNamespace()`; filtra namespaces em fase `Terminating` no combobox da navbar
 - `NamespacesView` (nova, rota `global/namespaces`): grid Name/Status/Pods/Deployments/Services/Age; Create com validação DNS; Delete type-to-confirm; system namespaces bloqueados; chama `MainLayout.refreshClusterState()` após operações
 - `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE`; `V26__add_namespace_permissions.sql`
-- Issue: `.scratch/archive/sprint-76/issues/`
+- Issue: `.issue-tracker/archive/sprint-76/issues/`
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 
@@ -720,7 +720,7 @@
 - `topology-graph.ts`: cor Ingress `#06B6D4`; cor de arestas `#64748B`; fcose separado da inicialização; `fixedNodeConstraint` desabilitado quando compound nodes presentes
 - `TopologyNodeDrawer`: bloco `isIngress` com Hosts, badge TLS, IngressClass; botão "Go to resource" substitui "Ver YAML"
 - `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `nameFilter` instância; `beforeEnter` lê `?name=`
-- Issues: `.scratch/archive/sprint-77/issues/`
+- Issues: `.issue-tracker/archive/sprint-77/issues/`
 
 ### Sprint 78 ✅ — Topologia: correções de layout (randomize), tap em group nodes e botão Reset Positions
 
@@ -728,26 +728,26 @@
 - `TopologyLayoutRepository`: `deleteByUserIdAndClusterIdAndNamespace` (método derivado Spring Data)
 - `TopologyLayoutService`: `deleteLayout()` deleta o registro de posições salvas para user + cluster + namespace
 - `TopologiaView`: botão "Reset positions" (ícone refresh, estilo LUMO_TERTIARY + LUMO_ICON + LUMO_CONTRAST, ao lado do botão Help) — deleta o layout salvo e navega para a mesma rota, forçando nova renderização com `randomize: true`
-- Issues: `.scratch/archive/sprint-78/issues/`
+- Issues: `.issue-tracker/archive/sprint-78/issues/`
 
 ### Sprint 79 ✅ — UX: padronização de header em ClustersView e UserManagementView
 
 - `ClustersView`: substituído por `UiConstants.buildSectionHeader`; ações "Test Connection" e "Remove" como `SelectionAction`; coluna de ações inline removida; `GridSelectionMemory` com `configureSingleSelection`
 - `UserManagementView`: mesmo padrão; ações "Edit Permissions" e "Deactivate" como `SelectionAction`; proteções via early-exit
-- Issues: `.scratch/archive/sprint-79/issues/`
+- Issues: `.issue-tracker/archive/sprint-79/issues/`
 
 ### Sprint 80 ✅ — Add Cluster dialog: provider Minikube (Docker), aviso OpenShift e comando kubectl copiável
 
 - `ClusterProvider`: enum renomeado de `Kubernetes` → `MinikubeDocker`; `displayName()` retorna "Minikube (Docker)" / "OpenShift"
 - `ClustersView` dialog: aviso inline para OpenShift (não suportado), code block com `kubectl config view --flatten --minify` e botão de cópia
 - `CONTEXT.md`: `ClusterProvider` atualizado com valores reais
-- Issue: `.scratch/archive/sprint-80/issues/`
+- Issue: `.issue-tracker/archive/sprint-80/issues/`
 
 ### Sprint 81 ✅ — Testes automatizados: TestContainers + cobertura de services críticos
 
 - `build.gradle.kts`: dependências TestContainers; H2 removido; `@ServiceConnection` auto-configura datasource
 - `PostgresIntegrationTest`: classe base estática compartilhada; `WorkloadServiceTest`, `NamespaceServiceTest`, `UserServiceTest`, `ClusterServiceTest`
-- Issues: `.scratch/archive/sprint-81/issues/`
+- Issues: `.issue-tracker/archive/sprint-81/issues/`
 
 ### Sprint 76 ✅ — Namespaces View: listagem com contagens de recursos, Create e Delete Namespace
 
@@ -756,7 +756,7 @@
 - `Permission.GLOBAL_NAMESPACES_VIEW/WRITE/DELETE`; `V26__add_namespace_permissions.sql`
 - `NamespacesView` (rota `global/namespaces`): grid Name/Status/Pods/Deployments/Services/Age; Create dialog com validação DNS; Delete type-to-confirm; system namespaces bloqueados; async load com `CompletableFuture`
 - `MainLayout`: item "Namespaces" na seção Global; `CONTEXT.md`: entradas `Namespace`, `Create Namespace`, `Delete Namespace`
-- Issue: `.scratch/archive/sprint-76/issues/01-namespaces-view.md`
+- Issue: `.issue-tracker/archive/sprint-76/issues/01-namespaces-view.md`
 
 ### Sprint 77 ✅ — Topologia: nó Ingress + botão "Go to resource" + pré-filtro ?name= nas views
 
@@ -764,7 +764,7 @@
 - `topology-graph.ts`: cor Ingress `#06B6D4`; fcose separado do construtor; `fixedNodeConstraint` desabilitado com compound nodes; posições aplicadas manualmente quando grouping ativo
 - `TopologyNodeDrawer`: bloco Ingress com Hosts, badge TLS, IngressClass; botão "Go to resource"
 - `DeploymentsView`, `ReplicaSetView`, `ServicesView`, `PersistentVolumeClaimsView`, `IngressView`: `?name=` pré-filtro via `beforeEnter`
-- Issues: `.scratch/archive/sprint-77/issues/`
+- Issues: `.issue-tracker/archive/sprint-77/issues/`
 
 ### Sprint 82 ✅ — Karibu-Testing: testes de views Vaadin — dialogs destrutivos
 
@@ -772,7 +772,7 @@
 - `ClustersViewTest` (1 cenário): confirmação de remoção chama `clusterService.deleteCluster()`
 - `docs/adr/0010-karibu-para-testes-de-views-vaadin.md`: decisão de usar Karibu (in-memory) em vez de Selenium/Playwright
 - `CLAUDE.md`: fluxo de sprint atualizado com passo 6 (Testes) — views Karibu e integração `PostgresIntegrationTest`
-- Issue: `.scratch/archive/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
+- Issue: `.issue-tracker/archive/sprint-82/issues/01-karibu-destructive-dialog-tests.md`
 
 ### Sprint 83 ✅ — Import Compose: wizard 3 passos para importar docker-compose.yml de Git Repository público
 
@@ -785,24 +785,24 @@
 - Padronização de UX: `LUMO_SMALL` aplicado em todos os botões de header e dialog de todas as views (NamespacesView, ClustersView, UserManagementView, DeploymentsView, StatefulSetsView, HorizontalScalerView, ManifestView, RegistryView, HelpDialog, EventsDialog)
 - `samples/greencap-demo/`: docker-compose.yml de demo com 5 serviços (postgres, redis, api com `build:`, worker com `build:`, nginx), Dockerfiles e stubs Node.js funcionais para teste do Import Compose end-to-end
 - `CONTEXT.md`: novo termo `Import Compose`; `Deploy Application` atualizado com referência ao segundo modo
-- Issues: `.scratch/archive/sprint-83/issues/` (4 issues, todas `done`)
+- Issues: `.issue-tracker/archive/sprint-83/issues/` (4 issues, todas `done`)
 
 ### Sprint 84 ✅ — Bug fixes: Registry remove persistente, Namespace Terminating bloqueado, seleção de linha em View Tags
 
 - Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo. Tema conforme "Status Geral": Registry remove persistente (rm -rf do diretório após GC), Namespace Terminating bloqueado, seleção de linha ao clicar em View Tags
-- Sem diretório `.scratch/sprint-84/` — não houve issues formais
+- Sem diretório `.issue-tracker/sprint-84/` — não houve issues formais
 
 ### Sprint 85 ✅ — Deploy from Dockerfile: terceiro modo de deploy, wizard 6 passos, build Kaniko inline + provisão de recursos Kubernetes
 
 - Sem detalhamento registrado em `sprints.md` no momento do archiving (gap pré-existente) — ver `git log` para o diff completo
-- Issues: `.scratch/archive/sprint-85/issues/` (3 issues)
+- Issues: `.issue-tracker/archive/sprint-85/issues/` (3 issues)
 
 ### Sprint 86 ✅ — EventsView: seletor de limite de Events exibidos
 
 - `ObservabilityService.listEvents()`: novo parâmetro `int limit` (0 = All); stream truncado após ordenação por `lastTimestamp` desc — garante sempre os N mais recentes
 - `EventsView`: `Select<String>` com opções 50/100/200/500/All (padrão 100) inserido no section header entre o título e o botão refresh; mudança de valor recarrega imediatamente; auto-refresh respeita o limite selecionado
 - `EventsDialog` (events por recurso específico) não alterado — continua sem limite
-- Issue: `.scratch/archive/sprint-86/issues/01-events-view-limit-selector.md`
+- Issue: `.issue-tracker/archive/sprint-86/issues/01-events-view-limit-selector.md`
 
 ### Sprint 87 ✅ — Setup wizard: script de instalação da plataforma GreenCap no minikube
 
@@ -812,7 +812,7 @@
 - `DataInitializer`: auto-registra o cluster `greencap-platform` na primeira inicialização quando `GREENCAP_SELF_CLUSTER_KUBECONFIG` está definido; define como cluster e namespace ativos do admin
 - `ClusterRepository`: método `existsByName(String)` para idempotência do auto-registro
 - `MainLayout`: namespace combobox alargado de 180 px para 220 px; fix de seleção do namespace inicial via dois ciclos de push separados (itens primeiro, valor depois)
-- Issues: `.scratch/archive/sprint-87/issues/` (2 issues, ambas `done`)
+- Issues: `.issue-tracker/archive/sprint-87/issues/` (2 issues, ambas `done`)
 
 ### Sprint 88 — Developer Experience: seção no sidebar + Kubernetes Operators via OLM
 
@@ -827,7 +827,7 @@
 - `UserManagementView`: grupo "Kubernetes Operators" na treeview de permissões da seção Developer Experience
 - `CONTEXT.md`: novos termos `Developer Experience`, `Kubernetes Operator`, `Install Operator`, `Uninstall Operator`; `Global` atualizado
 - `docs/adr/0011-olm-como-framework-de-gerenciamento-de-operators.md`: decisão de usar OLM (openshift-client já presente) em vez de CRD discovery puro
-- Issues: `.scratch/archive/sprint-88/issues/` (4 issues, todas `done`)
+- Issues: `.issue-tracker/archive/sprint-88/issues/` (4 issues, todas `done`)
 
 Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false`) — segue em beta, rotas continuam funcionando; `Permission`/`DEVELOPER_EXPERIENCE_OPERATORS_*` acima descontinuados pela ADR 0013 (RBAC substituindo o sistema de permissões interno, Sprint 94).
 
@@ -838,7 +838,7 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `PersistentVolumesView`: botão Delete como `extraLeadingButton` no section header; habilitado quando PV selecionado (qualquer status); ao clicar em PV `Bound` exibe `ConfirmDialog` informativo com nome da claim e instrução para deletar a PVC primeiro; ao clicar em PV não-Bound exibe `ConfirmDialog` de confirmação padrão (`ConfirmButtonTheme error primary`); badge `Bound` alterado para `success` (verde) — consistente com `PersistentVolumeClaimsView`
 - `CONTEXT.md`: `PersistentVolume` atualizado para incluir Delete e guard de Bound; novo termo `Delete PersistentVolume`
 - `gradle.properties`: bump de `0.7.0` → `0.7.1`
-- Issues: `.scratch/archive/sprint-89/issues/` (2 issues, ambas `done`)
+- Issues: `.issue-tracker/archive/sprint-89/issues/` (2 issues, ambas `done`)
 
 ### Sprint 90 ✅ — Helm Releases: listagem, detalhes e uninstall via Helm CLI
 
@@ -851,7 +851,7 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `MainLayout`: seção Helm com sub-item "Releases" abaixo de Storage em Project
 - `UserManagementView`: grupo "Helm" na treeview de permissões
 - `CONTEXT.md`: novos termos `Helm`, `HelmRelease`, `Uninstall (Helm)`; ADR 0012
-- Issues: `.scratch/archive/sprint-90/issues/` (4 issues, todas `done`)
+- Issues: `.issue-tracker/archive/sprint-90/issues/` (4 issues, todas `done`)
 
 ### Sprint 91 ✅ — Helm: Repositories, Deploy from Helm, Upgrade e fix de logs em pods Pending
 
@@ -864,7 +864,7 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `HelmReleasesView`: `SelectionAction` Upgrade com dialog pré-preenchido com values atuais e campo de nova versão
 - `ObservabilityService.fetchPodLogs()`: guard para pods em fase `Pending` — retorna mensagem informativa imediatamente em vez de bloquear até timeout
 - `gradle.properties`: bump `0.7.1` → `0.7.2`
-- Issues: `.scratch/archive/sprint-91/issues/` (6 issues, todas `done`)
+- Issues: `.issue-tracker/archive/sprint-91/issues/` (6 issues, todas `done`)
 
 ### Sprint 92 ✅ — Editor de código YAML (CodeMirror 6) + ícone Helm leme + bug fixes de resiliência
 
@@ -903,7 +903,7 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - 14 services Fabric8: migrados de `buildClient(String)` para `buildClient(Cluster)` — factory resolve credenciais pelo SecurityContext
 - `MainLayout`: cluster switcher oculto para não-admin
 - `CONTEXT.md` atualizado; `docs/adr/0004` supersedido; `docs/adr/0013-kubernetes-rbac-replaces-permission-system.md` criado
-- Issues: `.scratch/sprint-94/issues/` (4 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-94/issues/` (4 issues, todas `done`)
 
 ### Sprint 95 ✅ — Bug fix: RBAC fail-closed + propagação de SecurityContext em virtual threads + feedback na tela Users
 
@@ -917,7 +917,7 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `BuildLogsView`, `PodLogsView`, `DeployFromDockerfileView`, `ImportComposeView`: pollers (`ScheduledExecutorService` próprio) envolvidos em `DelegatingSecurityContextRunnable`
 - `UserManagementView.beforeEnter`: acesso negado (não-admin) agora notifica "Access restricted to administrators" antes do `forwardTo("")`; notificação adiada via `UI.access()` — chamar `Notification.show()` e `forwardTo()` na mesma passada do `beforeEnter()` descarta o push ao cliente (armadilha conhecida do Vaadin Flow), confirmado com teste Karibu descartável
 - Backlog: item novo "Consolidar execução assíncrona em virtual threads" registrando a causa raiz (duplicação — falta de um único ponto de acesso assíncrono) para follow-up de extração de helper compartilhado
-- Sem issues formais em `.scratch/` — fluxo de bug fix pontual (causa e solução evidentes)
+- Sem issues formais em `.issue-tracker/` — fluxo de bug fix pontual (causa e solução evidentes)
 
 ### Sprint 96 ✅ — Consolidar execução assíncrona em virtual threads
 
@@ -927,4 +927,52 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`: `ScheduledExecutorService` próprio e `shutdown()` no detach removidos — passam a usar `AsyncTasks.schedulePolling(...)`, sem wrapping manual de `DelegatingSecurityContextRunnable`; comportamento observável (intervalo, pause/resume, cancelamento ao sair da view) inalterado
 - Fora do escopo, por decisão explícita: o `Thread.ofVirtual().start(...)` cru em `MainLayout` usado para forçar um ciclo de push separado do Vaadin — não faz chamada Kubernetes, não tem o bug de propagação de contexto que motivou a sprint
 - `AsyncTasksTest`: cobertura JUnit pura (sem Spring), verificando propagação de `SecurityContext` no disparo único, disparo repetido do polling e efeito do cancelamento
-- Issues: `.scratch/sprint-96/issues/` (3 issues, todas `done`)
+- Issues: `.issue-tracker/sprint-96/issues/` (3 issues, todas `done`)
+
+### Sprint 97 ✅ — Hotfix: propagação de SecurityContext em polling agendado (AsyncTasks.schedulePolling)
+
+- Encontrado durante validação manual pós-Sprint 96: Deploy from Dockerfile mostrava "Build failed. Check the logs above." mesmo com o Job Kaniko completando com sucesso e a imagem sendo pushada ao registry
+- `AsyncTasks.schedulePolling`: `DelegatingSecurityContextExecutor` captura o `SecurityContext` da thread que chama `.execute()` — para o tick recorrente, essa chamada acontecia na thread do `CLOCK`, que nunca tem usuário autenticado (WARN "Unable to resolve Kubernetes credentials: no authenticated user"); fix: captura o contexto da thread chamadora (UI) no momento de `schedulePolling()` e envolve `command` com `DelegatingSecurityContextRunnable` antes de despachar para `VIRTUAL_THREADS` — corrige os 5 call sites (`BuildLogsView`, `DeployFromDockerfileView`, `ImportComposeView`, `MainLayout`, `PodLogsView`) sem exigir mudança neles
+- `DeployFromDockerfileView.waitForBuild`: `fetchPodLogs` isolado em `fetchAndDisplayBuildLogs()` com try/catch próprio — falha transitória ao ler logs do pod Kaniko (container de vida curta terminando) não deve abortar a checagem de status do Job, única fonte de verdade sobre sucesso/falha do build
+- Sem issues formais em `.issue-tracker/` — fluxo de bug fix pontual (causa e solução evidentes)
+
+---
+
+### Sprint 98 ✅ — Templates Catalog: catálogo de Templates (greencap-templates) com deploy em um clique
+
+- Escopo fechado via `/grill-with-docs`: item de backlog "Diferencial — Onboarding e Aprendizado" desdobrado em dois conceitos novos no `CONTEXT.md` — **Templates Catalog** (view em Developer Experience, lista de cards) e **Template** (unidade: app de estudo completa, multi-recurso), mais a operação **Deploy Template**. Raciocínio completo registrado na ADR 0015 (`docs/adr/0015-sample-catalog-templates-via-indice-raw-http.md`): índice `catalog.json` + manifest `template.yaml` por Template, buscados via HTTP raw (sem cliente Git); componentes sem imagem pública são buildados via Kaniko (reaproveitando o mecanismo de Deploy from Dockerfile/Import Compose), publicando no Registry interno do Cluster; "Installed" é por Cluster (Namespace de nome fixo no índice), não por usuário; deploy aborta no primeiro conflito, sem rollback; sem gate de permissão (ADR 0013 já eliminou o sistema de permissões interno — RBAC do Kubernetes autoriza)
+- Novo repositório público `greencapk8s/greencap-templates` (em inglês — primeiro repositório do ecossistema a adotar esse padrão): `catalog.json`, e o Template seed `crud-flask-postgres` (Flask + PostgreSQL, sem frontend separado, com Ingress fixo `crud-flask-postgres.greencap.local`, labels `app.kubernetes.io/part-of`/`component` em todos os recursos para agrupamento correto na Topologia, e páginas HTML com CSS próprio via `static/style.css`)
+- `SampleCatalogService`: fetch e parsing do índice/manifest via HTTP simples, sem cache; `isInstalled` verifica existência da Namespace declarada no índice
+- `TemplateDeploymentService`: aplica o arquivo de recurso da Namespace primeiro; roda Kaniko por entrada em `builds` (`dockerfilePath` resolvido relativo ao `contextPath`, não à raiz do repo — mesma convenção de Deploy from Dockerfile); substitui o valor-sentinela `__BUILD__<name>` pela imagem publicada; aplica os demais recursos via client genérico do Fabric8 (`resourceList`/`NamespaceableResource`, tipos não conhecidos de antemão)
+- `SampleCatalogView` (rota `developer-experience/sample-catalog`, menu "Templates Catalog"): lista de cards com CSS próprio (grid responsivo, sombra com hover, chips de tecnologia, badge Installed/botão Deploy), preview somente-leitura antes de confirmar deploy, log de build inline durante o Kaniko; após deploy bem-sucedido, força o recarregamento do combobox de Namespaces do `MainLayout` (`refreshClusterState()`, mesmo mecanismo já usado por `NamespacesView`)
+- Menu **Operators** ocultado do sidebar (`OPERATORS_MENU_VISIBLE = false` em `MainLayout`) — ainda beta, rotas continuam funcionando
+- Infraestrutura: `local-path-provisioner` instalado no `greencap-demo` (vendorizado em `samples/greencap-demo/local-path-storage.yaml`, aplicado por `cluster-setup.sh`) e definido como StorageClass default, resolvendo a limitação de `nodeAffinity` do hostpath-provisioner já registrada no backlog (Sprint 71) — descoberta reativada ao ver o Postgres do Template em `CreateContainerConfigError` num node diferente do node com os dados
+- Testes: `SampleCatalogServiceTest` e `TemplateDeploymentServiceTest` (parsing de fixtures, `isInstalled` via `@EnableKubernetesMockClient`, substituição de sentinela, abort-sem-rollback em conflito) em `kubernetes/`; `SampleCatalogViewTest` (badge Installed oculta/mostra o botão Deploy, preview abre somente-leitura sem disparar deploy antes da confirmação) em `ui/` — `forceReload()` da view tornado síncrono (mesmo padrão de `NamespacesView.loadNamespaces()`) para permitir dirigir o teste sem correr atrás de uma thread virtual
+- Dois bugs pré-existentes encontrados durante o aceite manual e registrados no backlog (não corrigidos nesta sprint): badge de status de Pod não reflete `CrashLoopBackOff`; combobox de Namespaces não atualiza após Deploy Application/Deploy from Dockerfile/Import Compose (mesma causa corrigida aqui para Deploy Template)
+- Issues: `.issue-tracker/sprint-98/issues/` (5 issues, todas `done`)
+
+### Sprint 99 ✅ — Dois novos Templates no catálogo: CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis
+
+- Trabalho inteiramente no repositório `greencap-templates` (fora desta base) — o mecanismo de Deploy Template já é genérico (ADR 0015), sem nenhuma mudança de código Java em `greencap-k8s`; catálogo de Templates passa de 1 para 3
+- **Template `crud-flask-mongodb`**: análogo ao `crud-flask-postgres` seed trocando o datastore relacional pelo documental — mesma entidade `items` (`name`/`description`), mesmas rotas CRUD, mesma UI HTML servida pelo próprio Flask; persistência via `pymongo` direto (sem ODM, espelhando o uso de `psycopg2` no template Postgres) com retry de conexão no boot; MongoDB `mongo:8.0` com autenticação obrigatória via Secret (padrão `postgres-credentials`) e PVC de 1Gi; backend buildado via Kaniko (sentinela `__BUILD__backend`); Ingress fixo `crud-flask-mongodb.greencap.local`. Objetivo didático: comparar diretamente conexão relacional vs. documental sob o mesmo padrão Deployment stateless + storage stateful na Namespace
+- **Template `cache-aside-flask-postgres-redis`**: demonstra o padrão cache-aside (decisão do `CONTEXT.md`: Redis pelo seu papel idiomático de cache, não como datastore primário de um CRUD); reaproveita a app do `crud-flask-postgres` adicionando cache na listagem — `GET /` lê a chave `items:all` no Redis antes de consultar o Postgres, populando-a com TTL de 60s no miss; escritas invalidam ativamente a chave além do TTL; Redis `redis:8-alpine` com `requirepass` via Secret e **sem PVC** (cache descartável — perder no restart é esperado, a próxima leitura repopula a partir do Postgres); backend via Kaniko; Ingress fixo `cache-aside-flask-postgres-redis.greencap.local`
+- Ambos com entrada em `catalog.json` (title/description/technologies); imagens `mongo:8.0` e `redis:8-alpine` fixadas após validar as versões estáveis mais recentes (as issues previam `7.0`/`7.4-alpine` como piso)
+- Issues: `.issue-tracker/archive/sprint-99/issues/` (2 issues, ambas `done`)
+
+### Sprint 100 ✅ — Suporte nativo a macOS no setup.sh + workflows GitHub Actions
+
+- Escopo fechado via `/grill-with-docs`: `setup/setup.sh` recusava auto-install fora do Linux; decisão de dar suporte nativo real a macOS (não só cobertura de CI) via instaladores Homebrew, com Docker provido por **Colima** headless em vez de Docker Desktop (GUI, inviável para o fluxo plug-and-play e para CI) — raciocínio completo na ADR 0016 (`docs/adr/0016-colima-como-provedor-docker-no-macos.md`)
+- `install_docker/kubectl/minikube/helm` ganham branch macOS (`brew install colima docker` / `kubectl` / `minikube` / `helm`); `ensure_homebrew()` auto-instala o Homebrew se ausente (`NONINTERACTIVE=1`); mecanismo Linux (curl/apt) inalterado
+- Modo não-interativo via variáveis de ambiente (`AUTO_INSTALL`, `PROFILE_CHOICE`, `NODES`/`CPUS`/`MEMORY`, e `CONFIRM` em `teardown.sh`) — estende o padrão já usado por `GREENCAP_ENCRYPTION_KEY`/`DB_PASSWORD`, necessário para automação em CI
+- Novo workflow `.github/workflows/setup-script-validate.yml`: matrix `ubuntu-24.04` (fluxo completo: setup → reachability com retry → teardown) e `macos-14` (`INSTALL_ONLY=true` — só valida os instaladores Homebrew, sem provisionar cluster). `docker-compose-validate.yml` também migrado de `ubuntu-latest` para `ubuntu-24.04` — tags `*-latest` são realocadas pelo GitHub sem aviso, arriscando invalidar premissas específicas de Apple Silicon
+- Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
+- **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
+- Issues: `.issue-tracker/archive/sprint-100/issues/` (3 issues, todas `done`)
+
+### Sprint 101 ✅ — Bug fixes do selector de Namespace no header (refresh pós-deploy + seleção no F5)
+
+- Dois bugs do combobox de Namespaces do `MainLayout`, ambos registrados no backlog durante os aceites das Sprints 98/99 — fluxo de bug fix pontual (sem `/grill-with-docs` nem issues formais em `.issue-tracker/`)
+- **Selector desatualizado após deploy**: Deploy Application, Deploy from Dockerfile e Import Compose criam uma Namespace nova e navegam direto para a `TopologiaView`, mas não recarregavam a lista do combobox no header (a Namespace nova só aparecia após trocar de Cluster e voltar, pois `updateNamespaceSelector()` só recarrega quando o Cluster ativo muda). Fix: os três fluxos passam a chamar o refresh do `MainLayout` após `setNamespace`, antes do `navigate` — mesmo mecanismo já usado por `NamespacesView`/`SampleCatalogView`
+- **Seleção perdida no full reload (F5)**: o valor selecionado sumia após F5 (voltava para "Select...") enquanto a lista continuava correta. Causa: o valor só era aplicado via `@Push` assíncrono — num F5 a `UI` nova abre o canal push apenas após a resposta HTML inicial, então o push do valor podia chegar antes do canal estar pronto e ser descartado pelo cliente (a implementação anterior ainda o piorava usando um *segundo* push disparado de uma virtual thread solta). Fix: `loadNamespacesForCluster()` semeia o combo **sincronamente** com o Namespace da sessão (item único + valor) antes do load assíncrono — como o `ClusterContext` é `@VaadinSessionScope` e sobrevive ao F5, o valor entra no render HTML inicial sem depender de push; o task assíncrono depois substitui pela lista completa de Namespaces
+- **Limpeza de duplicação**: o helper que localiza o `MainLayout` a partir da view e chama `refreshClusterState()` estava copiado idêntico em `NamespacesView` e `SampleCatalogView`; com mais três fluxos precisando dele, foi extraído para o estático `MainLayout.refreshNamespaceSelector(UI)` e os cinco call sites apontam para lá
+- Sem novos testes automatizados: o núcleo do fix do F5 é timing do canal `@Push` (inerentemente de browser, fora do alcance do Karibu, que roda single-thread sem push real); validado por aceite manual nos dois cenários (F5 e navegação SPA) e nos três fluxos de deploy. Suíte existente rodada como verificação de regressão (verde)

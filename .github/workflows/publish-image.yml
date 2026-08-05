@@ -62,5 +62,10 @@ jobs:
           # locally instead — see ADR 0019)
           platforms: linux/amd64
           push: true
+          # Same value as the image tag (0.7.8) — stamps the jar's build-info so the UI
+          # shows the release version instead of the -dev fallback the in-container
+          # Gradle build would otherwise derive
+          build-args: |
+            APP_VERSION=${{ steps.meta.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

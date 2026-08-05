@@ -1,0 +1,19 @@
+# PodState como rótulo único derivado, com vocabulário cru do Kubernetes
+
+A listagem de Pods e a Topologia deixam de exibir a fase crua da API e passam a exibir o `PodState` — um rótulo único derivado da fase combinada com o estado de espera dos containers, terminações anormais e a condition `Ready` —, usando as razões do Kubernetes sem tradução (`CrashLoopBackOff`, `ImagePullBackOff`, `ContainersNotReady`) e carregando uma severidade própria que decide a cor no servidor. A decisão corrige um defeito em que Pods quebrados apareciam como "Running": a fase responde se o Pod foi admitido e teve containers criados, não se aquilo funciona, e chega a permanecer em `Running` num Pod com zero containers rodando. Diferente do `kubectl`, que reparte a verdade entre a coluna STATUS e a coluna `READY 0/1`, o GreenCap concentra tudo num rótulo só — dois sinais que podem discordar entre si foram exatamente o que tornou o defeito original invisível.
+
+## Considered Options
+
+- **Manter a fase e acrescentar uma coluna `READY` no modelo do `kubectl`** — descartado por recriar por design o problema dos dois sinais discordantes, obrigando o usuário a cruzar colunas para descobrir que "Running" não significa funcionando; além de adicionar coluna a uma listagem voltada a iniciante.
+- **Traduzir as razões para linguagem acessível** ("Reiniciando em loop") — descartado justamente pelo público iniciante: o termo cru é o que ele consegue pesquisar e o que aparece em toda documentação, tutorial e resposta de fórum. Uma tabela de tradução também seria dívida permanente, já que o conjunto de razões do kubelet cresce entre versões do Kubernetes, e razões não mapeadas virariam buracos na UI. Seria ainda inconsistente com o resto do glossário, que usa vocabulário cru para PersistentVolumeClaim (`Bound`, `Lost`), Node (`Ready`, `NotReady`) e operator (`Installing`, `Succeeded`).
+- **Lista branca de razões reconhecidas** — descartado porque o conjunto é aberto: qualquer razão nova apareceria em branco ou neutra, silenciosamente, que é a forma mais perigosa de falhar para um recurso cujo propósito é denunciar falhas.
+- **Derivar a cor na view a partir do texto do rótulo** — descartado por colocar conhecimento de domínio dentro da view, contra a convenção do projeto, e por exigir a mesma lista duplicada no badge Vaadin e no grafo em TypeScript. A severidade é decidida uma vez no servidor e consumida pelos dois.
+
+## Consequences
+
+- O vocabulário exibido vira contrato com o usuário. Mudá-lo depois — encurtar `ContainersNotReady`, traduzir, agrupar razões — muda o que as pessoas aprenderam a reconhecer e a pesquisar.
+- Existe uma divergência conhecida e deliberada do `kubectl` no caso de containers que rodam mas nunca ficam prontos: onde ele mostra `Running` com `READY 0/1`, o GreenCap mostra `ContainersNotReady`. Quem compara as duas ferramentas lado a lado vai notar.
+- `ContainerCreating` passa a aparecer por alguns segundos em todo deploy novo, onde antes se via `Pending`.
+- Razão desconhecida é tratada como problema e pinta vermelho. É fail-closed deliberado, na mesma postura já adotada no controle de acesso, mas significa que um estado benigno introduzido por uma versão futura do Kubernetes pode alarmar até ser classificado.
+- A fase continua existindo no DTO com dois consumidores legítimos — o desvio que evita chamar a API de logs para Pods sem containers iniciados, e a identificação de Pods de Job concluídos. A convivência entre fase e `PodState` é intencional e não deve ser "limpa" no futuro sem substituir esses dois usos.
+- No nó de PodGroup da Topologia, `Degraded` e `Failed` deixam de ser produzidos em favor da razão real do primeiro Pod problemático. Com uma réplica quebrada em três, o grupo soa mais grave do que é — subnotificar foi considerado o erro pior, e o nó do controlador ao lado mantém a proporção.

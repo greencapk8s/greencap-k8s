@@ -156,7 +156,7 @@ public class RegistryView extends VerticalLayout implements BeforeEnterObserver,
 
             Cluster cluster = clusterContext.getCluster();
             try {
-                String jobName = registryService.startBuild(cluster, new BuildRequest(
+                String jobName = registryService.startBuild(cluster, BuildRequest.fromGitRepository(
                         repositoryUrlField.getValue().trim(),
                         branchField.getValue(),
                         contextPathField.getValue(),

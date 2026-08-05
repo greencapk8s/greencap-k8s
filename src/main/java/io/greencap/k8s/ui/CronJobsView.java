@@ -17,6 +17,7 @@ import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.ClusterContext;
@@ -27,6 +28,7 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Route(value = "workloads/cronjobs", layout = MainLayout.class)
 @PageTitle("CronJobs — GreenCap K8s")
@@ -124,9 +126,15 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
         suspendBtn.addClickListener(e -> toggleSuspend(cj));
 
         Button jobsBtn = buildIconButton(VaadinIcon.LIST, "View Jobs", true);
-        jobsBtn.addClickListener(e -> UI.getCurrent().navigate("workloads/jobs?cronjob=" + cj.name()));
+        jobsBtn.addClickListener(e -> navigateToJobsOf(cj));
 
         return List.of(triggerBtn, suspendBtn, jobsBtn);
+    }
+
+    // navigate(String) takes the whole argument as a path, so an embedded "?cronjob=" would trip
+    // Location's assertion on the query separator instead of reaching the Jobs route.
+    private void navigateToJobsOf(CronJobInfo cj) {
+        UI.getCurrent().navigate("workloads/jobs", new QueryParameters(Map.of("cronjob", List.of(cj.name()))));
     }
 
     private Button buildIconButton(VaadinIcon icon, String title, boolean enabled) {
@@ -153,7 +161,7 @@ public class CronJobsView extends VerticalLayout implements BeforeEnterObserver,
             try {
                 String jobName = workloadService.triggerCronJob(cluster, cj.namespace(), cj.name());
                 notify("Job " + jobName + " triggered", NotificationVariant.LUMO_SUCCESS);
-                UI.getCurrent().navigate("workloads/jobs?cronjob=" + cj.name());
+                navigateToJobsOf(cj);
             } catch (KubernetesOperationException ex) {
                 notify(ex.getMessage(), NotificationVariant.LUMO_ERROR);
             }

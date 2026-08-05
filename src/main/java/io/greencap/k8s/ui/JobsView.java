@@ -16,6 +16,7 @@ import com.vaadin.flow.data.provider.ListDataProvider;
 import com.vaadin.flow.router.BeforeEnterEvent;
 import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
+import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.ClusterContext;
@@ -26,6 +27,7 @@ import jakarta.annotation.security.PermitAll;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Route(value = "workloads/jobs", layout = MainLayout.class)
 @PageTitle("Jobs — GreenCap K8s")
@@ -108,8 +110,7 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
             Button podsBtn = new Button(podsIcon);
             podsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
             podsBtn.getElement().setAttribute("title", "View Pods");
-            podsBtn.addClickListener(e -> UI.getCurrent().navigate(
-                    "workloads/pods?job=" + job.name()));
+            podsBtn.addClickListener(e -> navigateToPodsOf(job));
             return List.of(podsBtn);
         });
 
@@ -140,6 +141,12 @@ public class JobsView extends VerticalLayout implements BeforeEnterObserver, Ref
 
         grid.setSizeFull();
         grid.setVisible(false);
+    }
+
+    // navigate(String) takes the whole argument as a path, so an embedded "?job=" would trip
+    // Location's assertion on the query separator instead of reaching the Pods route.
+    private void navigateToPodsOf(JobInfo job) {
+        UI.getCurrent().navigate("workloads/pods", new QueryParameters(Map.of("job", List.of(job.name()))));
     }
 
     private void openDeleteJobDialog(JobInfo job) {

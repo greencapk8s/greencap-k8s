@@ -18,6 +18,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -73,11 +74,14 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     private final DockerfileParser dockerfileParser;
 
     // Step 1 — Source + Name
+    private final RadioButtonGroup<BuildContextOrigin> originSelector = new RadioButtonGroup<>("Build context");
     private final TextField gitUrlField = new TextField("Git repository URL");
     private final TextField branchField = new TextField("Branch");
+    private final BuildContextPicker contextPicker = new BuildContextPicker();
     private final TextField dockerfilePathField = new TextField("Dockerfile path");
     private final TextField contextPathField = new TextField("Context path");
     private final TextField namespaceField = new TextField("Target namespace");
+    private String suggestedNamespace = "";
 
     // Step 2 — Image & Port
     private final TextField applicationNameField = new TextField("Application name");
@@ -105,6 +109,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     // Navigation
     private int currentStep = 1;
     private final HorizontalLayout stepIndicatorRow = new HorizontalLayout();
+    private final VerticalLayout sourceStep = new VerticalLayout();
     private final Div stepContent = new Div();
     private final Button backButton = new Button(VaadinIcon.ARROW_LEFT.create());
     private final Button nextButton = new Button("Next", VaadinIcon.ARROW_RIGHT.create());
@@ -113,6 +118,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     // Execution state
     private ScheduledFuture<?> pollTask;
     private Span executionStatusBadge;
+    private Span executionPhaseLabel;
     private Pre buildLogArea;
 
     public DeployFromDockerfileView(ClusterContext clusterContext,
@@ -171,20 +177,36 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         stepIndicatorRow.setWidthFull();
         stepIndicatorRow.setSpacing(true);
 
-        add(DeployModeSelector.build(DeployFromDockerfileView.class), stepIndicatorRow, stepContent, footer);
+        add(DeployModeSelector.build(DeployFromDockerfileView.class), stepIndicatorRow,
+                buildSourceStep(), stepContent, footer);
+    }
+
+    // Step 1 is built once and only hidden when the wizard moves on. Rebuilding it would detach the
+    // picker, dropping both the archive already uploaded and the folder the browser still holds open.
+    private VerticalLayout buildSourceStep() {
+        FormLayout form = new FormLayout(gitUrlField, branchField, dockerfilePathField, contextPathField, namespaceField);
+        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+        sourceStep.setPadding(false);
+        sourceStep.setSpacing(true);
+        sourceStep.add(originSelector, contextPicker, form);
+        return sourceStep;
     }
 
     private void initFields() {
+        originSelector.setItems(BuildContextOrigin.values());
+        originSelector.setItemLabelGenerator(BuildContextOrigin::getLabel);
+        originSelector.setValue(BuildContextOrigin.GIT_REPOSITORY);
+        originSelector.addValueChangeListener(e -> applyOrigin(e.getValue()));
+
+        contextPicker.setFolderButtonLabel("Select project folder");
+        contextPicker.setVisible(false);
+        contextPicker.addSelectionChangeListener(e -> contextPicker.getFolderName()
+                .ifPresent(folder -> applyNamespaceSuggestion(sanitizeK8sName(folder))));
+
         gitUrlField.setWidthFull();
         gitUrlField.setPlaceholder("https://github.com/user/repo");
         gitUrlField.setRequired(true);
-        gitUrlField.addValueChangeListener(e -> {
-            String suggested = extractRepoName(e.getValue());
-            String oldSuggested = extractRepoName(e.getOldValue());
-            if (!suggested.isBlank() && (namespaceField.isEmpty() || namespaceField.getValue().equals(oldSuggested))) {
-                namespaceField.setValue(suggested);
-            }
-        });
+        gitUrlField.addValueChangeListener(e -> applyNamespaceSuggestion(extractRepoName(e.getValue())));
 
         branchField.setWidthFull();
         branchField.setValue("main");
@@ -195,7 +217,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         dockerfilePathField.setHelperText("Leave blank to use 'Dockerfile' at the context root.");
 
         contextPathField.setWidthFull();
-        contextPathField.setHelperText("Subdirectory to use as build context. Leave blank for the repository root.");
+        contextPathField.setHelperText("Subdirectory to use as build context. Leave blank for the context root.");
 
         namespaceField.setWidthFull();
         namespaceField.setHelperText("Lowercase letters, numbers and hyphens. Becomes the Kubernetes Namespace.");
@@ -280,8 +302,11 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     private void renderStep(int step) {
         currentStep = step;
         updateStepIndicator();
+        sourceStep.setVisible(step == 1);
         stepContent.removeAll();
-        stepContent.add(buildStepContent(step));
+        if (step > 1) {
+            stepContent.add(buildStepContent(step));
+        }
         backButton.setVisible(step > 1);
         nextButton.setVisible(step < TOTAL_STEPS);
         deployButton.setVisible(step == TOTAL_STEPS);
@@ -290,7 +315,9 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
 
     private void focusFirstField(int step) {
         switch (step) {
-            case 1 -> gitUrlField.focus();
+            case 1 -> {
+                if (!isLocalFolderOrigin()) gitUrlField.focus();
+            }
             case 2 -> applicationNameField.focus();
             case 3 -> replicasField.focus();
             case 4 -> addVolumeCheckbox.focus();
@@ -314,7 +341,6 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
 
     private Component buildStepContent(int step) {
         return switch (step) {
-            case 1 -> buildStep1();
             case 2 -> buildStep2();
             case 3 -> buildStep3();
             case 4 -> buildStep4();
@@ -324,10 +350,36 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         };
     }
 
-    private FormLayout buildStep1() {
-        FormLayout form = new FormLayout(gitUrlField, branchField, dockerfilePathField, contextPathField, namespaceField);
-        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-        return form;
+    private void applyOrigin(BuildContextOrigin origin) {
+        boolean isLocalFolder = origin == BuildContextOrigin.LOCAL_FOLDER;
+        gitUrlField.setVisible(!isLocalFolder);
+        branchField.setVisible(!isLocalFolder);
+        contextPicker.setVisible(isLocalFolder);
+        dockerfilePathField.setHelperText(isLocalFolder
+                ? "Path inside the selected folder. Leave blank to use 'Dockerfile' at its root."
+                : "Leave blank to use 'Dockerfile' at the context root.");
+
+        // The abandoned origin must not survive the switch, or a Build could carry a selected folder
+        // and a Git URL at the same time.
+        if (isLocalFolder) {
+            gitUrlField.clear();
+            gitUrlField.setInvalid(false);
+            branchField.setValue("main");
+        } else {
+            contextPicker.clear();
+        }
+    }
+
+    private boolean isLocalFolderOrigin() {
+        return originSelector.getValue() == BuildContextOrigin.LOCAL_FOLDER;
+    }
+
+    private void applyNamespaceSuggestion(String suggested) {
+        if (suggested == null || suggested.isBlank()) return;
+        if (namespaceField.isEmpty() || namespaceField.getValue().equals(suggestedNamespace)) {
+            namespaceField.setValue(suggested);
+        }
+        suggestedNamespace = suggested;
     }
 
     private FormLayout buildStep2() {
@@ -376,7 +428,7 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         String fullImage = REGISTRY_PULL_HOST + "/" + imageTagField.getValue().trim();
 
         layout.add(buildReviewItem("Build (Kaniko)", imageTagField.getValue().trim()
-                + " from " + gitUrlField.getValue().trim() + " [" + branchField.getValue().trim() + "]"));
+                + " from " + describeBuildContext()));
         layout.add(buildReviewItem("Namespace", ns));
         layout.add(buildReviewItem("Deployment", ns + " — image: " + fullImage
                 + ", replicas: " + replicasField.getValue()
@@ -427,19 +479,37 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         if (!validateCurrentStep()) return;
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
+        if (isLocalFolderOrigin()) {
+            detectPortInSelectedFolder();
+        } else {
+            detectPortInGitRepository();
+        }
+    }
+
+    private void detectPortInGitRepository() {
         UI ui = UI.getCurrent();
         AsyncTasks.execute(() -> {
             Optional<Integer> exposePort = dockerfileParser.fetchExposePort(
                     gitUrlField.getValue().trim(),
                     branchField.getValue().trim(),
                     dockerfilePathField.getValue().trim());
-            ui.access(() -> {
-                exposePort.filter(p -> portField.isEmpty()).ifPresent(portField::setValue);
-                nextButton.setEnabled(true);
-                nextButton.setText("Next");
-                renderStep(2);
-            });
+            ui.access(() -> advanceWithDetectedPort(exposePort));
         });
+    }
+
+    private void detectPortInSelectedFolder() {
+        String dockerfilePath = isBlank(dockerfilePathField.getValue())
+                ? "Dockerfile" : dockerfilePathField.getValue().trim();
+        contextPicker.readTextFile(dockerfilePath,
+                content -> advanceWithDetectedPort(dockerfileParser.parseFirstExposePort(content)));
+    }
+
+    // A Dockerfile that cannot be read or has no EXPOSE never blocks the wizard — the user types the port.
+    private void advanceWithDetectedPort(Optional<Integer> exposePort) {
+        exposePort.filter(port -> portField.isEmpty()).ifPresent(portField::setValue);
+        nextButton.setEnabled(true);
+        nextButton.setText("Next");
+        renderStep(2);
     }
 
     private void navigateBack() {
@@ -459,6 +529,23 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     }
 
     private boolean validateStep1() {
+        boolean valid = isLocalFolderOrigin() ? validateLocalFolderOrigin() : validateGitOrigin();
+        String ns = namespaceField.getValue();
+        if (isBlank(ns)) {
+            namespaceField.setErrorMessage("Target namespace is required");
+            namespaceField.setInvalid(true);
+            valid = false;
+        } else if (ns.length() > 63 || !ns.matches(NAMESPACE_PATTERN)) {
+            namespaceField.setErrorMessage("Lowercase letters, numbers and hyphens only, max 63 chars");
+            namespaceField.setInvalid(true);
+            valid = false;
+        } else {
+            namespaceField.setInvalid(false);
+        }
+        return valid;
+    }
+
+    private boolean validateGitOrigin() {
         boolean valid = true;
         if (isBlank(gitUrlField.getValue())) {
             gitUrlField.setErrorMessage("Git repository URL is required");
@@ -474,19 +561,13 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         } else {
             branchField.setInvalid(false);
         }
-        String ns = namespaceField.getValue();
-        if (isBlank(ns)) {
-            namespaceField.setErrorMessage("Target namespace is required");
-            namespaceField.setInvalid(true);
-            valid = false;
-        } else if (ns.length() > 63 || !ns.matches(NAMESPACE_PATTERN)) {
-            namespaceField.setErrorMessage("Lowercase letters, numbers and hyphens only, max 63 chars");
-            namespaceField.setInvalid(true);
-            valid = false;
-        } else {
-            namespaceField.setInvalid(false);
-        }
         return valid;
+    }
+
+    private boolean validateLocalFolderOrigin() {
+        if (contextPicker.getPackedFolder().isPresent()) return true;
+        showError("Select the project folder to use as build context.");
+        return false;
     }
 
     private boolean validateStep2() {
@@ -586,10 +667,13 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         executionStatusBadge.getElement().getThemeList().add("badge");
         executionStatusBadge.getElement().getThemeList().add("contrast");
 
+        executionPhaseLabel = new Span();
+        executionPhaseLabel.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
+
         buildLogArea = new Pre();
         styleLogArea(buildLogArea);
 
-        layout.add(title, executionStatusBadge, buildLogArea);
+        layout.add(title, executionStatusBadge, executionPhaseLabel, buildLogArea);
         return layout;
     }
 
@@ -600,19 +684,11 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
         String repository = parts[0];
         String tag = parts.length > 1 ? parts[1] : "latest";
 
-        BuildRequest buildRequest = new BuildRequest(
-                gitUrlField.getValue().trim(),
-                branchField.getValue().trim(),
-                contextPathField.getValue().trim(),
-                dockerfilePathField.getValue().trim(),
-                repository,
-                tag
-        );
-
         ui.access(() -> updateExecutionBadge("Building", "primary"));
 
         try {
-            String jobName = registryService.startBuild(cluster, buildRequest);
+            String jobName = registryService.startBuild(cluster, buildRequestFor(repository, tag),
+                    phase -> ui.access(() -> showBuildPhase(phase)));
             boolean buildSuccess = waitForBuild(cluster, jobName, ui);
 
             if (!buildSuccess) {
@@ -645,13 +721,62 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
                 }
             });
         } catch (KubernetesOperationException e) {
-            ui.access(() -> showError(e.getMessage()));
+            ui.access(() -> reportExecutionFailure(e.getMessage()));
         } catch (Exception e) {
             log.error("Build & Deploy failed unexpectedly", e);
-            ui.access(() -> showError(e.getMessage()));
+            ui.access(() -> reportExecutionFailure(e.getMessage()));
         } finally {
             stopPolling();
         }
+    }
+
+    // With a local Build Context the Pod has to start and receive the archive before Kaniko writes its
+    // first line. This sits outside the log area on purpose: while the Pod is Pending the log poll keeps
+    // overwriting that area with its own placeholder, which would wipe the phase the user is reading.
+    private void showBuildPhase(String phase) {
+        if (executionPhaseLabel != null) {
+            executionPhaseLabel.setText(phase);
+        }
+    }
+
+    // A failure before the Job exists leaves the badge on its last value with an empty log — the
+    // screen has to say something instead of looking like a build that never progresses.
+    private void reportExecutionFailure(String message) {
+        updateExecutionBadge("Failed", "error");
+        if (buildLogArea != null && buildLogArea.getText().isEmpty()) {
+            buildLogArea.setText(message);
+        }
+        showError(message);
+    }
+
+    private BuildRequest buildRequestFor(String repository, String tag) {
+        String contextPath = contextPathField.getValue().trim();
+        String dockerfilePath = dockerfilePathField.getValue().trim();
+        if (isLocalFolderOrigin()) {
+            BuildContextPicker.PackedFolder folder = contextPicker.getPackedFolder()
+                    .orElseThrow(() -> new IllegalStateException("No local folder selected as build context"));
+            return BuildRequest.fromLocalFolder(folder.archive(), folder.folderName(),
+                    contextPath, dockerfilePath, repository, tag);
+        }
+        return BuildRequest.fromGitRepository(gitUrlField.getValue().trim(), branchField.getValue().trim(),
+                contextPath, dockerfilePath, repository, tag);
+    }
+
+    private String describeBuildContext() {
+        if (isLocalFolderOrigin()) {
+            return contextPicker.getPackedFolder()
+                    .map(folder -> "local folder " + folder.folderName() + " — " + folder.fileCount()
+                            + " files, " + formatSize(folder.compressedBytes()) + " compressed")
+                    .orElse("local folder — none selected");
+        }
+        return gitUrlField.getValue().trim() + " [" + branchField.getValue().trim() + "]";
+    }
+
+    private String formatSize(long bytes) {
+        double megabytes = bytes / (1024.0 * 1024.0);
+        return megabytes >= 1
+                ? String.format("%.1f MB", megabytes)
+                : String.format("%.1f KB", bytes / 1024.0);
     }
 
     private boolean waitForBuild(Cluster cluster, String jobName, UI ui) {
@@ -806,8 +931,12 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
     private String extractRepoName(String gitUrl) {
         if (gitUrl == null || gitUrl.isBlank()) return "";
         String cleaned = gitUrl.trim().replaceAll("\\.git$", "");
-        String repoName = cleaned.substring(cleaned.lastIndexOf('/') + 1);
-        String slug = repoName.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
+        return sanitizeK8sName(cleaned.substring(cleaned.lastIndexOf('/') + 1));
+    }
+
+    private String sanitizeK8sName(String name) {
+        if (name == null) return "";
+        String slug = name.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
         return slug.length() > 63 ? slug.substring(0, 63) : slug;
     }
 
