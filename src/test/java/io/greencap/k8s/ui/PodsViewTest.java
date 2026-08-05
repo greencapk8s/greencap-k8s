@@ -1,11 +1,16 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.checkbox.Checkbox;
 import com.vaadin.flow.component.grid.Grid;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
+import com.vaadin.flow.router.BeforeEnterEvent;
+import com.vaadin.flow.router.Location;
+import com.vaadin.flow.router.NavigationTrigger;
+import com.vaadin.flow.router.QueryParameters;
 import io.greencap.k8s.KaribuTest;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.ClusterContext;
@@ -50,6 +55,11 @@ class PodsViewTest extends KaribuTest {
             new PodState("SomeReasonKubernetesAddedLater", Severity.PROBLEM, ""), "");
     private static final PodInfo COMPLETED_JOB = pod("backup-1", "Succeeded",
             new PodState("Succeeded", Severity.HEALTHY, ""), "backup");
+    /** Two replicas of the same owner — what a Topology PodGroup node stands for. */
+    private static final PodInfo REPLICA_ONE = pod("api-7d9f88-lm2xk", "Running",
+            new PodState("Running", Severity.HEALTHY, ""), "");
+    private static final PodInfo REPLICA_TWO = pod("api-7d9f88-p4rtz", "Running",
+            new PodState("Running", Severity.HEALTHY, ""), "");
 
     private PodsView view;
 
@@ -60,7 +70,7 @@ class PodsViewTest extends KaribuTest {
 
         when(clusterContext.getCluster()).thenReturn(cluster);
         when(workloadService.listPods(any(), any()))
-                .thenReturn(List.of(BROKEN, HEALTHY, STARTING, UNRECOGNIZED, COMPLETED_JOB));
+                .thenReturn(List.of(BROKEN, HEALTHY, STARTING, UNRECOGNIZED, COMPLETED_JOB, REPLICA_ONE, REPLICA_TWO));
         when(gridSelectionMemory.recall(any())).thenReturn(Optional.empty());
 
         loginAs("WORKLOADS_PODS_VIEW");
@@ -120,6 +130,38 @@ class PodsViewTest extends KaribuTest {
         _setValue(_get(view, Checkbox.class), false);
 
         assertThat(visiblePodNames()).contains("backup-1");
+    }
+
+    @Test
+    void nameQueryParameter_narrowsTheListingToThePodItNames() {
+        enterWithQuery("name=backend");
+
+        assertThat(visiblePodNames()).containsExactly("backend");
+    }
+
+    /** A PodGroup node sends its base name, which has to reach every replica behind it. */
+    @Test
+    void nameQueryParameter_withAGroupBaseName_reachesEveryReplica() {
+        enterWithQuery("name=api");
+
+        assertThat(visiblePodNames()).containsExactlyInAnyOrder("api-7d9f88-lm2xk", "api-7d9f88-p4rtz");
+    }
+
+    @Test
+    void enteringWithoutAName_leavesTheListingUnfiltered() {
+        enterWithQuery("");
+
+        assertThat(visiblePodNames()).contains("backend", "web", "cache");
+    }
+
+    private void enterWithQuery(String queryString) {
+        view.beforeEnter(new BeforeEnterEvent(
+                UI.getCurrent().getInternals().getRouter(),
+                NavigationTrigger.UI_NAVIGATE,
+                new Location("workloads/pods", QueryParameters.fromString(queryString)),
+                PodsView.class,
+                UI.getCurrent(),
+                List.of()));
     }
 
     private static PodInfo pod(String name, String phase, PodState state, String jobName) {

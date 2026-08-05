@@ -1,5 +1,6 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Div;
@@ -9,6 +10,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.RouterLink;
 import com.vaadin.flow.theme.lumo.LumoUtility;
 import elemental.json.JsonArray;
@@ -159,7 +161,7 @@ class TopologyNodeDrawer extends VerticalLayout {
         Button goToBtn = new Button(VaadinIcon.ARROW_RIGHT.create());
         goToBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_SMALL);
         goToBtn.getElement().setAttribute("title", "Go to " + targetLabel);
-        goToBtn.addClickListener(e -> goToBtn.getUI().ifPresent(ui -> ui.navigate(targetManifestUrl)));
+        goToBtn.addClickListener(e -> goToBtn.getUI().ifPresent(ui -> navigateTo(ui, targetManifestUrl)));
 
         HorizontalLayout nameRow = new HorizontalLayout(nameSpan, goToBtn);
         nameRow.setWidthFull();
@@ -223,8 +225,19 @@ class TopologyNodeDrawer extends VerticalLayout {
         Button btn = new Button(label, VaadinIcon.EXTERNAL_LINK.create());
         btn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         btn.setWidthFull();
-        btn.addClickListener(e -> btn.getUI().ifPresent(ui -> ui.navigate(resourceUrl)));
+        btn.addClickListener(e -> btn.getUI().ifPresent(ui -> navigateTo(ui, resourceUrl)));
         return btn;
+    }
+
+    // navigate(String) treats the whole argument as a path, so an embedded query string would never
+    // match a registered route. Node URLs carry "?name=", so the two parts have to be split here.
+    private void navigateTo(UI ui, String url) {
+        int queryStart = url.indexOf('?');
+        if (queryStart < 0) {
+            ui.navigate(url);
+            return;
+        }
+        ui.navigate(url.substring(0, queryStart), QueryParameters.fromString(url.substring(queryStart + 1)));
     }
 
     private HorizontalLayout buildTlsBadgeRow(String tlsValue) {

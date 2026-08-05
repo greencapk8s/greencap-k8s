@@ -104,6 +104,12 @@ public class PodsView extends VerticalLayout implements BeforeEnterObserver, Ref
         if (hasCluster) {
             loadPodsAsync(UI.getCurrent());
         }
+
+        String nameParam = event.getLocation().getQueryParameters()
+                .getParameters().getOrDefault("name", List.of()).stream().findFirst().orElse("");
+        if (!nameParam.isBlank()) {
+            nameFilter.setValue(nameParam);
+        }
     }
 
     private void buildJobFilterBanner() {

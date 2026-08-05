@@ -242,7 +242,9 @@ public class TopologyService {
                 countLabel,
                 state.label(),
                 state.severity(),
-                "workloads/pods",
+                // The name filter in PodsView matches by substring, so the group base name narrows
+                // the listing down to this group's replicas without needing a dedicated owner filter.
+                resourceViewUrl("pod", baseName),
                 Map.of(), 0, count, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
@@ -256,7 +258,7 @@ public class TopologyService {
                 "1 Pod",
                 state.label(),
                 state.severity(),
-                "workloads/pods",
+                resourceViewUrl("pod", name),
                 labels, 0, 0, "", "", "", partOfGroup(labels), componentGroup(labels));
     }
 
@@ -574,6 +576,7 @@ public class TopologyService {
             case "deployment" -> "workloads/deployments?name=" + name;
             case "statefulset" -> "workloads/statefulsets?name=" + name;
             case "replicaset" -> "workloads/replicasets?name=" + name;
+            case "pod" -> "workloads/pods?name=" + name;
             case "service" -> "networking/services?name=" + name;
             case "persistentvolumeclaim" -> "storage/pvcs?name=" + name;
             case "ingress" -> "networking/ingresses?name=" + name;

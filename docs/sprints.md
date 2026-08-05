@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 109 | Hotdeploy do Vaadin em dev (Vite no lugar do `dev.bundle`) + "Go to resource" dos nós de Pod e PodGroup da Topologia levando ao Pod certo | ✅ Concluído |
 | 108 | `PodState`: badge de Pod deixa de exibir a fase crua e passa a refletir o estado real (`CrashLoopBackOff`, `ImagePullBackOff`, `ContainersNotReady`), com severidade própria alimentando cor na listagem e na Topologia | ✅ Concluído |
 | 107 | Build Context a partir de pasta local: Deploy from Dockerfile e Deploy from Compose passam a aceitar upload do computador, além de Git | ✅ Concluído |
 | 106 | Imagem da plataforma em registry público (GHCR): CI publica por tag `v*`; `setup.sh` puxa via `minikube image load` com fallback de build local | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 | 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
-| 99 | Dois novos Templates no catálogo (greencap-templates): CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis | ✅ Concluído |
 
 ---
 
@@ -26,14 +26,6 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🔴 Alta Prioridade
-
-#### 🐛 Bug: "Go to resource" nos nós de Pod e PodGroup da Topologia não leva ao Pod certo
-
-- **Reportado no aceite manual da Sprint 108**: clicar num nó de Pod na Topologia e usar "Go to resource" abre a listagem de Pods, mas seleciona o **primeiro item da lista** em vez do Pod de origem.
-- **Duas causas somadas, ambas confirmadas no código**: em `TopologyService`, os nós de Pod e de PodGroup recebem a URL `"workloads/pods"` **pura, sem `?name=`** — todos os outros tipos de nó recebem `?name=<nome>` via `resourceViewUrl`. E o `PodsView.beforeEnter` lê **apenas** o parâmetro `job`, não tendo suporte a `name` de qualquer forma. Sem filtro aplicado, o `selectFirstOrPreserve` seleciona a primeira linha — o sintoma observado.
-- **Não confundir com o item de `UI.navigate(String)` com query string embutida**: aquele trata de a navegação em si falhar quando a query já vem dentro da String; aqui a navegação funciona, só nunca houve alvo para o Pod. São defeitos independentes, embora a correção deste vá esbarrar naquele ao passar a montar uma URL com `?name=`.
-- **A correção alinha o código à documentação, não o contrário**: o `CONTEXT.md` já descreve o botão como navegando "pre-filtered by name" na entrada de `TopologyGraph` — hoje isso é verdade para todos os tipos de nó menos Pod.
-- **Pergunta de design a resolver antes**: um nó de PodGroup representa N réplicas e não tem um Pod único a apontar. Filtrar pelo prefixo do owner (o próprio `baseName` do grupo) cobre o caso, mas exigiria um parâmetro diferente de `name` no `PodsView` — avaliar se vira `owner=` ou se o `name` passa a ser tratado como prefixo.
 
 #### 🗺 Topologia — redesenho dos nós no modelo OpenShift (corpo neutro, estado no anel)
 
@@ -53,19 +45,11 @@
 
 ### 🟡 Média Prioridade
 
-#### 🧰 Dev bundle do Vaadin não invalida em mudança de conteúdo de TS — trabalho de frontend some em dev
+#### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) ainda em `CronJobsView` e `JobsView`
 
-- **Custou tempo real no aceite da Sprint 108, e já havia acontecido antes**: alterações no `src/main/frontend/topology-graph.ts` simplesmente não apareciam no browser. O backend recarregava normalmente (devtools), os testes passavam, e a tela continuava servindo o JavaScript de duas semanas antes.
-- **Causa**: o `src/main/bundles/dev.bundle` é um artefato pré-compilado e **versionado no git** (o README do diretório manda commitá-lo). O Vaadin só o reconstrói quando detecta *adição* de arquivos — `@JsModule`, `@NpmPackage`, tema, dependência npm. **Mudança de conteúdo de um arquivo TS já existente e já importado não é gatilho**, e o Vaadin nem chega a subir o Vite: serve o bundle como está, sem aviso.
-- **Por que é mais perigoso do que parece**: produz *falso negativo de aceite*. O comportamento correto foi implementado, testado e commitado, mas a validação manual no browser mostra o comportamento antigo — o risco é concluir que a correção não funciona e reverter código que estava certo. Também atinge qualquer pessoa que puxe um branch com mudança de TS sem o bundle regenerado junto.
-- **Contorno usado**: apagar `src/main/bundles/dev.bundle` e reiniciar a aplicação; o Vaadin reconstrói em ~15s (`TaskRunDevBundleBuild`). O bundle regenerado precisa entrar no commit.
-- **Solução estrutural a avaliar**: `vaadin.frontend.hotdeploy: true` no `application-dev.yaml` faz o Vite servir o TS direto, com hot reload e sem bundle intermediário — custo é startup mais lento em desenvolvimento. Avaliar também documentar o contorno no guia de contribuição, já que atinge qualquer colaborador que mexa em frontend.
-
-#### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) pode não navegar corretamente
-
-- **Descoberto ao escrever a cobertura de teste da Sprint 105**: o botão "Go to resource"/"Go to `<service>`" do `TopologyNodeDrawer` navega via `ui.navigate(url)` (overload de 1 argumento) para URLs como `networking/services?name=postgres-service` (geradas por `TopologyService.resourceViewUrl`). Esse overload delega para `navigate(path, QueryParameters.empty())`, que constrói o `Location` com `parsePathToSegments(path, false)` — ou seja, não separa a query string do path quando ela já vem embutida na String (diferente do construtor de 1 argumento de `Location`, usado internamente pelo Vaadin em outros fluxos). Em tese o roteador tentaria casar a rota inteira `"networking/services?name=postgres-service"` como um único path, o que não bateria com a rota registrada `networking/services`.
-- **Mesmo padrão em outros pontos do código, não exclusivo da Sprint 105**: `CronJobsView.java` (`navigate("workloads/jobs?cronjob=" + nome)`) usa a mesma construção. Já `DeploymentsView`/`StatefulSetsView` usam o overload correto de 2 argumentos (`navigate(path, QueryParameters)`) para o mesmo tipo de link — inconsistência dentro do próprio código.
-- **Não confirmado em navegador real** — achado apenas em teste automatizado (`TopologyNodeDrawerTest`), que documenta o comportamento observado sob `-ea` (assertions ligadas, padrão da task `test` do Gradle) sem travar no achado (`assertThatThrownBy(...).isInstanceOfAny(NotFoundException.class, AssertionError.class)`); o efeito exato em produção (assertions desligadas no `bootRun`/JAR final) não foi validado manualmente. Avaliar migrar os call sites afetados para `navigate(path, QueryParameters)` explícito.
+- **Defeito confirmado na Sprint 109**, onde os dois call sites do `TopologyNodeDrawer` foram corrigidos: `ui.navigate(url)` (overload de 1 argumento) delega para `navigate(path, QueryParameters.empty())`, e `Location.getPathWithQueryParameters` rejeita o path com `AssertionError: Base path can not contain query separator=?`. Deixou de ser hipótese — reverter a correção do drawer reproduz a falha no teste.
+- **Call sites remanescentes**: `CronJobsView.java:112` (`navigate("workloads/jobs?cronjob=" + nome)`) e `JobsView.java:112` (`navigate("workloads/pods?job=" + nome)`). `DeploymentsView`/`StatefulSetsView` já usam o overload correto de 2 argumentos para o mesmo tipo de link — a inconsistência é interna ao código.
+- **Por que não foi corrigido junto**: fora do escopo da Sprint 109, e o caminho de Jobs/CronJobs não foi exercitado em navegador. Migrar os dois para `navigate(path, QueryParameters)` (ou para o helper `navigateTo` do drawer, se virar utilitário compartilhado).
 
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
@@ -165,6 +149,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 109 ✅ — Hotdeploy do Vaadin em dev + "Go to resource" dos nós de Pod e PodGroup da Topologia
+
+- Dois itens de backlog abertos na Sprint 108, ambos com causa e solução evidentes — fluxo de bug fix pontual, sem `/grill-with-docs` nem issues formais em `.issue-tracker/` (mesmo padrão da Sprint 101)
+- **`vaadin.frontend.hotdeploy: true` no `application-dev.yaml`**: o Vite passa a servir o frontend em desenvolvimento, no lugar do `src/main/bundles/dev.bundle`. O bundle só é reconstruído quando arquivos são *adicionados* (`@JsModule`, pacote npm, tema) — editar o conteúdo de um TS já importado nunca foi gatilho, e o resultado era um falso negativo de aceite: código correto, testado e commitado, com o browser servindo a versão antiga. Validado no log de startup (`Starting Vite` → `VITE v5.3.1 ready` → `Frontend compiled successfully`) e ponta a ponta: um símbolo injetado no `topology-graph.ts` apareceu na resposta do módulo servido, com `Recompiling because topology-graph.ts changed` + `[vite] page reload` no log. O `dev.bundle` continua versionado — quem rodar sem o profile `dev` ainda depende dele
+- Ressalva: `vaadin.devmode.devTools.enabled: false` foi mantido como estava (definido tanto neste arquivo quanto no `bootRun` do `build.gradle.kts`). O Vite emite o comando de reload, mas a entrega ao browser passa pela conexão de devtools — na prática, F5 sempre serve o TS atual; o refresh automático pode não disparar
+- **`TopologyService`**: nós de Pod e de PodGroup passam a emitir `workloads/pods?name=...` via `resourceViewUrl` (ganhou o case `pod`), como todos os outros tipos de nó — antes recebiam `"workloads/pods"` pura, e sem filtro o `selectFirstOrPreserve` selecionava a primeira linha da listagem
+- A pergunta de design em aberto no backlog (nó de PodGroup representa N réplicas — vira `owner=` ou `name` como prefixo?) **não precisou de parâmetro novo**: o filtro de nome das views já é `contains` case-insensitive, então o `baseName` do grupo alcança todas as réplicas sem nada além do `name` que os outros nós já usam
+- **`PodsView.beforeEnter`** passa a ler o parâmetro `name`, mesmo padrão do `DeploymentsView` — antes lia apenas `job`, sem suporte a `name` de forma alguma
+- **`TopologyNodeDrawer`**: os dois call sites de navegação (botão de ação e "Go to `<service>`" da seção Depends on) trocam `navigate(String)` por `navigate(path, QueryParameters)` via helper `navigateTo`. Isso confirmou o item de backlog que estava marcado como "não confirmado em navegador real": revertendo o helper, o teste falha com `AssertionError: Base path can not contain query separator=?` em `Location.getPathWithQueryParameters`. `CronJobsView` e `JobsView` seguem com o padrão antigo — fora do escopo, item de backlog atualizado
+- Testes: `TopologyServiceTest` (2 — URL do nó de Pod e do nó de PodGroup), `PodsViewTest` (3 — `name` filtrando um Pod, `name` de grupo alcançando as duas réplicas, entrada sem `name` deixando a listagem intacta; fixture ganhou duas réplicas `api-7d9f88-*`), e `TopologyNodeDrawerTest` endurecido: a asserção aceitava `NotFoundException` **ou** `AssertionError` com um comentário explicando o bug como esperado, e agora exige `NotFoundException`. Suíte completa verde
+
+---
 
 ### Sprint 108 ✅ — `PodState`: o status do Pod deixa de exibir a fase crua na listagem e na Topologia
 
@@ -273,14 +270,6 @@
 - Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
 - **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
 - Issues: `.issue-tracker/sprint-100/issues/` (3 issues, todas `done`)
-
-### Sprint 99 ✅ — Dois novos Templates no catálogo: CRUD Flask+MongoDB e Cache-aside Flask+PostgreSQL+Redis
-
-- Trabalho inteiramente no repositório `greencap-templates` (fora desta base) — o mecanismo de Deploy Template já é genérico (ADR 0015), sem nenhuma mudança de código Java em `greencap-k8s`; catálogo de Templates passa de 1 para 3
-- **Template `crud-flask-mongodb`**: análogo ao `crud-flask-postgres` seed trocando o datastore relacional pelo documental — mesma entidade `items` (`name`/`description`), mesmas rotas CRUD, mesma UI HTML servida pelo próprio Flask; persistência via `pymongo` direto (sem ODM, espelhando o uso de `psycopg2` no template Postgres) com retry de conexão no boot; MongoDB `mongo:8.0` com autenticação obrigatória via Secret (padrão `postgres-credentials`) e PVC de 1Gi; backend buildado via Kaniko (sentinela `__BUILD__backend`); Ingress fixo `crud-flask-mongodb.greencap.local`. Objetivo didático: comparar diretamente conexão relacional vs. documental sob o mesmo padrão Deployment stateless + storage stateful na Namespace
-- **Template `cache-aside-flask-postgres-redis`**: demonstra o padrão cache-aside (decisão do `CONTEXT.md`: Redis pelo seu papel idiomático de cache, não como datastore primário de um CRUD); reaproveita a app do `crud-flask-postgres` adicionando cache na listagem — `GET /` lê a chave `items:all` no Redis antes de consultar o Postgres, populando-a com TTL de 60s no miss; escritas invalidam ativamente a chave além do TTL; Redis `redis:8-alpine` com `requirepass` via Secret e **sem PVC** (cache descartável — perder no restart é esperado, a próxima leitura repopula a partir do Postgres); backend via Kaniko; Ingress fixo `cache-aside-flask-postgres-redis.greencap.local`
-- Ambos com entrada em `catalog.json` (title/description/technologies); imagens `mongo:8.0` e `redis:8-alpine` fixadas após validar as versões estáveis mais recentes (as issues previam `7.0`/`7.4-alpine` como piso)
-- Issues: `.issue-tracker/sprint-99/issues/` (2 issues, ambas `done`)
 
 ---
 

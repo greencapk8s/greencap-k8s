@@ -158,6 +158,27 @@ class TopologyServiceTest {
     }
 
     @Test
+    void podNode_pointsAtItsOwnPod_notAtTheUnfilteredListing() {
+        createOrphanPod("standalone", null);
+
+        TopologyNode pod = node(topologyService.buildGraph(cluster, NAMESPACE), "pod/standalone");
+
+        assertThat(pod.manifestUrl()).isEqualTo("workloads/pods?name=standalone");
+    }
+
+    /** The base name prefixes every replica, so a substring filter reaches the whole group. */
+    @Test
+    void podGroupNode_pointsAtTheGroupBaseName() {
+        createStatefulSet("api", 2, 2);
+        createOwnedPod("api", "api-0", null);
+        createOwnedPod("api", "api-1", null);
+
+        TopologyNode group = node(topologyService.buildGraph(cluster, NAMESPACE), "pod-group/api");
+
+        assertThat(group.manifestUrl()).isEqualTo("workloads/pods?name=api");
+    }
+
+    @Test
     void serviceNode_keepsTheHealthySeverityItAlreadyHad() {
         createService("postgres-service");
 
