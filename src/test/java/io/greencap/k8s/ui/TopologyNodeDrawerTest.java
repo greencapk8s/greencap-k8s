@@ -77,7 +77,8 @@ class TopologyNodeDrawerTest extends KaribuTest {
     private JsonObject podGroupDetail(String label, JsonArray serviceDependencies) {
         JsonObject detail = Json.createObject();
         detail.put("nodeLabel", label);
-        detail.put("type", "2 Pods");
+        detail.put("type", "PodGroup");
+        detail.put("subtitle", "2 Pods");
         detail.put("status", "Running");
         detail.put("manifestUrl", "workloads/pods");
         detail.put("readyReplicas", 0);

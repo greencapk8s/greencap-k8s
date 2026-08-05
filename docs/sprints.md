@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 111 | Topologia: nó com corpo neutro e ícone de tipo, cor codificando exclusivamente estado, e o status escrito no nó quando não está saudável | ✅ Concluído |
 | 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
 | 109 | Hotdeploy do Vaadin em dev (Vite no lugar do `dev.bundle`) + "Go to resource" dos nós de Pod e PodGroup da Topologia levando ao Pod certo | ✅ Concluído |
 | 108 | `PodState`: badge de Pod deixa de exibir a fase crua e passa a refletir o estado real (`CrashLoopBackOff`, `ImagePullBackOff`, `ContainersNotReady`), com severidade própria alimentando cor na listagem e na Topologia | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
-| 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
 
 ---
 
@@ -26,14 +26,6 @@
 > Itens sem sprint definida, organizados por prioridade (Alta, Média, Baixa).
 
 ### 🔴 Alta Prioridade
-
-#### 🗺 Topologia — redesenho dos nós no modelo OpenShift (corpo neutro, estado no anel)
-
-- **Levantado no planejamento da Sprint 108**, ao decidir como a severidade do `PodState` chega ao grafo. Hoje o corpo do nó é colorido **por tipo de recurso** (`NODE_COLORS[n.type]` em `topology-graph.ts`) e o estado fica numa borda de 3px — ou seja, a borda disputa atenção com um fundo saturado, e o sinal de problema sai fraco. A Sprint 108 mitiga engrossando a borda no caso de problema, sem mexer na codificação.
-- **Modelo de referência**: o OpenShift mantém o corpo do nó neutro (branco), move o tipo para um ícone no centro mais um badge de letra no pill de rótulo (`DS`, `R`, `S`, `CS`), usa nós circulares com o rótulo abaixo, e deixa o anel colorido ser o único sinal cromático — o estado vira a informação dominante da tela.
-- **Por que não coube na Sprint 108**: não é troca de cor, é troca de canal de codificação. Tirar a cor do corpo obriga o tipo a migrar para ícone ou badge (qual conjunto de ícones?), muda o rótulo hoje centralizado em texto branco sobre fundo escuro, e leva à discussão de forma circular com rótulo externo. Misturar isso com a correção de status faria o aceite manual validar duas coisas ao mesmo tempo.
-- **Peso do item**: o GreenCap se posiciona em Developer Experience além de Kubernetes, e a Topologia é a porta de entrada mais atrativa do produto — é a tela que demonstra o valor da plataforma antes de o usuário entender qualquer conceito. Investir na legibilidade dela rende mais do que a maioria dos itens de UI.
-- **Pergunta em aberto**: no OpenShift, o anel é cor sólida por estado ou um donut segmentado com uma fatia por Pod (3 réplicas = 3 segmentos, a quebrada em vermelho)? Se for segmentado, resolve a ressalva aceita na Sprint 108 — o nó de PodGroup assume a razão do primeiro Pod problemático, o que soa mais grave do que é quando só 1 de 3 réplicas está quebrada.
 
 #### 🧨 `setup.sh` não valida os limites de inotify do host — cluster multi-nó quebra em silêncio
 
@@ -107,6 +99,14 @@
 
 - **Gráfico de uso (used/free) por PVC na `PersistentVolumeClaimsView`** — demanda original: coluna com mini gráfico de pizza/donut + diálogo "View Usage" com detalhamento em GiB/%, cores por limiar (70%/90%). Sprint 72 iniciada via `/grill-with-docs` e cancelada na etapa de implementação ao descobrir limitação técnica: a fonte de dados planejada (kubelet `/stats/summary`, endpoint `/api/v1/nodes/{node}/proxy/stats/summary`) **não reporta `pvcRef`/`usedBytes`/`capacityBytes` para volumes `hostPath`** — o `volume.Metrics` não é implementado por esse plugin. Testado no `greencap-demo` (StorageClass `standard` = `k8s.io/minikube-hostpath`): nenhuma PVC (`redis-data`, `registry-storage`) aparece no `/stats/summary`, nem mesmo as montadas por Pods `Running`. Mesma limitação provavelmente afeta `local-path-provisioner` — adotado como StorageClass default do `greencap-demo` na Sprint 98 (resolve `nodeAffinity`, não resolve esta limitação de métricas). Caminho alternativo a avaliar quando retomar: `exec df`/`stat -f` no Pod que monta a PVC via Fabric8 (RBAC `pods/exec` em vez de `nodes/proxy`), funciona independente do storage backend desde que o container tenha `df` disponível.
 
+#### 🧪 Testes de frontend — o TypeScript do projeto não tem nenhuma cobertura automatizada
+
+- **Descoberto no planejamento da Sprint 111**, ao definir a etapa de testes do redesenho dos nós da Topologia. O `package.json` não tem nenhum runner (`vitest`, `jest`, `@web/test-runner`) e não existe um único teste de frontend no repositório. Toda a suíte automatizada do projeto é Java — Karibu para views Vaadin e `PostgresIntegrationTest` para integração —, e nenhuma delas alcança código TypeScript.
+- **O que fica descoberto**: `topology-graph.ts` é o único módulo TS de peso do projeto (~400 linhas) e concentra decisões que não são cosméticas — resolução do nó-pai para o agrupamento por labels (`_resolveParent`, com o caso de `component` sem `part-of` formando grupo de nível externo), aplicação de posições salvas, a bifurcação entre `fixedNodeConstraint` do fcose e o posicionamento manual quando há nós compostos, e a serialização do layout de volta ao servidor (que exclui deliberadamente os nós de grupo). Um erro em qualquer um desses pontos hoje só aparece no aceite manual, ou não aparece.
+- **Custo já pago**: as issues 03 e 04 da Sprint 111 (corpo neutro com ícone de tipo, e o status escrito no nó) saíram com cobertura automatizada zero — a garantia de regressão delas é inteiramente o aceite manual no browser.
+- **O que dá e o que não dá para testar**: a aparência não é alcançável, porque o Cytoscape desenha em canvas e não deixa rastro inspecionável no DOM. Mas a lógica pura dá: o mapeamento de tipo para ícone e de severidade para cor, o parsing defensivo de `graphData`/`savedPositions` (hoje ambos com `try/catch` silencioso), a montagem da hierarquia de grupos e o payload do save de layout. Nada disso precisa de renderização real.
+- **Direção de solução**: Vitest com ambiente jsdom — o Vite já é o bundler do Vaadin 24 e o `vite.config.ts` da raiz é o arquivo que o Vaadin reserva para customização (o `vite.generated.ts` ao lado é regerado a cada build e não pode receber configuração). Extrair as funções puras de `topology-graph.ts` para um módulo próprio, testável sem instanciar o custom element, é pré-requisito e melhora a classe por si só. Avaliar pendurar a execução no `./gradlew test` via task Gradle chamando o npm, para não criar uma segunda porta de entrada de testes que alguém esqueça de rodar.
+
 ### ⚪ Baixa Prioridade
 
 #### 🔵 Gerenciamento ativo — próximas operações de escrita
@@ -143,6 +143,23 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 111 ✅ — Topologia: corpo neutro com ícone de tipo, cor exclusiva de estado e status escrito no nó
+
+- Planejada com `/grill-with-docs`; decisões e alternativas descartadas no **ADR 0022**. Fecha o item de alta prioridade do backlog levantado na Sprint 108 (redesenho dos nós no modelo OpenShift)
+- **`TopologyNode.type` deixa de acumular dois papéis**: passa a ser só o kind — que é o que indexa o ícone — e o novo `subtitle` carrega o que é escrito sob o nome (o kind na maioria dos nós, a contagem de réplicas nos de Pod e PodGroup). Era essa sobrecarga que mantinha uma entrada morta na tabela de cores por tipo: nós de Pod carregavam `1 Pod` e nunca casavam com a chave `Pod`
+- **Severidades que eram constantes passam a refletir a realidade**, por consequência direta de a cor passar a significar só estado: Service e Ingress deixam de ser permanentemente saudáveis (não têm saúde própria a reportar — verde neles sugeria uma confirmação que nunca esteve lá), e PVC passa a derivar severidade da fase que já calculava, com `Lost` alarmando em vermelho onde antes desenhava o mesmo cinza de um `Bound`
+- **Novo campo `alert`**: o que o nó escreve quando precisa de atenção — a proporção de réplicas prontas nos controladores (a promessa do ADR 0021 que nunca chegou à tela), a palavra de status nos demais, e nada quando a severidade é saudável ou neutra. O grafo é mapa, não listagem: vinte nós repetindo `Running` enterrariam o único dizendo `CrashLoopBackOff`
+- Frontend: `NODE_COLORS` (cor por tipo) removida. O corpo do nó passa a ser neutro seguindo o tema ativo, o tipo migra para ícone (8 SVGs do conjunto ExamPro, MIT, vendorizados — o conjunto oficial do `kubernetes/community` foi descartado por não ter ícone de Pods no plural para o nó de PodGroup) e a cor fica só na borda
+- **O banho de cor no corpo dos nós degradados/quebrados foi implementado e descartado no aceite**: o Cytoscape trata opacidade de fundo como propriedade própria e ignora o alfa da cor, então o banho de 18% virava cartão sólido, competindo com a borda e com o azul do ícone. Estado voltou a ser dito só pela borda, agora com espessura reforçada também na degradação, não apenas no problema
+- **Três armadilhas do Cytoscape descobertas no aceite manual**, todas corrigidas na mesma sprint: (a) `padding-left/right/top/bottom` são apelidos de um único `padding` uniforme — a coluna reservada ao ícone era descontada dos quatro lados e o nome passava por cima do ícone e da borda; o nó deixou de se auto-dimensionar pelo rótulo e passou a ter largura e altura medidas em JavaScript, com a fonte do rótulo replicada num canvas de medição; (b) os tokens de contraste do Lumo carregam alfa e o grafo desenha sobre canvas vazio, não sobre a página — um véu de 10% de branco no tema escuro virava cartão quase branco com texto branco em cima; as cores do tema passaram a ser achatadas contra `--lumo-base-color`, o que também levou as caixas de agrupamento (cores claras fixas) a seguirem o tema; (c) os SVGs do ExamPro trazem só `viewBox`, e sem tamanho intrínseco o Chrome aplica o padrão de 300x150 dos elementos substituídos — que o Cytoscape usa como retângulo de origem ao desenhar —, deixando os ícones achatados e cortados até ganharem `width`/`height` explícitos
+- **O status no nó saiu como badge**, não como terceira linha de texto: um nó do Cytoscape tem um único rótulo, então a pílula é um SVG gerado em runtime e entregue como segunda imagem de fundo, com a largura da coluna de texto e a pílula centralizada dentro dela — o que permite posicioná-la com uma constante em vez de um valor por nó. A palavra é a mesma que a listagem de Pods exibe, preservando o contrato de vocabulário do ADR 0021
+- Ajuda da view passa a explicar o ícone e o código de cores; a legenda fixa num canto do canvas foi descartada por gastar área de grafo permanentemente com algo que se aprende em segundos
+- Testes: `TopologyServiceTest` estendido com 16 casos (severidade de Service/Ingress/PVC, separação entre `type` e `subtitle`, e `alert` presente só quando há atenção a pedir) e `TopologyNodeDrawerTest` ajustado ao subtítulo no cabeçalho do painel. Suíte completa: 153 testes, todos verdes
+- **Nada do redesenho visual é coberto por teste automatizado** — o projeto não tem infraestrutura de teste de frontend e o grafo é desenhado em canvas. A garantia de regressão é o aceite manual; a lacuna virou item de backlog com direção de solução (Vitest + jsdom sobre as funções puras extraídas de `topology-graph.ts`)
+- Issues: `.issue-tracker/sprint-111/issues/` (5 issues, todas `done`; as 03 e 04 com comentário de fechamento registrando as divergências decididas no aceite)
+
+---
 
 ### Sprint 110 ✅ — `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`
 
@@ -260,14 +277,6 @@
 - `CONTEXT.md`: entrada **Templates Catalog** atualizada descrevendo a ação "Open Topology" no card instalado, explicitando que é distinta do botão "Go to resource" do painel de detalhe da própria Topologia
 - Testes: `SampleCatalogViewTest` (Karibu) estendido — card instalado renderiza "Open Topology" junto ao badge; card não-instalado não o mostra (só "Deploy"); clicar troca o Namespace ativo para o do Template (`clusterContext.setNamespace` + `userService.updateActiveNamespace` verificados, absorvendo o `NotFoundException` de `navigate` no ambiente de teste sem rotas)
 - Issues: `.issue-tracker/sprint-102/issues/` (1 issue, `done`)
-
-### Sprint 101 ✅ — Bug fixes do selector de Namespace no header (refresh pós-deploy + seleção no F5)
-
-- Dois bugs do combobox de Namespaces do `MainLayout`, ambos registrados no backlog durante os aceites das Sprints 98/99 — fluxo de bug fix pontual (sem `/grill-with-docs` nem issues formais em `.issue-tracker/`)
-- **Selector desatualizado após deploy**: Deploy Application, Deploy from Dockerfile e Import Compose criam uma Namespace nova e navegam direto para a `TopologiaView`, mas não recarregavam a lista do combobox no header (a Namespace nova só aparecia após trocar de Cluster e voltar, pois `updateNamespaceSelector()` só recarrega quando o Cluster ativo muda). Fix: os três fluxos passam a chamar o refresh do `MainLayout` após `setNamespace`, antes do `navigate` — mesmo mecanismo já usado por `NamespacesView`/`SampleCatalogView`
-- **Seleção perdida no full reload (F5)**: o valor selecionado sumia após F5 (voltava para "Select...") enquanto a lista continuava correta. Causa: o valor só era aplicado via `@Push` assíncrono — num F5 a `UI` nova abre o canal push apenas após a resposta HTML inicial, então o push do valor podia chegar antes do canal estar pronto e ser descartado pelo cliente (a implementação anterior ainda o piorava usando um *segundo* push disparado de uma virtual thread solta). Fix: `loadNamespacesForCluster()` semeia o combo **sincronamente** com o Namespace da sessão (item único + valor) antes do load assíncrono — como o `ClusterContext` é `@VaadinSessionScope` e sobrevive ao F5, o valor entra no render HTML inicial sem depender de push; o task assíncrono depois substitui pela lista completa de Namespaces
-- **Limpeza de duplicação**: o helper que localiza o `MainLayout` a partir da view e chama `refreshClusterState()` estava copiado idêntico em `NamespacesView` e `SampleCatalogView`; com mais três fluxos precisando dele, foi extraído para o estático `MainLayout.refreshNamespaceSelector(UI)` e os cinco call sites apontam para lá
-- Sem novos testes automatizados: o núcleo do fix do F5 é timing do canal `@Push` (inerentemente de browser, fora do alcance do Karibu, que roda single-thread sem push real); validado por aceite manual nos dois cenários (F5 e navegação SPA) e nos três fluxos de deploy. Suíte existente rodada como verificação de regressão (verde)
 
 ---
 

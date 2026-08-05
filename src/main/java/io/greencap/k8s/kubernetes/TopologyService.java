@@ -192,7 +192,9 @@ public class TopologyService {
                 nodeId("deployment", name),
                 name,
                 "Deployment",
+                "Deployment",
                 status,
+                controllerAlert(controllerSeverity(status), ready, desired),
                 controllerSeverity(status),
                 resourceViewUrl("deployment", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
@@ -208,7 +210,9 @@ public class TopologyService {
                 nodeId("statefulset", name),
                 name,
                 "StatefulSet",
+                "StatefulSet",
                 status,
+                controllerAlert(controllerSeverity(status), ready, desired),
                 controllerSeverity(status),
                 resourceViewUrl("statefulset", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
@@ -224,7 +228,9 @@ public class TopologyService {
                 nodeId("replicaset", name),
                 name,
                 "ReplicaSet",
+                "ReplicaSet",
                 status,
+                controllerAlert(controllerSeverity(status), ready, desired),
                 controllerSeverity(status),
                 resourceViewUrl("replicaset", name),
                 labels, ready, desired, "", "", "", partOfGroup(labels), componentGroup(labels));
@@ -239,8 +245,10 @@ public class TopologyService {
         return new TopologyNode(
                 podGroupId(ownerId),
                 baseName,
+                "PodGroup",
                 countLabel,
                 state.label(),
+                statusAlert(state.severity(), state.label()),
                 state.severity(),
                 // The name filter in PodsView matches by substring, so the group base name narrows
                 // the listing down to this group's replicas without needing a dedicated owner filter.
@@ -255,8 +263,10 @@ public class TopologyService {
         return new TopologyNode(
                 nodeId("pod", name),
                 name,
+                "Pod",
                 "1 Pod",
                 state.label(),
+                statusAlert(state.severity(), state.label()),
                 state.severity(),
                 resourceViewUrl("pod", name),
                 labels, 0, 0, "", "", "", partOfGroup(labels), componentGroup(labels));
@@ -270,8 +280,10 @@ public class TopologyService {
                 nodeId("service", name),
                 name,
                 "Service",
+                "Service",
                 "Active",
-                Severity.HEALTHY,
+                NO_ALERT,
+                Severity.NEUTRAL,
                 resourceViewUrl("service", name),
                 labels, 0, 0, serviceType, "", "", partOfGroup(labels), componentGroup(labels));
     }
@@ -298,8 +310,10 @@ public class TopologyService {
                 nodeId("ingress", name),
                 name,
                 "Ingress",
+                "Ingress",
                 "Active",
-                Severity.HEALTHY,
+                NO_ALERT,
+                Severity.NEUTRAL,
                 resourceViewUrl("ingress", name),
                 Map.of(), 0, 0, ingressClass, hosts, hasTls ? "Secure" : "Plain", "", "");
     }
@@ -346,8 +360,10 @@ public class TopologyService {
                 nodeId("persistentvolumeclaim", name),
                 name,
                 "PersistentVolumeClaim",
+                "PersistentVolumeClaim",
                 status,
-                Severity.NEUTRAL,
+                statusAlert(pvcSeverity(status), status),
+                pvcSeverity(status),
                 resourceViewUrl("persistentvolumeclaim", name),
                 Map.of(), 0, 0, storageClass, capacity, accessMode, partOfGroup(labels), componentGroup(labels));
     }
@@ -496,6 +512,36 @@ public class TopologyService {
             case DEGRADED -> 1;
             case NEUTRAL -> 2;
             case HEALTHY -> 3;
+        };
+    }
+
+    private static final String NO_ALERT = "";
+
+    // A healthy graph stays quiet. Only nodes that need attention put words on the canvas, so the
+    // one node saying CrashLoopBackOff is not buried under twenty saying Running.
+    private boolean needsAttention(Severity severity) {
+        return severity == Severity.DEGRADED || severity == Severity.PROBLEM;
+    }
+
+    // Controllers answer "how many are ready" — the proportion ADR 0021 assumed was on screen.
+    private String controllerAlert(Severity severity, int ready, int desired) {
+        return needsAttention(severity) ? ready + "/" + desired + " ready" : NO_ALERT;
+    }
+
+    // Everything else answers "why", with the same word the resource's own listing shows.
+    private String statusAlert(Severity severity, String status) {
+        return needsAttention(severity) ? status : NO_ALERT;
+    }
+
+    // A claim that lost its volume lost its data, so it alarms. Pending waits on a volume that may
+    // never arrive, which deserves attention without alarm — and an unrecognised phase means the
+    // control plane has not filled the status in yet far more often than it means damage, so it
+    // joins Pending rather than raising a false alarm on every freshly created claim.
+    private Severity pvcSeverity(String status) {
+        return switch (status) {
+            case "Lost" -> Severity.PROBLEM;
+            case "Pending", "Unknown" -> Severity.DEGRADED;
+            default -> Severity.NEUTRAL;
         };
     }
 

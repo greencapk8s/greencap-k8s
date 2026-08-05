@@ -1,0 +1,31 @@
+Icons from the ExamPro Kubernetes Architecture Icons set, vendored here. Two modifications
+were made to every file:
+
+1. The root <svg> element gained explicit width and height attributes. Without an intrinsic
+   size, Chrome falls back to the 300x150 default for a replaced element and Cytoscape, which
+   uses that size as the source rectangle when drawing the node background, rendered the icons
+   distorted and cropped.
+2. The background tile gained a corner radius of roughly 9% of its width, so the icon sits
+   inside the rounded topology node without a hard square edge.
+
+MIT License
+
+Copyright (c) 2022 ExamPro
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.

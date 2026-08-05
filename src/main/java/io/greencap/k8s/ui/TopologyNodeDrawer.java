@@ -44,6 +44,7 @@ class TopologyNodeDrawer extends VerticalLayout {
     void open(JsonObject detail) {
         String nodeLabel = detail.getString("nodeLabel");
         String type = detail.getString("type");
+        String subtitle = detail.getString("subtitle");
         String status = detail.getString("status");
         String manifestUrl = detail.getString("manifestUrl");
         int readyReplicas = (int) detail.getNumber("readyReplicas");
@@ -55,7 +56,7 @@ class TopologyNodeDrawer extends VerticalLayout {
         JsonArray serviceDependencies = detail.getArray("serviceDependencies");
 
         removeAll();
-        add(buildHeader(nodeLabel, type, status), new Hr(), buildBody(
+        add(buildHeader(nodeLabel, subtitle, status), new Hr(), buildBody(
                 type, status, readyReplicas, desiredReplicas, serviceType, capacity, accessMode, labelsJson,
                 manifestUrl, serviceDependencies));
         setVisible(true);
@@ -66,7 +67,7 @@ class TopologyNodeDrawer extends VerticalLayout {
         removeAll();
     }
 
-    private HorizontalLayout buildHeader(String name, String type, String status) {
+    private HorizontalLayout buildHeader(String name, String subtitle, String status) {
         Span nameLabel = new Span(name);
         nameLabel.addClassNames(LumoUtility.FontSize.LARGE, LumoUtility.FontWeight.BOLD);
         nameLabel.getStyle().set("flex", "1").set("overflow", "hidden").set("text-overflow", "ellipsis").set("white-space", "nowrap");
@@ -77,10 +78,10 @@ class TopologyNodeDrawer extends VerticalLayout {
         closeBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON);
         closeBtn.getElement().setAttribute("title", "Close");
 
-        Span typeLabel = new Span(type);
-        typeLabel.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
+        Span subtitleLabel = new Span(subtitle);
+        subtitleLabel.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
 
-        VerticalLayout nameBlock = new VerticalLayout(nameLabel, typeLabel);
+        VerticalLayout nameBlock = new VerticalLayout(nameLabel, subtitleLabel);
         nameBlock.setPadding(false);
         nameBlock.setSpacing(false);
         nameBlock.getStyle().set("flex", "1").set("min-width", "0");
@@ -100,7 +101,7 @@ class TopologyNodeDrawer extends VerticalLayout {
         content.setSpacing(true);
 
         boolean isIngress = "Ingress".equals(type);
-        boolean isPodGroup = type.contains("Pod");
+        boolean isPodNode = "Pod".equals(type) || "PodGroup".equals(type);
         boolean isPvc = "PersistentVolumeClaim".equals(type);
 
         if (isIngress) {
@@ -112,7 +113,7 @@ class TopologyNodeDrawer extends VerticalLayout {
             if (!capacity.isBlank()) content.add(buildInfoRow("Capacity", capacity));
             if (!serviceType.isBlank()) content.add(buildInfoRow("Storage Class", serviceType));
             if (!accessMode.isBlank()) content.add(buildInfoRow("Access Mode", accessMode));
-        } else if (!isPodGroup) {
+        } else if (!isPodNode) {
             if (desired > 0) {
                 content.add(buildInfoRow("Replicas", ready + " / " + desired + " ready"));
             }
@@ -129,7 +130,7 @@ class TopologyNodeDrawer extends VerticalLayout {
             }
         }
 
-        content.add(buildActionButton(manifestUrl, isPodGroup));
+        content.add(buildActionButton(manifestUrl, isPodNode));
         return content;
     }
 
@@ -220,8 +221,8 @@ class TopologyNodeDrawer extends VerticalLayout {
         return section;
     }
 
-    private Button buildActionButton(String resourceUrl, boolean isPodGroup) {
-        String label = isPodGroup ? "Go to Pods" : "Go to resource";
+    private Button buildActionButton(String resourceUrl, boolean isPodNode) {
+        String label = isPodNode ? "Go to Pods" : "Go to resource";
         Button btn = new Button(label, VaadinIcon.EXTERNAL_LINK.create());
         btn.addThemeVariants(ButtonVariant.LUMO_PRIMARY, ButtonVariant.LUMO_SMALL);
         btn.setWidthFull();
