@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
 | 109 | Hotdeploy do Vaadin em dev (Vite no lugar do `dev.bundle`) + "Go to resource" dos nós de Pod e PodGroup da Topologia levando ao Pod certo | ✅ Concluído |
 | 108 | `PodState`: badge de Pod deixa de exibir a fase crua e passa a refletir o estado real (`CrashLoopBackOff`, `ImagePullBackOff`, `ContainersNotReady`), com severidade própria alimentando cor na listagem e na Topologia | ✅ Concluído |
 | 107 | Build Context a partir de pasta local: Deploy from Dockerfile e Deploy from Compose passam a aceitar upload do computador, além de Git | ✅ Concluído |
@@ -17,7 +18,6 @@
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 | 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 | 101 | Bug fixes do selector de Namespace no header: refresh após Deploy Application/Dockerfile/Compose + seleção preservada no full reload (F5) | ✅ Concluído |
-| 100 | Suporte nativo a macOS no setup.sh (Homebrew/Colima) + workflows GitHub Actions validando setup completo em Linux e macOS | ✅ Concluído |
 
 ---
 
@@ -44,12 +44,6 @@
 - **Direção de solução**: fazer o `setup.sh` verificar `fs.inotify.max_user_instances` e `fs.inotify.max_user_watches` antes de subir o cluster, dimensionando o mínimo pelo número de nós; havendo folga insuficiente, elevar via `sysctl` persistido em `/etc/sysctl.d/` (exige privilégio — decidir entre pedir `sudo` explicitamente ou apenas abortar com orientação clara). Avaliar também um diagnóstico na própria plataforma: `kube-proxy` ausente ou em crash em um nó é uma condição detectável e hoje invisível na UI. Verificar se o macOS tem equivalente ou se o item é exclusivo de Linux.
 
 ### 🟡 Média Prioridade
-
-#### 🐛 Bug: `UI.navigate(String)` com query string embutida (`?param=`) ainda em `CronJobsView` e `JobsView`
-
-- **Defeito confirmado na Sprint 109**, onde os dois call sites do `TopologyNodeDrawer` foram corrigidos: `ui.navigate(url)` (overload de 1 argumento) delega para `navigate(path, QueryParameters.empty())`, e `Location.getPathWithQueryParameters` rejeita o path com `AssertionError: Base path can not contain query separator=?`. Deixou de ser hipótese — reverter a correção do drawer reproduz a falha no teste.
-- **Call sites remanescentes**: `CronJobsView.java:112` (`navigate("workloads/jobs?cronjob=" + nome)`) e `JobsView.java:112` (`navigate("workloads/pods?job=" + nome)`). `DeploymentsView`/`StatefulSetsView` já usam o overload correto de 2 argumentos para o mesmo tipo de link — a inconsistência é interna ao código.
-- **Por que não foi corrigido junto**: fora do escopo da Sprint 109, e o caminho de Jobs/CronJobs não foi exercitado em navegador. Migrar os dois para `navigate(path, QueryParameters)` (ou para o helper `navigateTo` do drawer, se virar utilitário compartilhado).
 
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
@@ -149,6 +143,19 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 110 ✅ — `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`
+
+- Item de backlog aberto na Sprint 109, com causa e solução evidentes — fluxo de bug fix pontual, sem `/grill-with-docs` nem issues formais em `.issue-tracker/` (mesmo padrão das Sprints 101 e 109)
+- **Três call sites, não dois**: o backlog registrava `CronJobsView.java:112` e `JobsView.java:112`, mas o `CronJobsView` tinha o mesmo destino em dois pontos — o botão "View Jobs" da coluna de ações (linha 127) e a navegação pós-trigger dentro do `ConfirmDialog` (linha 156). O terceiro é o botão "View Pods" do `JobsView`
+- Todos migrados para `navigate(path, new QueryParameters(Map.of(...)))`, o overload de 2 argumentos que `DeploymentsView` e `StatefulSetsView` já usavam para o mesmo tipo de link. Os dois destinos idênticos do `CronJobsView` foram extraídos para `navigateToJobsOf(cj)`; o `JobsView` ganhou `navigateToPodsOf(job)`
+- O helper `navigateTo` do `TopologyNodeDrawer` **não** virou utilitário compartilhado: ele resolve outro problema — fatiar uma URL com `?` já montada pelo servidor —, enquanto aqui path e parâmetro já chegam separados na origem, sem concatenar para reparsear em seguida
+- O lado que **lê** os parâmetros já estava correto e não foi tocado (`JobsView.beforeEnter` consome `cronjob` no filtro de Owner, `PodsView` consome `job`) — o defeito era só na emissão
+- Testes: `CronJobsViewTest` e `JobsViewTest`, novos (5 casos). Em vez do idioma do `TopologyNodeDrawerTest` (que só assertava `NotFoundException` como prova indireta de que o path foi fatiado), os testes registram um stub de rota no destino e leem o `getActiveViewLocation()` — verificam o path **e** o nome/valor do parâmetro que efetivamente chegam. Reintroduzir os defeitos derruba os 3 casos de navegação e preserva os 2 de filtro
+- **Armadilha descoberta**: o stub de rota não pode usar `@Route`. `MainLayoutTest` monta seu registro com `autoDiscoverViews("io.greencap.k8s")`, que varre o classpath inteiro — inclusive classes de teste —, e um stub anotado colide com o `@Route` real de `JobsView`/`PodsView`, quebrando 4 testes daquela classe. A saída é `RouteConfiguration.forApplicationScope().setRoute(...)`, que registra dinamicamente sem anotação; comentado nos dois arquivos de teste, porque reaparece em qualquer teste futuro que precise de rota registrada
+- Suíte completa: 138 testes, todos verdes
+
+---
 
 ### Sprint 109 ✅ — Hotdeploy do Vaadin em dev + "Go to resource" dos nós de Pod e PodGroup da Topologia
 
@@ -261,16 +268,6 @@
 - **Seleção perdida no full reload (F5)**: o valor selecionado sumia após F5 (voltava para "Select...") enquanto a lista continuava correta. Causa: o valor só era aplicado via `@Push` assíncrono — num F5 a `UI` nova abre o canal push apenas após a resposta HTML inicial, então o push do valor podia chegar antes do canal estar pronto e ser descartado pelo cliente (a implementação anterior ainda o piorava usando um *segundo* push disparado de uma virtual thread solta). Fix: `loadNamespacesForCluster()` semeia o combo **sincronamente** com o Namespace da sessão (item único + valor) antes do load assíncrono — como o `ClusterContext` é `@VaadinSessionScope` e sobrevive ao F5, o valor entra no render HTML inicial sem depender de push; o task assíncrono depois substitui pela lista completa de Namespaces
 - **Limpeza de duplicação**: o helper que localiza o `MainLayout` a partir da view e chama `refreshClusterState()` estava copiado idêntico em `NamespacesView` e `SampleCatalogView`; com mais três fluxos precisando dele, foi extraído para o estático `MainLayout.refreshNamespaceSelector(UI)` e os cinco call sites apontam para lá
 - Sem novos testes automatizados: o núcleo do fix do F5 é timing do canal `@Push` (inerentemente de browser, fora do alcance do Karibu, que roda single-thread sem push real); validado por aceite manual nos dois cenários (F5 e navegação SPA) e nos três fluxos de deploy. Suíte existente rodada como verificação de regressão (verde)
-
-### Sprint 100 ✅ — Suporte nativo a macOS no setup.sh + workflows GitHub Actions
-
-- Escopo fechado via `/grill-with-docs`: `setup/setup.sh` recusava auto-install fora do Linux; decisão de dar suporte nativo real a macOS (não só cobertura de CI) via instaladores Homebrew, com Docker provido por **Colima** headless em vez de Docker Desktop (GUI, inviável para o fluxo plug-and-play e para CI) — raciocínio completo na ADR 0016 (`docs/adr/0016-colima-como-provedor-docker-no-macos.md`)
-- `install_docker/kubectl/minikube/helm` ganham branch macOS (`brew install colima docker` / `kubectl` / `minikube` / `helm`); `ensure_homebrew()` auto-instala o Homebrew se ausente (`NONINTERACTIVE=1`); mecanismo Linux (curl/apt) inalterado
-- Modo não-interativo via variáveis de ambiente (`AUTO_INSTALL`, `PROFILE_CHOICE`, `NODES`/`CPUS`/`MEMORY`, e `CONFIRM` em `teardown.sh`) — estende o padrão já usado por `GREENCAP_ENCRYPTION_KEY`/`DB_PASSWORD`, necessário para automação em CI
-- Novo workflow `.github/workflows/setup-script-validate.yml`: matrix `ubuntu-24.04` (fluxo completo: setup → reachability com retry → teardown) e `macos-14` (`INSTALL_ONLY=true` — só valida os instaladores Homebrew, sem provisionar cluster). `docker-compose-validate.yml` também migrado de `ubuntu-latest` para `ubuntu-24.04` — tags `*-latest` são realocadas pelo GitHub sem aviso, arriscando invalidar premissas específicas de Apple Silicon
-- Bugs descobertos e corrigidos durante as execuções reais de CI (não visíveis em revisão de código nem build local): `${AUTO_INSTALL,,}` (Bash 4+) quebrando no `/bin/bash` 3.2 do macOS (substituído por `case` portável); `sed -i` sem `-i.bak` quebrando em BSD sed; `curl` de reachability com 503 por corrida do `ingress-nginx` sincronizando a config (retry 10x/5s); `docker/Dockerfile` baixava o Helm CLI fixo em `linux-amd64`, quebrando em runtime num build arm64 (fix via `ARG TARGETARCH`)
-- **Achado de plataforma, não de código**: runners `macos-*` hospedados padrão do GitHub Actions não suportam virtualização aninhada — `colima start` nunca teria sucesso ali, independente do `setup.sh`. Confirmado empiricamente (corrigiu premissa errada da ADR 0016 original); job macOS da CI reduzido para `INSTALL_ONLY`. Suporte real a macOS (uso local do usuário, fora do runner sandboxado) permanece completo
-- Issues: `.issue-tracker/sprint-100/issues/` (3 issues, todas `done`)
 
 ---
 
