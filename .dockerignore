@@ -15,8 +15,9 @@ node_modules/
 
 # Git / docs / scratch
 .git/
-.scratch/
+.issue-tracker/
 docs/
+.dev/
 
 # Env / secrets
 .env

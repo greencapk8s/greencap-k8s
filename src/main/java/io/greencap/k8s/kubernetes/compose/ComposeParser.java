@@ -81,7 +81,7 @@ public class ComposeParser {
     }
 
     @SuppressWarnings("unchecked")
-    ComposeDocument parse(String yamlContent) {
+    public ComposeDocument parse(String yamlContent) {
         Yaml yaml = new Yaml(new SafeConstructor(new LoaderOptions()));
         Map<String, Object> root;
         try {

@@ -3,9 +3,14 @@ spring:
     show-sql: true
 
 vaadin:
+  # Serves the frontend through Vite instead of the pre-compiled dev bundle. The bundle is only
+  # rebuilt when files are added (@JsModule, npm package, theme) — editing the contents of an
+  # already-imported TS file is not a trigger, so changes would silently never reach the browser.
+  frontend:
+    hotdeploy: true
   devmode:
     devTools:
-      enabled: false
+      enabled: true
 
 logging:
   level:

@@ -17,6 +17,7 @@ import com.vaadin.flow.component.notification.NotificationVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.component.radiobutton.RadioButtonGroup;
 import com.vaadin.flow.component.textfield.IntegerField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.BeforeEnterEvent;
@@ -72,10 +73,13 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final StorageService storageService;
     private final UserService userService;
 
+    private final RadioButtonGroup<BuildContextOrigin> originSelector = new RadioButtonGroup<>("Source");
     private final TextField gitUrlField = new TextField("Git repository URL");
     private final TextField branchField = new TextField("Branch");
+    private final BuildContextPicker contextPicker = new BuildContextPicker();
     private final TextField composePathField = new TextField("Path to docker-compose.yml");
     private final TextField namespaceField = new TextField("Target namespace");
+    private String suggestedNamespace = "";
 
     private ComposeDocument parsedDocument;
     private final Map<String, TextField> imageFieldsByService = new LinkedHashMap<>();
@@ -84,11 +88,13 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     private final Map<String, String> buildJobsByService = new LinkedHashMap<>();
     private final Map<String, Span> buildStatusBadgeByService = new LinkedHashMap<>();
+    private Span buildPhaseLabel;
     private Pre buildLogArea;
     private ScheduledFuture<?> pollTask;
 
     private int currentStep = 1;
     private final HorizontalLayout stepIndicatorRow = new HorizontalLayout();
+    private final VerticalLayout sourceStep = new VerticalLayout();
     private final Div stepContent = new Div();
     private final Button backButton = new Button(VaadinIcon.ARROW_LEFT.create());
     private final Button nextButton = new Button("Next", VaadinIcon.ARROW_RIGHT.create());
@@ -128,7 +134,19 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         footer.setAlignItems(Alignment.CENTER);
         footer.addClassNames(LumoUtility.Padding.Vertical.MEDIUM);
 
-        add(DeployModeSelector.build(ImportComposeView.class), stepIndicatorRow, stepContent, footer);
+        add(DeployModeSelector.build(ImportComposeView.class), stepIndicatorRow,
+                buildSourceStep(), stepContent, footer);
+    }
+
+    // Step 1 is built once and only hidden when the wizard moves on. Rebuilding it would detach the
+    // picker, dropping both the archive already uploaded and the folder the browser still holds open.
+    private VerticalLayout buildSourceStep() {
+        FormLayout form = new FormLayout(gitUrlField, branchField, composePathField, namespaceField);
+        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
+        sourceStep.setPadding(false);
+        sourceStep.setSpacing(true);
+        sourceStep.add(originSelector, contextPicker, form);
+        return sourceStep;
     }
 
     @Override
@@ -138,16 +156,20 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     }
 
     private void initFields() {
+        originSelector.setItems(BuildContextOrigin.values());
+        originSelector.setItemLabelGenerator(BuildContextOrigin::getLabel);
+        originSelector.setValue(BuildContextOrigin.GIT_REPOSITORY);
+        originSelector.addValueChangeListener(e -> applyOrigin(e.getValue()));
+
+        contextPicker.setFolderButtonLabel("Select project folder");
+        contextPicker.setVisible(false);
+        contextPicker.addSelectionChangeListener(e -> contextPicker.getFolderName()
+                .ifPresent(folder -> applyNamespaceSuggestion(sanitizeK8sName(folder))));
+
         gitUrlField.setWidthFull();
         gitUrlField.setPlaceholder("https://github.com/user/repo");
         gitUrlField.setRequired(true);
-        gitUrlField.addValueChangeListener(e -> {
-            String suggested = extractRepoName(e.getValue());
-            String oldSuggested = extractRepoName(e.getOldValue());
-            if (!suggested.isBlank() && (namespaceField.isEmpty() || namespaceField.getValue().equals(oldSuggested))) {
-                namespaceField.setValue(suggested);
-            }
-        });
+        gitUrlField.addValueChangeListener(e -> applyNamespaceSuggestion(extractRepoName(e.getValue())));
 
         branchField.setWidthFull();
         branchField.setValue("main");
@@ -160,6 +182,35 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         namespaceField.setWidthFull();
         namespaceField.setHelperText("Lowercase letters, numbers and hyphens.");
         namespaceField.setRequired(true);
+    }
+
+    private void applyOrigin(BuildContextOrigin origin) {
+        boolean isLocal = origin == BuildContextOrigin.LOCAL_FOLDER;
+        gitUrlField.setVisible(!isLocal);
+        branchField.setVisible(!isLocal);
+        contextPicker.setVisible(isLocal);
+
+        // The abandoned origin must not survive the switch, or a deploy could carry a local selection
+        // and a Git URL at the same time.
+        if (isLocal) {
+            gitUrlField.clear();
+            gitUrlField.setInvalid(false);
+            branchField.setValue("main");
+        } else {
+            contextPicker.clear();
+        }
+    }
+
+    private boolean isLocalOrigin() {
+        return originSelector.getValue() == BuildContextOrigin.LOCAL_FOLDER;
+    }
+
+    private void applyNamespaceSuggestion(String suggested) {
+        if (suggested == null || suggested.isBlank()) return;
+        if (namespaceField.isEmpty() || namespaceField.getValue().equals(suggestedNamespace)) {
+            namespaceField.setValue(suggested);
+        }
+        suggestedNamespace = suggested;
     }
 
     private void initNavigation() {
@@ -175,14 +226,17 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private void renderStep(int step) {
         currentStep = step;
         updateStepIndicator();
+        sourceStep.setVisible(step == 1);
         stepContent.removeAll();
-        stepContent.add(buildStepContent(step));
+        if (step > 1) {
+            stepContent.add(buildStepContent(step));
+        }
         backButton.setVisible(step == 2);
         nextButton.setVisible(step < 3);
         nextButton.setText(step == 2 ? "Deploy" : "Next");
         nextButton.setIcon(step == 2 ? VaadinIcon.ROCKET.create() : VaadinIcon.ARROW_RIGHT.create());
         nextButton.setIconAfterText(true);
-        if (step == 1) gitUrlField.focus();
+        if (step == 1 && !isLocalOrigin()) gitUrlField.focus();
     }
 
     private void updateStepIndicator() {
@@ -201,31 +255,14 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     private com.vaadin.flow.component.Component buildStepContent(int step) {
         return switch (step) {
-            case 1 -> buildStep1();
             case 2 -> buildStep2Review();
             case 3 -> buildStep3Execution();
             default -> new Div();
         };
     }
 
-    private FormLayout buildStep1() {
-        FormLayout form = new FormLayout(gitUrlField, branchField, composePathField, namespaceField);
-        form.setResponsiveSteps(new FormLayout.ResponsiveStep("0", 1));
-        return form;
-    }
-
     private boolean validateStep1() {
-        boolean valid = true;
-        if (isBlank(gitUrlField.getValue())) {
-            gitUrlField.setErrorMessage("Git repository URL is required");
-            gitUrlField.setInvalid(true);
-            valid = false;
-        } else { gitUrlField.setInvalid(false); }
-        if (isBlank(branchField.getValue())) {
-            branchField.setErrorMessage("Branch is required");
-            branchField.setInvalid(true);
-            valid = false;
-        } else { branchField.setInvalid(false); }
+        boolean valid = isLocalOrigin() ? validateLocalOrigin() : validateGitOrigin();
         if (isBlank(composePathField.getValue())) {
             composePathField.setErrorMessage("Path is required");
             composePathField.setInvalid(true);
@@ -242,6 +279,27 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
             valid = false;
         } else { namespaceField.setInvalid(false); }
         return valid;
+    }
+
+    private boolean validateGitOrigin() {
+        boolean valid = true;
+        if (isBlank(gitUrlField.getValue())) {
+            gitUrlField.setErrorMessage("Git repository URL is required");
+            gitUrlField.setInvalid(true);
+            valid = false;
+        } else { gitUrlField.setInvalid(false); }
+        if (isBlank(branchField.getValue())) {
+            branchField.setErrorMessage("Branch is required");
+            branchField.setInvalid(true);
+            valid = false;
+        } else { branchField.setInvalid(false); }
+        return valid;
+    }
+
+    private boolean validateLocalOrigin() {
+        if (contextPicker.getPackedFolder().isPresent()) return true;
+        showError("Select the project folder the Compose file belongs to.");
+        return false;
     }
 
     private VerticalLayout buildStep2Review() {
@@ -292,19 +350,22 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         if (service.hasSensitiveEnv())    panel.add(buildReviewItem("Secret",    service.name() + "-secret"));
 
         if (service.hasBuild()) {
-            String repoAndTag = service.image() != null ? service.image() : sanitizeK8sName(service.name()) + ":latest";
-            String defaultImage = REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + repoAndTag;
-            TextField imageField = new TextField("Image name (will be built and pushed to Registry)");
-            imageField.setValue(defaultImage);
-            imageField.setWidthFull();
-            imageFieldsByService.put(service.name(), imageField);
-            panel.add(imageField);
+            panel.add(buildImageField(service));
         }
 
         for (ComposeDocument.VolumeEntry volume : service.namedVolumes()) {
             panel.add(buildVolumeConfigRow(service.name(), volume));
         }
         return panel;
+    }
+
+    private TextField buildImageField(ComposeDocument.ParsedService service) {
+        String repoAndTag = service.image() != null ? service.image() : sanitizeK8sName(service.name()) + ":latest";
+        TextField imageField = new TextField("Image name (will be built and pushed to Registry)");
+        imageField.setValue(REGISTRY_PULL_HOST + "/" + namespaceField.getValue().trim() + "/" + repoAndTag);
+        imageField.setWidthFull();
+        imageFieldsByService.put(service.name(), imageField);
+        return imageField;
     }
 
     private VerticalLayout buildVolumeConfigRow(String serviceName, ComposeDocument.VolumeEntry volume) {
@@ -408,6 +469,10 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         }
         section.add(statusGrid);
 
+        buildPhaseLabel = new Span();
+        buildPhaseLabel.addClassNames(LumoUtility.FontSize.SMALL, LumoUtility.TextColor.SECONDARY);
+        section.add(buildPhaseLabel);
+
         buildLogArea = new Pre();
         styleLogArea(buildLogArea);
         section.add(buildLogArea);
@@ -434,22 +499,16 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
             String repository = imageParts[0];
             String tag = imageParts.length > 1 ? imageParts[1] : "latest";
 
-            String resolvedContext = resolveRepoBuildContext(
-                    composePathField.getValue().trim(), service.build().context());
-
-            BuildRequest buildRequest = new BuildRequest(
-                    gitUrlField.getValue().trim(),
-                    branchField.getValue().trim(),
-                    resolvedContext,
-                    service.build().dockerfile(),
-                    repository,
-                    tag
-            );
-
             ui.access(() -> updateBuildBadge(service.name(), "Building", "primary"));
 
             try {
-                String jobName = registryService.startBuild(cluster, buildRequest);
+                String resolvedContext = resolveBuildContextPath(
+                        composePathField.getValue().trim(), service.build().context());
+                BuildRequest buildRequest = buildRequestFor(
+                        resolvedContext, service.build().dockerfile(), repository, tag);
+
+                String jobName = registryService.startBuild(cluster, buildRequest,
+                        phase -> ui.access(() -> showBuildPhase(service.name() + ": " + phase)));
                 buildJobsByService.put(service.name(), jobName);
                 boolean isComplete = waitForBuild(cluster, service.name(), jobName, ui);
                 if (!isComplete) log.warn("Build incomplete for service {}", service.name());
@@ -509,6 +568,15 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
             }
         }
         return success[0];
+    }
+
+    // With a local Build Context the Pod has to start and receive the archive before Kaniko writes its
+    // first line. This sits outside the log area on purpose: while the Pod is Pending the log poll keeps
+    // overwriting that area with its own placeholder, which would wipe the phase the user is reading.
+    private void showBuildPhase(String phase) {
+        if (buildPhaseLabel != null) {
+            buildPhaseLabel.setText(phase);
+        }
     }
 
     private void updateBuildBadge(String serviceName, String status, String variant) {
@@ -582,7 +650,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     }
 
     private void navigateNext() {
-        if (currentStep == 1) fetchAndParse();
+        if (currentStep == 1) parseComposeAndAdvance();
         else if (currentStep == 2) renderStep(3);
     }
 
@@ -590,10 +658,22 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         if (currentStep == 2) renderStep(1);
     }
 
-    private void fetchAndParse() {
+    private void parseComposeAndAdvance() {
         if (!validateStep1()) return;
         nextButton.setEnabled(false);
         nextButton.setText("Fetching...");
+        if (isLocalOrigin()) {
+            parseLocalCompose();
+        } else {
+            fetchComposeFromGitRepository();
+        }
+    }
+
+    private void parseLocalCompose() {
+        contextPicker.readTextFile(composePathField.getValue().trim(), this::showParsedCompose);
+    }
+
+    private void fetchComposeFromGitRepository() {
         UI ui = UI.getCurrent();
         AsyncTasks.execute(() -> {
             try {
@@ -601,20 +681,36 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                         gitUrlField.getValue().trim(),
                         branchField.getValue().trim(),
                         composePathField.getValue().trim());
-                ui.access(() -> {
-                    this.parsedDocument = document;
-                    nextButton.setEnabled(true);
-                    nextButton.setText("Next");
-                    renderStep(2);
-                });
+                ui.access(() -> showParsedCompose(document));
             } catch (ComposeParseException e) {
-                ui.access(() -> {
-                    showError(e.getMessage());
-                    nextButton.setEnabled(true);
-                    nextButton.setText("Next");
-                });
+                ui.access(() -> abortParsing(e.getMessage()));
             }
         });
+    }
+
+    private void showParsedCompose(String content) {
+        if (content == null || content.isBlank()) {
+            abortParsing("Compose file not found in the selected folder: " + composePathField.getValue().trim());
+            return;
+        }
+        try {
+            showParsedCompose(composeParser.parse(content));
+        } catch (ComposeParseException e) {
+            abortParsing(e.getMessage());
+        }
+    }
+
+    private void showParsedCompose(ComposeDocument document) {
+        this.parsedDocument = document;
+        nextButton.setEnabled(true);
+        nextButton.setText("Next");
+        renderStep(2);
+    }
+
+    private void abortParsing(String message) {
+        showError(message);
+        nextButton.setEnabled(true);
+        nextButton.setText("Next");
     }
 
     private ComposeImportRequest buildImportRequest() {
@@ -636,7 +732,20 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         return new ComposeImportRequest(namespaceField.getValue().trim(), configs);
     }
 
-    private String resolveRepoBuildContext(String composePath, String buildContext) {
+    private BuildRequest buildRequestFor(String contextPath, String dockerfilePath, String repository, String tag) {
+        if (isLocalOrigin()) {
+            BuildContextPicker.PackedFolder folder = contextPicker.getPackedFolder()
+                    .orElseThrow(() -> new IllegalStateException("No local folder selected as build context"));
+            return BuildRequest.fromLocalFolder(folder.archive(), folder.folderName(),
+                    contextPath, dockerfilePath, repository, tag);
+        }
+        return BuildRequest.fromGitRepository(gitUrlField.getValue().trim(), branchField.getValue().trim(),
+                contextPath, dockerfilePath, repository, tag);
+    }
+
+    // Each build: directory resolves against the same root — the repository root for Git, the selected
+    // folder for a local context — so a single upload serves every service that needs building.
+    private String resolveBuildContextPath(String composePath, String buildContext) {
         String composeDir = composePath.contains("/")
                 ? composePath.substring(0, composePath.lastIndexOf('/')) : "";
         String cleaned = buildContext.startsWith("./") ? buildContext.substring(2) : buildContext;
@@ -709,8 +818,6 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private String extractRepoName(String gitUrl) {
         if (gitUrl == null || gitUrl.isBlank()) return "";
         String cleaned = gitUrl.trim().replaceAll("\\.git$", "");
-        String repoName = cleaned.substring(cleaned.lastIndexOf('/') + 1);
-        String slug = repoName.toLowerCase().replaceAll("[^a-z0-9]+", "-").replaceAll("^-+|-+$", "");
-        return slug.length() > 63 ? slug.substring(0, 63) : slug;
+        return sanitizeK8sName(cleaned.substring(cleaned.lastIndexOf('/') + 1));
     }
 }

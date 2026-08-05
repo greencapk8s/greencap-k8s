@@ -68,20 +68,17 @@ class TopologyNodeDrawerTest extends KaribuTest {
         Button goToButton = _find(drawer, Button.class, s -> s.withPredicate(b ->
                 "Go to postgres-service".equals(b.getElement().getAttribute("title")))).get(0);
 
-        // No routes are registered in the test environment, so a successful navigation
-        // attempt always throws — proof the click reached ui.navigate(url). The target URL
-        // carries a "?name=" query string, which Vaadin's Location only validates under
-        // Java assertions (enabled by Gradle's test task, disabled in the production JVM),
-        // surfacing as AssertionError here rather than the NotFoundException a query-less
-        // URL would produce — same "?"-embedded-string navigate(String) pattern already used
-        // elsewhere in this codebase (e.g. CronJobsView), not something this test should mask.
-        assertThatThrownBy(() -> _click(goToButton)).isInstanceOfAny(NotFoundException.class, AssertionError.class);
+        // No routes are registered in the test environment, so reaching the router at all throws.
+        // NotFoundException specifically means the query string was split off and only the path was
+        // resolved; passing the whole "?"-embedded URL as a path trips Location's assertions first.
+        assertThatThrownBy(() -> _click(goToButton)).isInstanceOf(NotFoundException.class);
     }
 
     private JsonObject podGroupDetail(String label, JsonArray serviceDependencies) {
         JsonObject detail = Json.createObject();
         detail.put("nodeLabel", label);
-        detail.put("type", "2 Pods");
+        detail.put("type", "PodGroup");
+        detail.put("subtitle", "2 Pods");
         detail.put("status", "Running");
         detail.put("manifestUrl", "workloads/pods");
         detail.put("readyReplicas", 0);

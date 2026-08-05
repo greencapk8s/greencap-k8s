@@ -20,6 +20,13 @@ RUN ./gradlew --no-daemon dependencies
 
 COPY . .
 ENV VAADIN_PRODUCTION=true
+
+# Version stamped into the jar's build-info (shown in the UI). The build has no .git
+# and no CI env vars here, so without this the Gradle branch detection falls back to
+# the -dev suffix. Left empty on local builds, which then get the -dev suffix.
+ARG APP_VERSION=""
+ENV GREENCAP_VERSION=${APP_VERSION}
+
 RUN ./gradlew --no-daemon bootJar -x jar
 
 # Runtime stage — only the JRE and the executable jar

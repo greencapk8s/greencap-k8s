@@ -45,7 +45,10 @@ public class DockerfileParser {
         }
     }
 
-    Optional<Integer> parseFirstExposePort(String content) {
+    public Optional<Integer> parseFirstExposePort(String content) {
+        if (content == null || content.isBlank()) {
+            return Optional.empty();
+        }
         Matcher matcher = EXPOSE_PATTERN.matcher(content);
         if (matcher.find()) {
             try {
