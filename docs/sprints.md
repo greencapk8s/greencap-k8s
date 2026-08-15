@@ -76,6 +76,18 @@
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
 
+#### 🎓 Onboarding — Product tour de primeiro acesso
+
+> Subiu da baixa prioridade em 15/08/2026, ao ganhar escopo, biblioteca candidata e a complicação de RBAC identificada. Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs.
+
+- **O padrão** — a tela escurece, um recorte destaca um elemento da interface por vez e um balão explica o que ele faz, com botões "Próximo"/"Pular". Vocabulário de UX para não misturar as peças na hora de especificar: o fluxo inteiro é o **product tour** (ou *guided tour* / *walkthrough*), cada balão individual é um **coach mark**, o escurecimento com recorte no elemento em foco é o **spotlight overlay**, e o pontinho pulsante que espera clique para revelar a dica é um **hotspot**.
+- **Por que o item existe** — a primeira sessão do usuário iniciante é hoje a mais hostil que a plataforma tem. Ele entra sem Cluster registrado, então o `MainLayout` desabilita todos os itens de `clusterDependentNavItems` e quatro seções de menu (`DEVELOPER EXPERIENCE`, `PROJECT`, `GLOBAL`, `SETTINGS`) ficam visíveis mas inertes — a tela mais vazia da plataforma é justamente a de boas-vindas. Um tour que abra apontando para *Clusters* e conduza até o primeiro deploy resolve exatamente a lacuna que o público-alvo do `CONTEXT.md` ("individuals and small/medium teams who study, develop, and test against Kubernetes") sente.
+- **Relação com o `HelpDialog` existente** — são mecanismos complementares, não concorrentes. O `HelpDialog` (usado em `TopologiaView`, `RegistryTagsView` e via `UiConstants`) é sob demanda, escopo de uma view, e responde "o que esta tela significa". O tour é involuntário na primeira visita, cruza views e responde "por onde eu começo". Vale decidir cedo se o botão "?" de cada view ganha uma entrada para reabrir o tour daquela tela, ou se o tour vive só como fluxo global reiniciável pelo menu de usuário.
+- **A complicação real é o RBAC, não o overlay** — os itens de menu nascem condicionados a permissão (`navItem(..., canX)`), então um tour de passos fixos aponta para elementos que simplesmente não existem no DOM daquele usuário: um viewer sem permissão de deploy não tem "New Application" para o coach mark destacar. O tour precisa ser montado a partir das permissões efetivas da sessão (mesma fonte que o `MainLayout` já consulta) e pular passos cujo alvo não foi renderizado, em vez de travar ou destacar o vazio. Isso é o que decide se o item é uma sprint pequena ou média.
+- **Onde guardar "já viu o tour"** — a entidade `User` já carrega preferências de UI no mesmo padrão (`refreshIntervalSeconds`, `drawerWidthPx`, `theme`), então um flag ali com migration Flyway própria segue a convenção existente. Persistir no servidor, e não em `localStorage`, mantém o comportamento consistente entre navegadores e é o que permite reabrir o tour por escolha do usuário.
+- **Direção de solução** — **Driver.js** é a candidata natural: MIT (compatível com a Apache 2.0 do projeto), vanilla, sem dependência de framework, e o overlay/spotlight já pronto. **Shepherd.js** (MIT) é a alternativa mais completa; **Intro.js** deve ser descartada de saída pelo licenciamento AGPL/comercial, incompatível com a distribuição da imagem pública. A integração não inaugura nada: `@NpmPackage` + `@JsModule("./arquivo.ts")` sobre um componente Java é o caminho já provado três vezes no projeto — `TopologyGraphComponent` (cytoscape), `CodeMirrorEditor` (codemirror) e `BuildContextPicker`.
+- **Custo colateral a considerar** — seria o quarto módulo TS de peso do projeto, num frontend que ainda tem cobertura automatizada zero (ver "Testes de frontend" nesta mesma seção). A definição dos passos — quais, em que ordem, com que alvo — é lógica pura e testável; convém que a sprint já nasça com essa separação, em vez de somar mais dívida ao mesmo ponto cego.
+
 #### 🐳 Deploy from Compose — follow-ups da Sprint 83
 
 - **Ingress no Deploy from Compose** — a Sprint 83 deixou Ingress fora do escopo v1 (decisão registrada no `/grill-with-docs`). Cada serviço com `ports:` expõe apenas um ClusterIP Service. Follow-up: na tela de revisão, adicionar toggle "Expor externamente (Ingress)" por serviço com porta exposta, com campos de host e IngressClass editáveis — mesmo padrão do Deploy from Image. Avaliar também a criação de um único Ingress com múltiplos path rules (um por serviço), o que permite agrupar todos os endpoints sob um único host.
@@ -140,7 +152,8 @@
 > Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs. Ainda sem escopo definido — registrar como exploração futura, não compromisso de sprint.
 
 - **Playground/Sandbox** — marcar um Cluster ou Namespace como "seguro para experimentar", possivelmente com avisos/restrições diferenciados na UI.
-- **Onboarding/Tutorial in-app** — guia introdutório dentro da própria UI para usuários iniciantes em Kubernetes.
+
+> "Product tour de primeiro acesso" saiu desta seção em 15/08/2026 e subiu para a média prioridade — deixou de ser exploração futura ao ganhar escopo, biblioteca candidata e a complicação de RBAC identificada.
 
 > "Sample Manifests" (biblioteca de YAMLs de exemplo via Manifest/Apply) foi absorvido e superado pela Sprint 98 — ver Templates Catalog.
 
