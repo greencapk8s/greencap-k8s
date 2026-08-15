@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 112 | Tour de primeiro acesso: introdução guiada com spotlight sobre header e menu, montada no servidor e ancorada por id explícito, com replay em Platform Settings | 🔄 Em andamento |
 | 111 | Topologia: nó com corpo neutro e ícone de tipo, cor codificando exclusivamente estado, e o status escrito no nó quando não está saudável | ✅ Concluído |
 | 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
 | 109 | Hotdeploy do Vaadin em dev (Vite no lugar do `dev.bundle`) + "Go to resource" dos nós de Pod e PodGroup da Topologia levando ao Pod certo | ✅ Concluído |
