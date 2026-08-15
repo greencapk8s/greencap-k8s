@@ -37,6 +37,12 @@
 
 ### 🟡 Média Prioridade
 
+#### 🍎 Publicar imagem `arm64` no GHCR — follow-up do ADR 0023
+
+- Hoje o `publish-image.yml` publica apenas `linux/amd64` (ADR 0019, que descartou `arm64` por depender de emulação QEMU no runner). Em Apple Silicon o `setup.sh` sempre compila do código-fonte.
+- Com o trunk único (ADR 0023), o tip da `main` é trabalho em andamento, e por isso o Quick Start do README passou a instruir checkout da última tag antes de rodar o wizard — uma instrução a mais que só existe por causa dessa lacuna.
+- **Direção de solução**: avaliar os runners `arm64` nativos do GitHub Actions, gratuitos em repositório público, que tornariam a build multi-arquitetura viável sem emulação. Publicando `arm64`, o checkout de tag vira recomendação em vez de necessidade e o macOS ganha o mesmo caminho rápido do Linux. Reabre o ADR 0019.
+
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
 - **`/etc/hosts` não suporta curinga** — descoberto ao testar o Ingress do Sample Catalog (Sprint 98): a convenção `<namespace>.greencap.local`, usada também em Deploy Application e Deploy from Dockerfile, exige uma linha manual em `/etc/hosts` por aplicação implantada (`/etc/hosts` faz correspondência exata, sem expansão de glob — uma entrada `*.greencap.local` não resolve nada). Conforme o Sample Catalog cresce com mais Templates, essa fricção tende a aumentar. Solução: documentar (ou automatizar via script) um resolver DNS local com curinga real, ex. `dnsmasq` com `address=/.greencap.local/<ip-do-cluster>`, resolvendo qualquer subdomínio de uma vez — no Linux via NetworkManager/dnsmasq, no macOS via dnsmasq + `/etc/resolver/greencap.local`.
