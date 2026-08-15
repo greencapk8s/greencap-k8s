@@ -17,7 +17,7 @@
 
 ## Checklist
 
-- [ ] Targets the `develop` branch
+- [ ] Targets the `main` branch
 - [ ] `./gradlew compileJava` passes
 - [ ] `./gradlew test` passes
 - [ ] Follows the conventions in [CONTRIBUTING.md](CONTRIBUTING.md) / [CLAUDE.md](CLAUDE.md)

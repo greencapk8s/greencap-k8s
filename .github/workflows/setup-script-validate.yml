@@ -1,8 +1,12 @@
 name: Setup Script Validate
 
+# Keeps its paths filter: this workflow provisions a real cluster on two runners and
+# takes ~6 minutes, so it only runs when the setup path actually changes. That is also
+# why it must NOT be a required status check — a filtered workflow never reports on
+# PRs outside its paths, which would block them permanently.
 on:
   pull_request:
-    branches: [main, staging, develop]
+    branches: [main]
     paths: &watched-paths
       - "setup/**"
       - "docker/**"
@@ -13,7 +17,7 @@ on:
       - "src/**"
       - ".github/workflows/setup-script-validate.yml"
   push:
-    branches: [main, staging, develop]
+    branches: [main]
     paths: *watched-paths
 
 jobs:

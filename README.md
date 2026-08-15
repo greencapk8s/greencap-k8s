@@ -94,6 +94,7 @@ The only prerequisite is **Docker**. Everything else (`kubectl`, `minikube`, `he
 ```bash
 git clone https://github.com/greencapk8s/greencap-k8s.git
 cd greencap-k8s
+git checkout "$(git describe --tags --abbrev=0)"   # latest release
 ./setup/setup.sh
 ```
 
@@ -102,7 +103,9 @@ The wizard provisions a real Kubernetes cluster (minikube), pulls the published 
 - **URL:** http://greencap.local
 - **Login:** `admin` / `admin` &nbsp;(change it after your first login)
 
-> **How the image is provided.** On `amd64` the wizard pulls the prebuilt public image from `ghcr.io/greencapk8s/platform` — no build, no authentication. On `arm64` (Apple Silicon), or when you set `BUILD_LOCAL=true`, it builds from source locally instead; if a pull ever fails, it falls back to a local build automatically, so setup never stalls. Pin a specific release with `PLATFORM_IMAGE_TAG=X.Y.Z ./setup/setup.sh` (defaults to `latest`).
+> **Why check out a tag.** `main` is the development trunk, so its tip is work in progress. On `arm64` the wizard builds from source (see below), which would mean building an unreleased state — checking out the latest tag keeps you on a released one. On `amd64` it makes no difference to the install, but it keeps the repo you have matching the app you run.
+
+> **How the image is provided.** On `amd64` the wizard pulls the prebuilt public image from `ghcr.io/greencapk8s/platform` — no build, no authentication. On `arm64` (Apple Silicon), or when you set `BUILD_LOCAL=true`, it builds from source locally instead; if a pull ever fails, it falls back to a local build automatically, so setup never stalls. Pin a specific release with `PLATFORM_IMAGE_TAG=X.Y.Z ./setup/setup.sh` (defaults to `latest`), or try a release candidate with `PLATFORM_IMAGE_TAG=X.Y.Z-rc.N`.
 
 To tear everything down:
 

@@ -58,9 +58,10 @@ The complete coding standard lives in [`CLAUDE.md`](CLAUDE.md). The essentials:
 - **English is preferred; Portuguese is accepted.** Keep each commit focused.
 
 **Branches**
-- `develop` is the active development branch — **base your work on `develop` and target your PR at it.**
-- `staging` holds release candidates; `main` is the stable line, updated only via release PRs.
-  Don't target `main` directly.
+- `main` is the trunk and the only long-lived branch — **base your work on `main` and target your PR at it.**
+- Use a short-lived branch for your work (e.g. `feat/topology-legend`). It is deleted once merged.
+- Releases are git tags (`vX.Y.Z`), not branches. Release candidates are pre-release
+  tags (`vX.Y.Z-rc.N`) published to GHCR without moving the `latest` image.
 
 **Tests**
 - Compile after changes: `./gradlew compileJava` (and `./gradlew compileTestJava` for tests).
@@ -70,12 +71,12 @@ The complete coding standard lives in [`CLAUDE.md`](CLAUDE.md). The essentials:
 
 ## Submitting a pull request
 
-1. Fork the repo and create a branch off `develop` (e.g. `feat/topology-legend`).
+1. Fork the repo and create a branch off `main` (e.g. `feat/topology-legend`).
 2. Make your change, following the conventions above.
 3. Make sure `./gradlew compileJava` and `./gradlew test` pass.
 4. Keep the PR focused, fill in the PR template, and link the related issue (`Closes #123`).
 5. For UI changes, include before/after screenshots.
-6. Open the PR **against `develop`**.
+6. Open the PR **against `main`**.
 
 A maintainer will review it as soon as possible. Thanks again for contributing! 💚
 

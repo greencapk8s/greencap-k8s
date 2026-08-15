@@ -9,38 +9,27 @@ plugins {
 
 group = "io.greencap"
 
-fun detectBranch(): String =
-    (System.getenv("GITHUB_REF_NAME") ?: System.getenv("GIT_BRANCH"))
-        ?: runCatching {
-            ProcessBuilder("git", "rev-parse", "--abbrev-ref", "HEAD")
-                .redirectErrorStream(true)
-                .start().inputStream.bufferedReader().readLine()?.trim()
-        }.getOrNull()
-        ?: "unknown"
-
-fun lastGitTag(fallback: String): String = runCatching {
-    ProcessBuilder("git", "describe", "--tags", "--abbrev=0")
-        .redirectErrorStream(true)
-        .start().inputStream.bufferedReader().readLine()
-        ?.trim()
-        ?.removePrefix("v")
-        ?: fallback
-}.getOrElse { fallback }
+// Only a tag pointing exactly at HEAD counts as a release version — v0.7.10 and
+// v0.7.10-rc.1 alike. Any other commit is source in flux and keeps the -dev suffix.
+// This is the same rule setup.sh applies when it builds the image locally.
+// stderr is discarded: git describe reports "no tag exactly matches" there, and
+// folding it into stdout would turn the failure into a bogus version string.
+fun exactReleaseTag(): String? = runCatching {
+    val process = ProcessBuilder("git", "describe", "--tags", "--exact-match")
+        .redirectError(ProcessBuilder.Redirect.DISCARD)
+        .start()
+    val tag = process.inputStream.bufferedReader().readText().trim()
+    tag.takeIf { process.waitFor() == 0 && it.isNotEmpty() }?.removePrefix("v")
+}.getOrNull()
 
 val baseVersion = project.property("version.base") as String
-val rcIteration = project.property("version.rc") as String
-val branch = detectBranch()
 
-// Explicit override wins over branch detection. The release image is compiled inside
-// the Docker build stage, where neither the CI env vars nor .git are available (see
-// .dockerignore) — branch detection there always falls back to "unknown" and would
-// stamp a -dev suffix on a stable release. publish-image.yml passes the tag version in.
+// Explicit override wins over tag detection. The release image is compiled inside the
+// Docker build stage, where .git is absent (see .dockerignore) and no tag can be
+// derived — publish-image.yml passes the tag version in through APP_VERSION.
 version = System.getenv("GREENCAP_VERSION")?.takeIf { it.isNotBlank() }
-    ?: when (branch) {
-        "main"    -> lastGitTag(fallback = baseVersion)
-        "staging" -> "$baseVersion-rc.$rcIteration"
-        else      -> "$baseVersion-dev"
-    }
+    ?: exactReleaseTag()
+    ?: "$baseVersion-dev"
 
 java {
     toolchain {

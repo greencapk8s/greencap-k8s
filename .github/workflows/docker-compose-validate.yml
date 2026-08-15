@@ -1,21 +1,15 @@
 name: Docker Compose Validate
 
+# No paths filter here, deliberately: this workflow's `test` job is the required
+# status check on main. A filtered workflow simply never reports on a PR that touches
+# none of its paths, and a required check that never reports blocks the merge forever.
+# Running it on every PR costs ~3 minutes; use setup-script-validate for path-scoped
+# infrastructure checks that are not required.
 on:
   pull_request:
-    branches: [main, staging, develop]
-    paths: &watched-paths
-      - "docker-compose.yml"
-      - "docker/**"
-      - ".env.example"
-      - "build.gradle.kts"
-      - "settings.gradle.kts"
-      - "gradle/**"
-      - "gradlew"
-      - "src/**"
-      - ".github/workflows/*.yml"
+    branches: [main]
   push:
-    branches: [main, staging, develop]
-    paths: *watched-paths
+    branches: [main]
 
 jobs:
   test:
