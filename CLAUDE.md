@@ -105,6 +105,8 @@ ui/          # Views Vaadin e MainLayout
 
 ## Agent skills
 
+As skills em `.claude/skills/` vêm do repositório [mattpocock/skills](https://github.com/mattpocock/skills), versionadas aqui como cópias e registradas em `skills-lock.json` — atualizar com `npx skills@latest update`. Exceções mantidas à mão: `greencap-run` e `greencap-stop` (próprias do projeto) e a troca de `.scratch/` por `.issue-tracker/` nas skills `code-review`, `to-tickets` e `ask-matt`, que precisa ser reaplicada após cada atualização.
+
 ### Issue tracker
 
 Issues ficam como arquivos markdown em `.issue-tracker/`. Ver `docs/agents/issue-tracker.md`.
