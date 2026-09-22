@@ -1,7 +1,11 @@
 package io.greencap.k8s.ui;
 
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.html.Div;
+import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Span;
@@ -43,7 +47,38 @@ public class PlatformSettingsView extends VerticalLayout implements BeforeEnterO
         H2 pageTitle = new H2("Platform Settings");
         pageTitle.addClassNames(LumoUtility.FontSize.XLARGE, LumoUtility.Margin.Bottom.MEDIUM);
 
-        add(pageTitle, buildRefreshCard(), buildAppearanceCard());
+        add(pageTitle, buildRefreshCard(), buildAppearanceCard(), buildOnboardingCard());
+    }
+
+    private Div buildOnboardingCard() {
+        H3 cardTitle = new H3("Onboarding");
+        cardTitle.addClassNames(LumoUtility.FontSize.MEDIUM, LumoUtility.Margin.Bottom.SMALL);
+
+        Span description = new Span("Replay the guided tour of the platform.");
+        description.addClassNames(LumoUtility.TextColor.SECONDARY, LumoUtility.FontSize.SMALL);
+
+        Button startTour = new Button("Start tour", VaadinIcon.PLAY_CIRCLE_O.create(), e -> {
+            // The tour closes on the Dashboard, telling the user that what is on screen is
+            // GreenCap running on this very cluster — a line that says nothing from Settings.
+            UI ui = UI.getCurrent();
+            ui.navigate(DashboardView.ROUTE);
+            MainLayout.restartTour(ui);
+        });
+        startTour.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        startTour.addClassNames(LumoUtility.Margin.Top.MEDIUM);
+
+        VerticalLayout cardContent = new VerticalLayout(cardTitle, description, startTour);
+        cardContent.setPadding(true);
+        cardContent.setSpacing(false);
+
+        Div card = new Div(cardContent);
+        card.addClassNames(
+                LumoUtility.Border.ALL,
+                LumoUtility.BorderRadius.MEDIUM,
+                LumoUtility.BorderColor.CONTRAST_10
+        );
+        card.setMaxWidth("600px");
+        return card;
     }
 
     private Div buildRefreshCard() {

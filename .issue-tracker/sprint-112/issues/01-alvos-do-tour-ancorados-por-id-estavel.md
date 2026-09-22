@@ -1,6 +1,6 @@
 # 01 — Alvos do Tour ancorados por id estável
 
-Status: todo
+Status: done
 
 Pré-requisito das issues 03 e 04. Sozinha não muda nada visível.
 
@@ -17,3 +17,16 @@ Nada de comportamento muda com esta issue. Os elementos passam a carregar um atr
 Cobertura de teste: um teste Karibu estendendo `KaribuTest` verifica que cada identificador declarado nas constantes é encontrável na árvore de componentes do `MainLayout`. É barato e cobre exatamente a falha que preocupa — alguém renomear ou remover um alvo sem perceber que o Tour dependia dele.
 
 Fora de escopo: identificar elementos que nenhum passo usa. A convenção nasce a serviço do Tour, e generalizá-la para o resto da UI antes de haver uma segunda necessidade real seria abstrair cedo demais.
+
+## Comments
+
+**15/08/2026** — Implementada. `TourTargets` reúne os seis ids e a lista `ALL` que o teste percorre;
+o `MainLayout` grava-os na navbar, nas quatro seções do drawer e no item de Topology. O teste Karibu
+teve os dentes conferidos (id inexistente na lista faz falhar). Pendente apenas o aceite manual.
+
+O alvo do header ficou na navbar inteira: Cluster e Namespace são dois layouts separados, com o
+spacer e o user info entre eles, e nenhum elemento existente envolve só os dois.
+
+**22/09/2026** — Aceite manual concluído. O alvo do passo 1 na navbar inteira foi revisado com o
+Tour rodando e mantido: o texto do passo já fala da barra, e nada dentro dela responde a clique
+durante o Tour (ver issue 04).

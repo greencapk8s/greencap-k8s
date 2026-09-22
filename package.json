@@ -21,6 +21,7 @@
     "cytoscape": "3.30.2",
     "cytoscape-fcose": "2.2.0",
     "date-fns": "2.29.3",
+    "driver.js": "1.8.0",
     "lit": "3.1.4",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -67,6 +68,7 @@
       "cytoscape": "3.30.2",
       "cytoscape-fcose": "2.2.0",
       "date-fns": "2.29.3",
+      "driver.js": "1.8.0",
       "lit": "3.1.4",
       "react": "18.3.1",
       "react-dom": "18.3.1",
@@ -93,7 +95,7 @@
       "workbox-core": "7.1.0",
       "workbox-precaching": "7.1.0"
     },
-    "hash": "29b145eb8eaf6337af445b9838116861743c20a29b8aa20bf3475f5aca7861f8"
+    "hash": "364e9dd09dda9df0dd2cd06608187311b9ec015e77743471d7cfd121e53f0df2"
   },
   "overrides": {
     "@vaadin/bundles": "$@vaadin/bundles",
@@ -117,6 +119,7 @@
     "cytoscape-fcose": "$cytoscape-fcose",
     "@codemirror/theme-one-dark": "$@codemirror/theme-one-dark",
     "codemirror": "$codemirror",
-    "@codemirror/lang-yaml": "$@codemirror/lang-yaml"
+    "@codemirror/lang-yaml": "$@codemirror/lang-yaml",
+    "driver.js": "$driver.js"
   }
 }

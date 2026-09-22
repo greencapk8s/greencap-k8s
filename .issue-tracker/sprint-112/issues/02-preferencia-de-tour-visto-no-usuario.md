@@ -1,6 +1,6 @@
 # 02 — Preferência de Tour visto no usuário
 
-Status: todo
+Status: done
 
 Pré-requisito das issues 03 e 05. Independente da issue 01.
 
@@ -17,3 +17,17 @@ Quem lê é o `MainLayout`, na entrada da sessão, e a leitura sozinha não deci
 Cobertura de teste: `PostgresIntegrationTest` cobre a persistência — o valor nasce falso, sobrevive a uma releitura depois de gravado, e é isolado por usuário, de modo que marcar um como visto não afeta outro.
 
 Fora de escopo: qualquer interface para essa preferência. O card em Platform Settings é a issue 05, e o consumo pelo gatilho é a issue 03.
+
+## Comments
+
+**15/08/2026** — Implementada. Migration `V35__add_tour_seen_to_users.sql`, campo `tourSeen` na
+entidade (sem prefixo, para o Lombok render `isTourSeen()`) e o par `findTourSeen`/`updateTourSeen`
+no `UserService`. Três testes de integração cobrindo nascer falso, sobreviver a releitura e
+isolamento por usuário. Migration aplicada em banco real e conferida: os dois usuários existentes
+entraram com `tour_seen = false`.
+
+`updateTourSeen` recebe um booleano, seguindo a nomenclatura dos vizinhos, mas hoje ninguém passa
+`false` — a issue 05 é explícita em não mexer na preferência. Revisar se incomodar.
+
+**22/09/2026** — Aceite manual concluído: cada saída — concluir, pular, ESC e o X — gravou a
+preferência, e o Tour não voltou no login seguinte.

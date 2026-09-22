@@ -1,6 +1,6 @@
 # 05 — Card de Onboarding em Platform Settings
 
-Status: todo
+Status: done
 
 Consome as issues 02 e 04.
 
@@ -15,3 +15,20 @@ O botão navega para o Dashboard e inicia o Tour imediatamente. Não altera a pr
 Cobertura de teste: Karibu estendendo `KaribuTest` — o card aparece na view, e o botão leva ao Dashboard. Que o Tour de fato abra é verificação de navegador, coberta pelo aceite manual junto com a issue 04.
 
 Fora de escopo: qualquer opção de desativar o Tour permanentemente, ou de escolher quais passos ver. São seis passos numa única execução; controle mais fino seria configuração para um problema que ninguém relatou.
+
+## Comments
+
+**15/08/2026** — Implementada. Card "Onboarding" como terceiro da `PlatformSettingsView`, botão que
+navega para o Dashboard e chama `MainLayout.restartTour(ui)` sem tocar na preferência. Dois testes
+Karibu, com o padrão de route stub que o `CronJobsViewTest` já usa.
+
+Duas coisas nasceram daqui. Um bug real: o `TourComponent` entregava os passos só como propriedade,
+e o replay entrega a mesma lista — propriedade que não muda o Flow não envia, então o botão não
+faria nada. Passou a disparar por `callJsFunction("startTour")`. E `DashboardView.ROUTE` foi
+extraída como constante, que é o que tornou a navegação testável.
+
+O primeiro teste de navegação passava sem testar nada (afirmava location `""`, que é onde o teste já
+começa). Corrigido para exigir que o stub do Dashboard vire a view ativa, e conferido com dentes.
+
+**22/09/2026** — Aceite manual concluído: o replay pelo card reinicia o Tour no Dashboard sem
+alterar a preferência.

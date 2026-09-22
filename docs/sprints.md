@@ -8,7 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 112 | Tour de primeiro acesso: introdução guiada com spotlight sobre header e menu, montada no servidor e ancorada por id explícito, com replay em Platform Settings | 🔄 Em andamento |
+| 112 | Tour de primeiro acesso: introdução guiada com spotlight sobre header e menu, montada no servidor e ancorada por id explícito, com replay em Platform Settings | ✅ Concluído |
 | 111 | Topologia: nó com corpo neutro e ícone de tipo, cor codificando exclusivamente estado, e o status escrito no nó quando não está saudável | ✅ Concluído |
 | 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
 | 109 | Hotdeploy do Vaadin em dev (Vite no lugar do `dev.bundle`) + "Go to resource" dos nós de Pod e PodGroup da Topologia levando ao Pod certo | ✅ Concluído |
@@ -18,7 +18,6 @@
 | 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
 | 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
 | 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
-| 102 | Templates Catalog: ação "Open Topology" no card de Template instalado (entra na Namespace da solução e abre a Topologia) | ✅ Concluído |
 
 ---
 
@@ -77,18 +76,6 @@
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
 
-#### 🎓 Onboarding — Product tour de primeiro acesso
-
-> Subiu da baixa prioridade em 15/08/2026, ao ganhar escopo, biblioteca candidata e a complicação de RBAC identificada. Decorre do posicionamento registrado em `CONTEXT.md` (seção "Purpose & Audience"): GreenCap como plataforma de estudos/dev/teste para PMEs.
-
-- **O padrão** — a tela escurece, um recorte destaca um elemento da interface por vez e um balão explica o que ele faz, com botões "Próximo"/"Pular". Vocabulário de UX para não misturar as peças na hora de especificar: o fluxo inteiro é o **product tour** (ou *guided tour* / *walkthrough*), cada balão individual é um **coach mark**, o escurecimento com recorte no elemento em foco é o **spotlight overlay**, e o pontinho pulsante que espera clique para revelar a dica é um **hotspot**.
-- **Por que o item existe** — a primeira sessão do usuário iniciante é hoje a mais hostil que a plataforma tem. Ele entra sem Cluster registrado, então o `MainLayout` desabilita todos os itens de `clusterDependentNavItems` e quatro seções de menu (`DEVELOPER EXPERIENCE`, `PROJECT`, `GLOBAL`, `SETTINGS`) ficam visíveis mas inertes — a tela mais vazia da plataforma é justamente a de boas-vindas. Um tour que abra apontando para *Clusters* e conduza até o primeiro deploy resolve exatamente a lacuna que o público-alvo do `CONTEXT.md` ("individuals and small/medium teams who study, develop, and test against Kubernetes") sente.
-- **Relação com o `HelpDialog` existente** — são mecanismos complementares, não concorrentes. O `HelpDialog` (usado em `TopologiaView`, `RegistryTagsView` e via `UiConstants`) é sob demanda, escopo de uma view, e responde "o que esta tela significa". O tour é involuntário na primeira visita, cruza views e responde "por onde eu começo". Vale decidir cedo se o botão "?" de cada view ganha uma entrada para reabrir o tour daquela tela, ou se o tour vive só como fluxo global reiniciável pelo menu de usuário.
-- **A complicação real é o RBAC, não o overlay** — os itens de menu nascem condicionados a permissão (`navItem(..., canX)`), então um tour de passos fixos aponta para elementos que simplesmente não existem no DOM daquele usuário: um viewer sem permissão de deploy não tem "New Application" para o coach mark destacar. O tour precisa ser montado a partir das permissões efetivas da sessão (mesma fonte que o `MainLayout` já consulta) e pular passos cujo alvo não foi renderizado, em vez de travar ou destacar o vazio. Isso é o que decide se o item é uma sprint pequena ou média.
-- **Onde guardar "já viu o tour"** — a entidade `User` já carrega preferências de UI no mesmo padrão (`refreshIntervalSeconds`, `drawerWidthPx`, `theme`), então um flag ali com migration Flyway própria segue a convenção existente. Persistir no servidor, e não em `localStorage`, mantém o comportamento consistente entre navegadores e é o que permite reabrir o tour por escolha do usuário.
-- **Direção de solução** — **Driver.js** é a candidata natural: MIT (compatível com a Apache 2.0 do projeto), vanilla, sem dependência de framework, e o overlay/spotlight já pronto. **Shepherd.js** (MIT) é a alternativa mais completa; **Intro.js** deve ser descartada de saída pelo licenciamento AGPL/comercial, incompatível com a distribuição da imagem pública. A integração não inaugura nada: `@NpmPackage` + `@JsModule("./arquivo.ts")` sobre um componente Java é o caminho já provado três vezes no projeto — `TopologyGraphComponent` (cytoscape), `CodeMirrorEditor` (codemirror) e `BuildContextPicker`.
-- **Custo colateral a considerar** — seria o quarto módulo TS de peso do projeto, num frontend que ainda tem cobertura automatizada zero (ver "Testes de frontend" nesta mesma seção). A definição dos passos — quais, em que ordem, com que alvo — é lógica pura e testável; convém que a sprint já nasça com essa separação, em vez de somar mais dívida ao mesmo ponto cego.
-
 #### 🐳 Deploy from Compose — follow-ups da Sprint 83
 
 - **Ingress no Deploy from Compose** — a Sprint 83 deixou Ingress fora do escopo v1 (decisão registrada no `/grill-with-docs`). Cada serviço com `ports:` expõe apenas um ClusterIP Service. Follow-up: na tela de revisão, adicionar toggle "Expor externamente (Ingress)" por serviço com porta exposta, com campos de host e IngressClass editáveis — mesmo padrão do Deploy from Image. Avaliar também a criação de um único Ingress com múltiplos path rules (um por serviço), o que permite agrupar todos os endpoints sob um único host.
@@ -122,7 +109,7 @@
 
 - **Descoberto no planejamento da Sprint 111**, ao definir a etapa de testes do redesenho dos nós da Topologia. O `package.json` não tem nenhum runner (`vitest`, `jest`, `@web/test-runner`) e não existe um único teste de frontend no repositório. Toda a suíte automatizada do projeto é Java — Karibu para views Vaadin e `PostgresIntegrationTest` para integração —, e nenhuma delas alcança código TypeScript.
 - **O que fica descoberto**: `topology-graph.ts` é o único módulo TS de peso do projeto (~400 linhas) e concentra decisões que não são cosméticas — resolução do nó-pai para o agrupamento por labels (`_resolveParent`, com o caso de `component` sem `part-of` formando grupo de nível externo), aplicação de posições salvas, a bifurcação entre `fixedNodeConstraint` do fcose e o posicionamento manual quando há nós compostos, e a serialização do layout de volta ao servidor (que exclui deliberadamente os nós de grupo). Um erro em qualquer um desses pontos hoje só aparece no aceite manual, ou não aparece.
-- **Custo já pago**: as issues 03 e 04 da Sprint 111 (corpo neutro com ícone de tipo, e o status escrito no nó) saíram com cobertura automatizada zero — a garantia de regressão delas é inteiramente o aceite manual no browser.
+- **Custo já pago**: as issues 03 e 04 da Sprint 111 (corpo neutro com ícone de tipo, e o status escrito no nó) saíram com cobertura automatizada zero — a garantia de regressão delas é inteiramente o aceite manual no browser. O mesmo vale para o renderizador do Tour da Sprint 112 (`tour.ts`), incluindo os dois ajustes de comportamento feitos no aceite — o clique no overlay e no elemento destacado não encerram nem desviam o Tour —, que nenhum teste protege.
 - **O que dá e o que não dá para testar**: a aparência não é alcançável, porque o Cytoscape desenha em canvas e não deixa rastro inspecionável no DOM. Mas a lógica pura dá: o mapeamento de tipo para ícone e de severidade para cor, o parsing defensivo de `graphData`/`savedPositions` (hoje ambos com `try/catch` silencioso), a montagem da hierarquia de grupos e o payload do save de layout. Nada disso precisa de renderização real.
 - **Direção de solução**: Vitest com ambiente jsdom — o Vite já é o bundler do Vaadin 24 e o `vite.config.ts` da raiz é o arquivo que o Vaadin reserva para customização (o `vite.generated.ts` ao lado é regerado a cada build e não pode receber configuração). Extrair as funções puras de `topology-graph.ts` para um módulo próprio, testável sem instanciar o custom element, é pré-requisito e melhora a classe por si só. Avaliar pendurar a execução no `./gradlew test` via task Gradle chamando o npm, para não criar uma segunda porta de entrada de testes que alguém esqueça de rodar.
 
@@ -162,8 +149,6 @@
 
 - **Playground/Sandbox** — marcar um Cluster ou Namespace como "seguro para experimentar", possivelmente com avisos/restrições diferenciados na UI.
 
-> "Product tour de primeiro acesso" saiu desta seção em 15/08/2026 e subiu para a média prioridade — deixou de ser exploração futura ao ganhar escopo, biblioteca candidata e a complicação de RBAC identificada.
-
 > "Sample Manifests" (biblioteca de YAMLs de exemplo via Manifest/Apply) foi absorvido e superado pela Sprint 98 — ver Templates Catalog.
 
 ---
@@ -171,6 +156,23 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 112 ✅ — Tour de primeiro acesso: spotlight sobre header e menu, montado no servidor e ancorado por id
+
+- Planejada com `/grill-with-docs`; decisões e alternativas descartadas no **ADR 0024**. Fecha o item de média prioridade do backlog "Product tour de primeiro acesso"
+- **A premissa central do backlog estava errada**: o item previa montar o Tour a partir das permissões efetivas, porque "os itens de menu nascem condicionados a permissão". Não nascem — o `MainLayout` renderiza o menu inteiro para todos, e as variáveis `canX = true` que sugeriam o contrário são dead code (registrado no backlog de code smells). A única condicional que sobrou é a frase sobre Users, dita só ao `PlatformAdmin` porque a view tem guard próprio e devolveria o usuário comum ao Dashboard
+- **Alvos por id explícito** (`TourTargets`): seis ids — a navbar, as quatro seções do drawer e o item Topology — declarados num único lugar e lidos tanto pelo `MainLayout`, que os grava, quanto pela lista de passos. Primeiro `setId` do pacote `ui/`; um seletor estrutural continuaria "funcionando" depois de alguém reordenar o menu, só que apontando para outra coisa
+- **Preferência `tour_seen`** no `User` (migration `V35__add_tour_seen_to_users.sql`), no mesmo padrão de tema, largura do drawer e intervalo de atualização — no servidor, não em `localStorage`, para valer em qualquer navegador. Toda saída grava: concluir, pular, ESC e o X
+- **Passos montados no servidor** (`TourSteps`, `TourComponent`) e entregues prontos ao navegador, no contrato do `TopologyGraphComponent`: seis passos em inglês, do contexto no header até Settings, que encerra contando que o que está na tela é o próprio GreenCap rodando no cluster gerenciado. Disparo no `onAttach` do `MainLayout`, só com Tour não visto e Cluster ativo, abrindo o drawer antes
+- **Renderização com Driver.js 1.8.0** (MIT) em `tour.ts`: parsing defensivo da lista, `skipMissingElement` por passo, e os tokens Lumo lidos de dentro do `AppLayout` e republicados na raiz do documento — o balão nasce no `body`, fora da subárvore que carrega o tema escuro
+- **Replay em Platform Settings**: card "Onboarding" navega para o Dashboard e reinicia o Tour sem tocar na preferência. Bug achado ainda na implementação: o replay entrega a mesma lista, e propriedade que não muda o Flow não reenvia — o botão não faria nada. O disparo virou `callJsFunction("startTour")`, e `DashboardView.ROUTE` foi extraída como constante
+- **Dois ajustes no aceite manual**, ambos no `tour.ts`: (a) o clique no overlay escurecido fechava o Tour e gravava a preferência, então um clique acidental consumia o primeiro acesso — `overlayClickBehavior` recebe um hook vazio, porque desligar `allowClose` levaria junto o ESC e o X; (b) o Driver.js deixa o elemento destacado clicável — no passo 1 o botão do menu recolhia o drawer e os passos seguintes apontavam para o menu fechado, e nos passos do menu os links navegavam no meio do Tour — `disableActiveInteraction: true`
+- **Duas leituras de escopo revisadas no aceite e mantidas**: as issues 01 e 03 divergiam na contagem (a 03 juntava Global e Settings e previa um fecho sem alvo), e ficaram seis passos para seis alvos, com o fecho no passo de Settings; e o passo 1 ilumina a navbar inteira, porque Cluster e Namespace são blocos separados sem container comum
+- Testes: 12 novos — `UserServiceTest` (integração: a preferência nasce falsa, sobrevive a releitura e é isolada por usuário), `MainLayoutTest` (ids alcançáveis na árvore, passos apontando para alvos declarados, condicional de Users e as três condições do gatilho) e o novo `PlatformSettingsViewTest` (o replay leva ao Dashboard). Suíte completa: 165 testes, todos verdes
+- **O renderizador não tem cobertura automatizada**, como todo o TypeScript do projeto — os dois ajustes do aceite só são protegidos pelo aceite manual. A lacuna já era item do backlog e ganhou mais esse módulo
+- Issues: `.issue-tracker/sprint-112/issues/` (5 issues, todas `done`; a 04 registra os dois ajustes do aceite)
+
+---
 
 ### Sprint 111 ✅ — Topologia: corpo neutro com ícone de tipo, cor exclusiva de estado e status escrito no nó
 
@@ -294,17 +296,6 @@
 - Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.issue-tracker/sprint-103/issues/`
 - Backlog: registrado follow-up para extrair a lógica de deploy+build da `SampleCatalogView` (construtor cresceu para 7 dependências com a chegada de `NamespaceService`)
 - Issues: `.issue-tracker/sprint-103/issues/` (1 issue, `done`)
-
-### Sprint 102 ✅ — Templates Catalog: ação "Open Topology" no card de Template instalado
-
-- Escopo fechado via `/grill-with-docs` — feature pequena e focada; Uninstall de Template avaliado e **deliberadamente adiado** para sprint própria (registrado no backlog com as 4 questões abertas: operação destrutiva, o que "uninstall" remove do Registry interno, simetria com Deploy Template, hierarquia visual do footer)
-- `SampleCatalogView`: o card de um Template instalado passa a mostrar o badge "Installed" à esquerda **e** um botão "Open Topology" à direita (footer `JustifyContentMode.BETWEEN`); botão secundário (small/tertiary) com o ícone `CLUSTER` — o mesmo da Topologia no sidebar — para não competir com o "Deploy" primário dos cards não-instalados
-- Ação "Open Topology": troca o Namespace ativo para o Namespace do Template (vem do `TemplateSummary`/`catalog.json`, sem fetch extra), persiste via `userService.updateActiveNamespace`, atualiza o combo do header com `MainLayout.refreshNamespaceSelector(UI)` (helper da Sprint 101) e navega para a `TopologiaView` — mesmo contrato de navegação do pós-deploy das views de New Application. Injeta `UserService` na view (antes ausente)
-- Estado "Installed" é snapshot: a ação navega **sem** re-checar existência da Namespace no clique — se removida por fora, a `TopologiaView` (async, com tratamento de inacessível desde a Sprint 50) renderiza topologia vazia, sem crash; consistente com o tratamento de snapshot de `ConnectionStatus`
-- Fix cosmético incluído: no badge "Installed", ícone de check e texto estavam colados — adicionado `margin-inline-start` no label
-- `CONTEXT.md`: entrada **Templates Catalog** atualizada descrevendo a ação "Open Topology" no card instalado, explicitando que é distinta do botão "Go to resource" do painel de detalhe da própria Topologia
-- Testes: `SampleCatalogViewTest` (Karibu) estendido — card instalado renderiza "Open Topology" junto ao badge; card não-instalado não o mostra (só "Deploy"); clicar troca o Namespace ativo para o do Template (`clusterContext.setNamespace` + `userService.updateActiveNamespace` verificados, absorvendo o `NotFoundException` de `navigate` no ambiente de teste sem rotas)
-- Issues: `.issue-tracker/sprint-102/issues/` (1 issue, `done`)
 
 ---
 

@@ -1,6 +1,6 @@
 # 03 — Montagem dos passos do Tour no servidor
 
-Status: todo
+Status: done
 
 Consome as issues 01 e 02. É o coração da sprint.
 
@@ -23,3 +23,17 @@ A conclusão chega do navegador por chamada do cliente e grava a preferência. C
 Cobertura de teste: Karibu estendendo `KaribuTest` — a lista sai com os seis passos para o `PlatformAdmin` e sem a menção a Users para o não-admin; cada passo aponta para um identificador que existe entre as constantes da issue 01; o Tour não é iniciado quando a preferência já está marcada; e não é iniciado quando não há Cluster ativo, mesmo com a preferência falsa.
 
 Fora de escopo: a renderização em si, que é a issue 04. Aqui o componente apenas entrega a lista e recebe a confirmação.
+
+## Comments
+
+**15/08/2026** — Implementada. `TourStep`, `TourSteps` (os seis passos, texto em inglês, condicional
+de Users via `SecurityUtils.isAdmin()`) e `TourComponent`, seguindo o contrato do
+`TopologyGraphComponent`. Gatilho em `MainLayout.startTourIfFirstAccess()`, chamado pelo `onAttach`.
+Sete testes Karibu. Pendente o aceite manual.
+
+O mapeamento dos seis passos nos seis alvos exigiu uma leitura: esta issue enumera "Global e
+Settings" como um passo só e um fecho sem alvo, o que usaria cinco alvos, enquanto a issue 01 supõe
+que os seis são usados. Global e Settings viraram passos próprios e o fecho encerra o de Settings.
+
+**22/09/2026** — Aceite manual concluído. A leitura de seis passos para seis alvos, com o fecho
+no passo de Settings, foi revisada com o Tour rodando e mantida.

@@ -29,10 +29,12 @@ import java.util.List;
 import java.util.Objects;
 
 @Slf4j
-@Route(value = "", layout = MainLayout.class)
+@Route(value = DashboardView.ROUTE, layout = MainLayout.class)
 @PageTitle("Dashboard — GreenCap K8s")
 @PermitAll
 public class DashboardView extends VerticalLayout implements BeforeEnterObserver, Refreshable {
+
+    public static final String ROUTE = "";
 
     private final ClusterContext clusterContext;
     private final WorkloadService workloadService;

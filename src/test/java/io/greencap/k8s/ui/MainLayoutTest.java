@@ -1,10 +1,13 @@
 package io.greencap.k8s.ui;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.mvysny.kaributesting.v10.MockVaadin;
 import com.github.mvysny.kaributesting.v10.Routes;
+import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.sidenav.SideNavItem;
 import io.greencap.k8s.KaribuTest;
+import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
@@ -17,9 +20,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.info.BuildProperties;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.github.mvysny.kaributesting.v10.LocatorJ._find;
+import static com.github.mvysny.kaributesting.v10.LocatorJ._get;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class MainLayoutTest extends KaribuTest {
@@ -44,7 +50,8 @@ class MainLayoutTest extends KaribuTest {
         MockVaadin.tearDown();
         MockVaadin.setup(ROUTES);
         loginAs("USER");
-        view = new MainLayout(clusterContext, userService, namespaceService, clusterService, buildProperties);
+        view = new MainLayout(clusterContext, userService, namespaceService, clusterService, buildProperties,
+                new ObjectMapper());
     }
 
     @Test
@@ -72,6 +79,15 @@ class MainLayoutTest extends KaribuTest {
     }
 
     @Test
+    void everyTourTarget_isReachableInTheComponentTree() {
+        List<String> missingTargets = TourTargets.ALL.stream()
+                .filter(tourId -> _find(view, Component.class, spec -> spec.withId(tourId)).isEmpty())
+                .toList();
+
+        assertThat(missingTargets).isEmpty();
+    }
+
+    @Test
     void developerExperienceSection_hasNewApplicationBelowTemplatesCatalog() {
         List<String> labels = _find(view, SideNavItem.class).stream()
                 .map(SideNavItem::getLabel)
@@ -79,5 +95,61 @@ class MainLayoutTest extends KaribuTest {
                 .toList();
 
         assertThat(labels).containsExactly("Templates Catalog", "New Application");
+    }
+
+    @Test
+    void tourSteps_areSixForThePlatformAdmin() {
+        assertThat(TourSteps.forUser(true)).hasSize(6);
+    }
+
+    @Test
+    void tourSteps_mentionUsersOnlyForThePlatformAdmin() {
+        assertThat(descriptionsOf(TourSteps.forUser(true))).anyMatch(text -> text.contains("Users"));
+        assertThat(descriptionsOf(TourSteps.forUser(false))).noneMatch(text -> text.contains("Users"));
+    }
+
+    @Test
+    void everyTourStep_pointsToADeclaredTarget() {
+        assertThat(TourSteps.forUser(true))
+                .extracting(TourStep::targetId)
+                .isSubsetOf(TourTargets.ALL);
+    }
+
+    @Test
+    void tour_startsForAFirstAccessUserWithAnActiveCluster() {
+        when(userService.findTourSeen("testuser")).thenReturn(Optional.of(false));
+        when(clusterContext.getCluster()).thenReturn(new Cluster());
+
+        view.startTourIfFirstAccess();
+
+        assertThat(deliveredSteps()).contains(TourTargets.ALL);
+        assertThat(view.isDrawerOpened()).isTrue();
+    }
+
+    @Test
+    void tour_doesNotStartWhenItWasAlreadySeen() {
+        when(userService.findTourSeen("testuser")).thenReturn(Optional.of(true));
+
+        view.startTourIfFirstAccess();
+
+        assertThat(deliveredSteps()).isNull();
+    }
+
+    @Test
+    void tour_doesNotStartWithoutAnActiveCluster() {
+        when(userService.findTourSeen("testuser")).thenReturn(Optional.of(false));
+        when(clusterContext.getCluster()).thenReturn(null);
+
+        view.startTourIfFirstAccess();
+
+        assertThat(deliveredSteps()).isNull();
+    }
+
+    private String deliveredSteps() {
+        return _get(view, TourComponent.class).getElement().getProperty("steps");
+    }
+
+    private List<String> descriptionsOf(List<TourStep> steps) {
+        return steps.stream().map(TourStep::description).toList();
     }
 }
