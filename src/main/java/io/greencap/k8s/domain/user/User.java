@@ -56,6 +56,10 @@ public class User {
     @Column(name = "theme", length = 10)
     private String theme = "DARK";
 
+    // Named without the "is" prefix so Lombok renders the reader as isTourSeen().
+    @Column(name = "tour_seen", nullable = false)
+    private boolean tourSeen = false;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

@@ -1,6 +1,8 @@
 package io.greencap.k8s.domain.user;
 
 import io.greencap.k8s.PostgresIntegrationTest;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
@@ -23,6 +25,9 @@ class UserServiceTest extends PostgresIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Test
     void loadUserByUsername_returnsUserDetailsWithRoleUser() {
@@ -59,5 +64,35 @@ class UserServiceTest extends PostgresIntegrationTest {
     void loadUserByUsername_withNonExistentUser_throwsUsernameNotFoundException() {
         assertThatThrownBy(() -> userService.loadUserByUsername("does-not-exist"))
             .isInstanceOf(UsernameNotFoundException.class);
+    }
+
+    @Test
+    void findTourSeen_isFalseForANewUser() {
+        userService.createUser("tour-newcomer", "newcomer@test.com", "pass");
+
+        assertThat(userService.findTourSeen("tour-newcomer")).contains(false);
+    }
+
+    @Test
+    void updateTourSeen_survivesAReread() {
+        userService.createUser("tour-finisher", "finisher@test.com", "pass");
+
+        userService.updateTourSeen("tour-finisher", true);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userService.findTourSeen("tour-finisher")).contains(true);
+    }
+
+    @Test
+    void updateTourSeen_leavesOtherUsersUntouched() {
+        userService.createUser("tour-seen-user", "seen@test.com", "pass");
+        userService.createUser("tour-unseen-user", "unseen@test.com", "pass");
+
+        userService.updateTourSeen("tour-seen-user", true);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(userService.findTourSeen("tour-unseen-user")).contains(false);
     }
 }

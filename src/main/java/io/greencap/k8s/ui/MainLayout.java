@@ -1,5 +1,6 @@
 package io.greencap.k8s.ui;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.vaadin.flow.component.ClientCallable;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.applayout.AppLayout;
@@ -26,6 +27,7 @@ import com.vaadin.flow.router.AfterNavigationEvent;
 import com.vaadin.flow.router.AfterNavigationObserver;
 import com.vaadin.flow.theme.lumo.Lumo;
 import com.vaadin.flow.theme.lumo.LumoUtility;
+import io.greencap.k8s.config.SecurityUtils;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.cluster.ClusterService;
 import io.greencap.k8s.domain.cluster.ConnectionStatus;
@@ -55,6 +57,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private final NamespaceService namespaceService;
     private final ClusterService clusterService;
     private final BuildProperties buildProperties;
+    private final TourComponent tourComponent;
     private final HorizontalLayout userInfoLayout = new HorizontalLayout();
     private final HorizontalLayout clusterInfoLayout = new HorizontalLayout();
     private final HorizontalLayout namespaceLayout = new HorizontalLayout();
@@ -69,12 +72,13 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
     private String currentPath = "";
     private boolean suppressNavigation = false;
 
-    public MainLayout(ClusterContext clusterContext, UserService userService, NamespaceService namespaceService, ClusterService clusterService, BuildProperties buildProperties) {
+    public MainLayout(ClusterContext clusterContext, UserService userService, NamespaceService namespaceService, ClusterService clusterService, BuildProperties buildProperties, ObjectMapper objectMapper) {
         this.clusterContext = clusterContext;
         this.userService = userService;
         this.namespaceService = namespaceService;
         this.clusterService = clusterService;
         this.buildProperties = buildProperties;
+        this.tourComponent = new TourComponent(objectMapper, userService);
         setPrimarySection(Section.DRAWER);
 
         clusterInfoLayout.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
@@ -88,6 +92,8 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         addToNavbar(buildNavbar());
         addToNavbar(true, clusterWarningBanner);
         addToDrawer(buildDrawer());
+        // Renders nothing of its own — the overlay it drives is appended to the document body.
+        addToNavbar(tourComponent);
 
         if (clusterContext.getCluster() == null) {
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -113,6 +119,39 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         int drawerWidth = userService.findDrawerWidth(username).orElse(240);
         initResizableDrawer(drawerWidth);
+
+        startTourIfFirstAccess();
+    }
+
+    // Visible for testing: attaching a MainLayout in a Karibu test would start the refresh timer
+    // and the drawer's client-side script, so the trigger has to be reachable without an attach.
+    void startTourIfFirstAccess() {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        boolean tourSeen = userService.findTourSeen(username).orElse(true);
+
+        // No Cluster means the docker compose install path, where every cluster-dependent menu
+        // item is inert — the Tour would be presenting a screen that does not answer.
+        if (tourSeen || clusterContext.getCluster() == null) {
+            return;
+        }
+        startTour();
+    }
+
+    // Replays the Tour from Platform Settings. The preference is left alone on purpose: it
+    // records that the user was introduced to the product, and that stays true after a replay.
+    public static void restartTour(UI ui) {
+        ui.getChildren()
+                .filter(MainLayout.class::isInstance)
+                .map(MainLayout.class::cast)
+                .findFirst()
+                .ifPresent(MainLayout::startTour);
+    }
+
+    private void startTour() {
+        // A narrow viewport keeps the drawer collapsed, which would leave four of the six steps
+        // aiming at invisible elements. Only the opened state changes, never the saved width.
+        setDrawerOpened(true);
+        tourComponent.start(TourSteps.forUser(SecurityUtils.isAdmin()));
     }
 
     public void applyTheme(String theme) {
@@ -399,6 +438,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         logout.getElement().setAttribute("title", "Logout");
 
         HorizontalLayout navbar = new HorizontalLayout(toggle, namespaceLayout, spacer, userInfoLayout, clusterInfoLayout, logout);
+        navbar.setId(TourTargets.HEADER_CONTEXT);
         navbar.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         navbar.expand(spacer);
         navbar.setWidthFull();
@@ -411,11 +451,21 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
         navContent.setWidthFull();
         navContent.setPadding(false);
         navContent.setSpacing(false);
+
+        VerticalLayout developerExperienceSection = buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP);
+        developerExperienceSection.setId(TourTargets.NAV_DEVELOPER_EXPERIENCE);
+
+        VerticalLayout projectSection = buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP);
+        projectSection.setId(TourTargets.NAV_PROJECT);
+
+        VerticalLayout globalSection = buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP);
+        globalSection.setId(TourTargets.NAV_GLOBAL);
+
+        VerticalLayout settingsSection = buildNavSection("SETTINGS", buildConfiguracaoNav());
+        settingsSection.setId(TourTargets.NAV_SETTINGS);
+
         navContent.add(buildLogoSection());
-        navContent.add(buildNavSection("DEVELOPER EXPERIENCE", buildDeveloperExperienceNav(), CLUSTER_CONTEXT_TOOLTIP));
-        navContent.add(buildNavSection("PROJECT", buildVisaoGeralNav(), NAMESPACE_CONTEXT_TOOLTIP));
-        navContent.add(buildNavSection("GLOBAL", buildGlobalNav(), CLUSTER_CONTEXT_TOOLTIP));
-        navContent.add(buildNavSection("SETTINGS", buildConfiguracaoNav()));
+        navContent.add(developerExperienceSection, projectSection, globalSection, settingsSection);
 
         Scroller scroller = new Scroller(navContent);
         scroller.setWidthFull();
@@ -506,6 +556,7 @@ public class MainLayout extends AppLayout implements AfterNavigationObserver {
 
         boolean canTopology   = true;
         SideNavItem topologia = navItem("Topology", TopologiaView.class, VaadinIcon.CLUSTER, canTopology);
+        topologia.setId(TourTargets.NAV_TOPOLOGY);
 
         SideNavItem observability = buildObservabilidadeNavItem();
         SideNavItem workloads   = buildWorkloadsNavItem();

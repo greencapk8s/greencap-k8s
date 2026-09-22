@@ -128,6 +128,19 @@ public class UserService implements UserDetailsService {
         });
     }
 
+    public Optional<Boolean> findTourSeen(String username) {
+        return userRepository.findByUsername(username)
+                .map(User::isTourSeen);
+    }
+
+    @Transactional
+    public void updateTourSeen(String username, boolean tourSeen) {
+        userRepository.findByUsername(username).ifPresent(user -> {
+            user.setTourSeen(tourSeen);
+            userRepository.save(user);
+        });
+    }
+
     public List<User> findAll() {
         return userRepository.findAllWithActiveCluster();
     }
