@@ -87,7 +87,7 @@ public class TopologiaView extends VerticalLayout implements BeforeEnterObserver
                 .set("right", "var(--lumo-space-3xl)")
                 .set("z-index", "1");
 
-        Button resetPositionsBtn = new Button(VaadinIcon.REFRESH.create(), e -> resetPositions());
+        Button resetPositionsBtn = new Button(VaadinIcon.ARROWS_CROSS.create(), e -> resetPositions());
         resetPositionsBtn.addThemeVariants(ButtonVariant.LUMO_TERTIARY, ButtonVariant.LUMO_ICON, ButtonVariant.LUMO_CONTRAST);
         resetPositionsBtn.getElement().setAttribute("title", "Reset node positions");
         resetPositionsBtn.getStyle()

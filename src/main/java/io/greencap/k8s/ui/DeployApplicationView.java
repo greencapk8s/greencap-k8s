@@ -32,6 +32,7 @@ import io.greencap.k8s.kubernetes.KubernetesOperationException;
 import io.greencap.k8s.kubernetes.NetworkingService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
 import io.greencap.k8s.kubernetes.dto.StorageClassInfo;
@@ -155,8 +156,8 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
         namespaceField.setRequired(true);
         namespaceField.addValueChangeListener(e -> {
             String ns = e.getValue() != null ? e.getValue() : "";
-            String suggested = ns + ".greencap.local";
-            if (hostField.isEmpty() || hostField.getValue().equals(e.getOldValue() + ".greencap.local")) {
+            String suggested = ns + UiConstants.LOCAL_INGRESS_DOMAIN;
+            if (hostField.isEmpty() || hostField.getValue().equals(e.getOldValue() + UiConstants.LOCAL_INGRESS_DOMAIN)) {
                 hostField.setValue(suggested);
             }
         });
@@ -500,9 +501,9 @@ public class DeployApplicationView extends VerticalLayout implements BeforeEnter
                         mountPathField.getValue())
                 : null;
 
-        DeployApplicationRequest.IngressConfig ingress =
+        IngressConfig ingress =
                 (addIngressCheckbox.getValue() && portField.getValue() != null)
-                        ? new DeployApplicationRequest.IngressConfig(
+                        ? new IngressConfig(
                                 hostField.getValue(),
                                 ingressClassField.getValue())
                         : null;

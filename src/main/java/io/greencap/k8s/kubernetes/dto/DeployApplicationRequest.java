@@ -13,5 +13,4 @@ public record DeployApplicationRequest(
         IngressConfig ingress
 ) {
     public record PvcConfig(String storageClass, int storageGi, String mountPath) {}
-    public record IngressConfig(String host, String ingressClassName) {}
 }

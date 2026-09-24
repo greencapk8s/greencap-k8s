@@ -9,8 +9,11 @@ public record ComposeImportRequest(
     public record ServiceConfig(
             String serviceName,
             String resolvedImage,
-            List<VolumeConfig> volumes
-    ) {}
+            List<VolumeConfig> volumes,
+            IngressConfig ingress
+    ) {
+        public boolean isExposed() { return ingress != null; }
+    }
 
     public record VolumeConfig(
             String volumeName,

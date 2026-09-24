@@ -36,6 +36,7 @@ import io.greencap.k8s.kubernetes.NetworkingService;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationRequest;
 import io.greencap.k8s.kubernetes.dto.DeployApplicationResult;
@@ -231,8 +232,8 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
             if (imageTagField.isEmpty() || imageTagField.getValue().equals(oldSuggested)) {
                 imageTagField.setValue(newSuggested);
             }
-            String suggestedHost = ns + ".greencap.local";
-            if (hostField.isEmpty() || hostField.getValue().equals(oldNs + ".greencap.local")) {
+            String suggestedHost = ns + UiConstants.LOCAL_INGRESS_DOMAIN;
+            if (hostField.isEmpty() || hostField.getValue().equals(oldNs + UiConstants.LOCAL_INGRESS_DOMAIN)) {
                 hostField.setValue(suggestedHost);
             }
         });
@@ -851,9 +852,9 @@ public class DeployFromDockerfileView extends VerticalLayout implements BeforeEn
                         mountPathField.getValue())
                 : null;
 
-        DeployApplicationRequest.IngressConfig ingress =
+        IngressConfig ingress =
                 (addIngressCheckbox.getValue() && portField.getValue() != null)
-                        ? new DeployApplicationRequest.IngressConfig(
+                        ? new IngressConfig(
                                 hostField.getValue(),
                                 ingressClassField.getValue())
                         : null;

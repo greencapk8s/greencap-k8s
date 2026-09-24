@@ -29,6 +29,7 @@ import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.domain.user.UserService;
 import io.greencap.k8s.kubernetes.ClusterContext;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.NetworkingService;
 import io.greencap.k8s.kubernetes.ObservabilityService;
 import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
@@ -36,6 +37,7 @@ import io.greencap.k8s.kubernetes.compose.ComposeDocument;
 import io.greencap.k8s.kubernetes.compose.ComposeParseException;
 import io.greencap.k8s.kubernetes.compose.ComposeParser;
 import io.greencap.k8s.kubernetes.compose.ImportComposeService;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
@@ -71,6 +73,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final RegistryService registryService;
     private final ObservabilityService observabilityService;
     private final StorageService storageService;
+    private final NetworkingService networkingService;
     private final UserService userService;
 
     private final RadioButtonGroup<BuildContextOrigin> originSelector = new RadioButtonGroup<>("Source");
@@ -85,6 +88,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final Map<String, TextField> imageFieldsByService = new LinkedHashMap<>();
     private final Map<String, Map<String, ComboBox<String>>> storageClassFieldsByServiceVolume = new LinkedHashMap<>();
     private final Map<String, Map<String, IntegerField>> storageSizeFieldsByServiceVolume = new LinkedHashMap<>();
+    private final Map<String, ComposeServiceExposure> exposureByService = new LinkedHashMap<>();
 
     private final Map<String, String> buildJobsByService = new LinkedHashMap<>();
     private final Map<String, Span> buildStatusBadgeByService = new LinkedHashMap<>();
@@ -99,6 +103,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     private final Button backButton = new Button(VaadinIcon.ARROW_LEFT.create());
     private final Button nextButton = new Button("Next", VaadinIcon.ARROW_RIGHT.create());
     private List<String> defaultStorageClasses = List.of();
+    private List<String> ingressClasses = List.of();
 
     public ImportComposeView(ClusterContext clusterContext,
                               ComposeParser composeParser,
@@ -106,6 +111,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                               RegistryService registryService,
                               ObservabilityService observabilityService,
                               StorageService storageService,
+                              NetworkingService networkingService,
                               UserService userService) {
         this.clusterContext = clusterContext;
         this.composeParser = composeParser;
@@ -113,6 +119,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         this.registryService = registryService;
         this.observabilityService = observabilityService;
         this.storageService = storageService;
+        this.networkingService = networkingService;
         this.userService = userService;
 
         setPadding(true);
@@ -152,6 +159,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
     @Override
     public void beforeEnter(BeforeEnterEvent event) {
         loadStorageClasses();
+        loadIngressClasses();
         renderStep(1);
     }
 
@@ -310,6 +318,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         imageFieldsByService.clear();
         storageClassFieldsByServiceVolume.clear();
         storageSizeFieldsByServiceVolume.clear();
+        exposureByService.clear();
 
         for (ComposeDocument.ParsedService service : parsedDocument.services()) {
             layout.add(buildServiceReviewPanel(service));
@@ -345,6 +354,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
         if (!service.containerPorts().isEmpty()) {
             panel.add(buildReviewItem("Service (ClusterIP)",
                     service.name() + " — port " + service.containerPorts().get(0)));
+            panel.add(buildExposure(service));
         }
         if (service.hasNonSensitiveEnv()) panel.add(buildReviewItem("ConfigMap", service.name() + "-config"));
         if (service.hasSensitiveEnv())    panel.add(buildReviewItem("Secret",    service.name() + "-secret"));
@@ -357,6 +367,14 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
             panel.add(buildVolumeConfigRow(service.name(), volume));
         }
         return panel;
+    }
+
+    // Only a service with ports: gets a Service, and an Ingress needs one to route to.
+    private ComposeServiceExposure buildExposure(ComposeDocument.ParsedService service) {
+        ComposeServiceExposure exposure = new ComposeServiceExposure(
+                sanitizeK8sName(service.name()), namespaceField.getValue().trim(), ingressClasses);
+        exposureByService.put(service.name(), exposure);
+        return exposure;
     }
 
     private TextField buildImageField(ComposeDocument.ParsedService service) {
@@ -651,7 +669,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     private void navigateNext() {
         if (currentStep == 1) parseComposeAndAdvance();
-        else if (currentStep == 2) renderStep(3);
+        else if (currentStep == 2 && ComposeServiceExposure.validateHosts(exposureByService.values())) renderStep(3);
     }
 
     private void navigateBack() {
@@ -727,7 +745,9 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                         .map(m -> m.get(volume.name())).map(IntegerField::getValue).orElse(1);
                 volumes.add(new ComposeImportRequest.VolumeConfig(volume.name(), volume.mountPath(), sc, size));
             }
-            configs.add(new ComposeImportRequest.ServiceConfig(service.name(), image, volumes));
+            IngressConfig ingress = Optional.ofNullable(exposureByService.get(service.name()))
+                    .flatMap(ComposeServiceExposure::ingressConfig).orElse(null);
+            configs.add(new ComposeImportRequest.ServiceConfig(service.name(), image, volumes, ingress));
         }
         return new ComposeImportRequest(namespaceField.getValue().trim(), configs);
     }
@@ -771,6 +791,20 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                 });
             } catch (Exception e) {
                 log.debug("Failed to load StorageClasses: {}", e.getMessage());
+            }
+        });
+    }
+
+    private void loadIngressClasses() {
+        Cluster cluster = clusterContext.getCluster();
+        if (cluster == null) return;
+        UI ui = UI.getCurrent();
+        AsyncTasks.execute(() -> {
+            try {
+                List<String> names = networkingService.listIngressClassNames(cluster);
+                ui.access(() -> this.ingressClasses = names);
+            } catch (Exception e) {
+                log.debug("Failed to load IngressClasses: {}", e.getMessage());
             }
         });
     }
