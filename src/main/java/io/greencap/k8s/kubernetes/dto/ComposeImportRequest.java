@@ -21,6 +21,4 @@ public record ComposeImportRequest(
             String storageClass,
             int storageGi
     ) {}
-
-    public record IngressConfig(String host, String ingressClassName) {}
 }

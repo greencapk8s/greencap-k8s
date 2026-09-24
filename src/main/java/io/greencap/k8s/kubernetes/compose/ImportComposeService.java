@@ -12,6 +12,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.KubernetesClientFactory;
 import io.greencap.k8s.kubernetes.KubernetesOperationException;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import lombok.RequiredArgsConstructor;
@@ -300,7 +301,7 @@ public class ImportComposeService {
 
     private void createIngress(KubernetesClient client, String namespace,
                                 String serviceName, int port,
-                                ComposeImportRequest.IngressConfig ingress,
+                                IngressConfig ingress,
                                 Map<String, String> labels) {
         client.network().v1().ingresses().inNamespace(namespace).resource(
                 new IngressBuilder()

@@ -5,7 +5,7 @@ import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
-import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 
 import java.util.Collection;
 import java.util.List;
@@ -15,9 +15,12 @@ import java.util.stream.Collectors;
 
 class ComposeServiceExposure extends VerticalLayout {
 
-    private static final String HOST_LABEL_PATTERN = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
-    private static final String HOST_PATTERN = HOST_LABEL_PATTERN + "(\\." + HOST_LABEL_PATTERN + ")*";
     private static final int MAX_HOST_LENGTH = 253;
+    private static final int MAX_HOST_LABEL_LENGTH = 63;
+    // The first and last characters of a label sit outside the quantifier, hence the minus two.
+    private static final String HOST_LABEL_PATTERN =
+            "[a-z0-9]([a-z0-9-]{0," + (MAX_HOST_LABEL_LENGTH - 2) + "}[a-z0-9])?";
+    private static final String HOST_PATTERN = HOST_LABEL_PATTERN + "(\\." + HOST_LABEL_PATTERN + ")*";
 
     private final Checkbox exposeCheckbox = new Checkbox("Expose application externally (Ingress)");
     private final TextField hostField = new TextField("Host");
@@ -28,7 +31,7 @@ class ComposeServiceExposure extends VerticalLayout {
         setPadding(false);
         setSpacing(true);
 
-        hostField.setValue(serviceName + "." + namespace + ".greencap.local");
+        hostField.setValue(serviceName + "." + namespace + UiConstants.LOCAL_INGRESS_DOMAIN);
         hostField.setWidthFull();
         ingressClassField.setItems(ingressClasses);
         if (!ingressClasses.isEmpty()) ingressClassField.setValue(ingressClasses.get(0));
@@ -47,31 +50,32 @@ class ComposeServiceExposure extends VerticalLayout {
         exposures.forEach(exposure -> exposure.hostField.setInvalid(false));
         List<ComposeServiceExposure> exposed = exposures.stream()
                 .filter(exposure -> exposure.exposeCheckbox.getValue()).toList();
-        Map<String, Long> servicesByHost = exposed.stream()
+        Map<String, Long> serviceCountByHost = exposed.stream()
                 .collect(Collectors.groupingBy(ComposeServiceExposure::host, Collectors.counting()));
 
         boolean isValid = true;
         for (ComposeServiceExposure exposure : exposed) {
-            Optional<String> error = hostError(exposure.host(), servicesByHost);
+            Optional<String> error = hostError(exposure.host(), serviceCountByHost);
             error.ifPresent(exposure::showHostError);
             isValid &= error.isEmpty();
         }
         return isValid;
     }
 
-    private static Optional<String> hostError(String host, Map<String, Long> servicesByHost) {
+    private static Optional<String> hostError(String host, Map<String, Long> serviceCountByHost) {
         if (host.isEmpty()) return Optional.of("Host is required");
         if (host.length() > MAX_HOST_LENGTH || !host.matches(HOST_PATTERN)) {
-            return Optional.of("Lowercase letters, numbers, hyphens and dots only, "
-                    + "each part starting and ending with a letter or number, max 253 chars");
+            return Optional.of("Lowercase letters, numbers, hyphens and dots only, each part starting and "
+                    + "ending with a letter or number and at most " + MAX_HOST_LABEL_LENGTH + " chars, "
+                    + "max " + MAX_HOST_LENGTH + " chars");
         }
-        if (servicesByHost.get(host) > 1) return Optional.of("Another exposed service uses this host");
+        if (serviceCountByHost.get(host) > 1) return Optional.of("Another exposed service uses this host");
         return Optional.empty();
     }
 
-    Optional<ComposeImportRequest.IngressConfig> ingressConfig() {
+    Optional<IngressConfig> ingressConfig() {
         if (!exposeCheckbox.getValue()) return Optional.empty();
-        return Optional.of(new ComposeImportRequest.IngressConfig(host(), ingressClassField.getValue()));
+        return Optional.of(new IngressConfig(host(), ingressClassField.getValue()));
     }
 
     private String host() {

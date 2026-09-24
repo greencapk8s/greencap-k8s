@@ -42,3 +42,7 @@ Os testes estão em `ImportComposeViewTest`: host vazio, seis formatos inválido
 underscore, hífen na ponta, ponto duplo, ponto no fim e 254 caracteres), host repetido marcado nos
 dois campos, serviço desmarcado com host inválido e hosts válidos chegando ao provisionamento.
 Faltam a verificação no browser e o aceite manual.
+
+**24/09/2026** — Ajuste da revisão, que vai além do texto da issue: além do total de 253, cada
+parte do host agora tem no máximo 63 caracteres, o limite de label do DNS. Sem isso, um host desses
+passava pelo wizard e só era recusado pela API, aparecendo tarde como "Ingress failed".

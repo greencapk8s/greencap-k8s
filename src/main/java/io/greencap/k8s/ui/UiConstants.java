@@ -31,6 +31,7 @@ final class UiConstants {
 
     static final int NOTIFICATION_DURATION_MS = 6000;
     static final String ICON_SIZE = "28px";
+    static final String LOCAL_INGRESS_DOMAIN = ".greencap.local";
 
     private static final int ACTION_BUTTON_WIDTH_PX = 48;
     private static final int ACTIONS_COLUMN_RIGHT_PADDING_PX = 8;

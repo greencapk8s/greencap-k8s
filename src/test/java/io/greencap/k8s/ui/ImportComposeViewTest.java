@@ -18,6 +18,7 @@ import io.greencap.k8s.kubernetes.RegistryService;
 import io.greencap.k8s.kubernetes.StorageService;
 import io.greencap.k8s.kubernetes.compose.ComposeParser;
 import io.greencap.k8s.kubernetes.compose.ImportComposeService;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -187,7 +188,7 @@ class ImportComposeViewTest extends KaribuTest {
         Map<String, ComposeImportRequest.ServiceConfig> configs = capturedRequest().serviceConfigs().stream()
                 .collect(Collectors.toMap(ComposeImportRequest.ServiceConfig::serviceName, config -> config));
         assertThat(configs.get("api").ingress())
-                .isEqualTo(new ComposeImportRequest.IngressConfig("shop-api.greencap.local", "nginx"));
+                .isEqualTo(new IngressConfig("shop-api.greencap.local", "nginx"));
         assertThat(configs.get("web").isExposed()).isFalse();
         assertThat(configs.get("worker").isExposed()).isFalse();
     }
@@ -217,7 +218,7 @@ class ImportComposeViewTest extends KaribuTest {
 
     static Stream<String> hostsOutsideTheDnsFormat() {
         return Stream.of("Api.shop.local", "api_shop.local", "-api.shop.local",
-                "api..shop.local", "api.shop.local.", "a".repeat(254));
+                "api..shop.local", "api.shop.local.", "a".repeat(64) + ".shop.local", "a".repeat(254));
     }
 
     @Test

@@ -8,6 +8,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.KubernetesClientFactory;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,7 +48,7 @@ class ImportComposeServiceTest {
     void anExposedServiceGetsAnIngressRoutingToItsServiceOnTheFirstPort() {
         ComposeDocument document = composeWith(serviceWithPorts("api", 8080, 9090));
         ComposeImportRequest request = requestFor("shop",
-                exposed("api", new ComposeImportRequest.IngressConfig("api.shop.greencap.local", "nginx")));
+                exposed("api", new IngressConfig("api.shop.greencap.local", "nginx")));
 
         ImportComposeResult result = importComposeService.provision(cluster, document, request);
 
@@ -87,7 +88,7 @@ class ImportComposeServiceTest {
                 .build()).create();
         ComposeDocument document = composeWith(serviceWithPorts("api", 8080));
         ComposeImportRequest request = requestFor("store",
-                exposed("api", new ComposeImportRequest.IngressConfig("api.store.greencap.local", "nginx")));
+                exposed("api", new IngressConfig("api.store.greencap.local", "nginx")));
 
         ImportComposeResult result = importComposeService.provision(cluster, document, request);
 
@@ -110,7 +111,7 @@ class ImportComposeServiceTest {
         return new ComposeImportRequest(namespace, List.of(config));
     }
 
-    private ComposeImportRequest.ServiceConfig exposed(String name, ComposeImportRequest.IngressConfig ingress) {
+    private ComposeImportRequest.ServiceConfig exposed(String name, IngressConfig ingress) {
         return new ComposeImportRequest.ServiceConfig(name, "nginx:latest", List.of(), ingress);
     }
 

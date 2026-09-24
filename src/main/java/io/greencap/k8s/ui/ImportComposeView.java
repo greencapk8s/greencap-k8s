@@ -37,6 +37,7 @@ import io.greencap.k8s.kubernetes.compose.ComposeDocument;
 import io.greencap.k8s.kubernetes.compose.ComposeParseException;
 import io.greencap.k8s.kubernetes.compose.ComposeParser;
 import io.greencap.k8s.kubernetes.compose.ImportComposeService;
+import io.greencap.k8s.kubernetes.dto.IngressConfig;
 import io.greencap.k8s.kubernetes.dto.BuildRequest;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
@@ -744,7 +745,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
                         .map(m -> m.get(volume.name())).map(IntegerField::getValue).orElse(1);
                 volumes.add(new ComposeImportRequest.VolumeConfig(volume.name(), volume.mountPath(), sc, size));
             }
-            ComposeImportRequest.IngressConfig ingress = Optional.ofNullable(exposureByService.get(service.name()))
+            IngressConfig ingress = Optional.ofNullable(exposureByService.get(service.name()))
                     .flatMap(ComposeServiceExposure::ingressConfig).orElse(null);
             configs.add(new ComposeImportRequest.ServiceConfig(service.name(), image, volumes, ingress));
         }
