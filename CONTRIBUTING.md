@@ -36,22 +36,11 @@ cluster — are in the [developer guide](.dev/README.md).
 
 ## Project conventions
 
-The complete coding standard lives in [`CLAUDE.md`](CLAUDE.md). The essentials:
+The coding standard — layers, services, Vaadin views, database, security, code quality and
+testing — lives in [`docs/agents/code-standards.md`](docs/agents/code-standards.md). Beyond it:
 
 **Language**
 - Code, comments, and identifiers are in **English**. Comments explain the *why*, not the *what*.
-- Log via `@Slf4j` (`log.info/debug/error`) — never `System.out.println`.
-
-**Code style**
-- Use Lombok (`@RequiredArgsConstructor`, `@Getter`, `@Slf4j`, …).
-- Services: `@Transactional(readOnly = true)` on the class, `@Transactional` on write methods.
-  Wrap Fabric8 calls in try-with-resources and throw `KubernetesOperationException` on API failures.
-- Vaadin views orchestrate UI only — no business logic; inject services, never repositories.
-- Favor intention-revealing names, small methods (≤ 3 params), early returns, and no magic numbers.
-
-**Database**
-- No native SQL — use Spring Data JPA / JPQL.
-- Flyway migrations are named `V{n}__{snake_case}.sql`. Never edit an applied migration — add a new one.
 
 **Commits**
 - Format: `type: short description` — types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
@@ -66,8 +55,8 @@ The complete coding standard lives in [`CLAUDE.md`](CLAUDE.md). The essentials:
 **Tests**
 - Compile after changes: `./gradlew compileJava` (and `./gradlew compileTestJava` for tests).
 - Run the suite before submitting: `./gradlew test`.
-- Add coverage where it applies: Vaadin view behavior via Karibu (extend `KaribuTest`);
-  service/repository behavior via `PostgresIntegrationTest`.
+- Add coverage where it applies, as described in the
+  [testing section](docs/agents/code-standards.md#testing) of the code standards.
 
 ## Submitting a pull request
 

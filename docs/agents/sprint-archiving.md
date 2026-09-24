@@ -9,7 +9,7 @@
 
 ## When to run it
 
-As part of step 6 (Fechamento) of the sprint flow, in the same closing commit:
+As part of the Closing step of `docs/agents/sprint-flow.md`, in the same closing commit:
 
 1. After adding the new sprint's entry to "Status Geral" and "Sprints Concluídas", check if either section now has more than 10 entries.
 2. If so, remove the oldest entry (or entries, if more than one sprint was closed since the last run) from both sections, and move the detailed "Sprints Concluídas" entry to `docs/sprints-archive.md`, appended in chronological order (oldest archived sprints come first).

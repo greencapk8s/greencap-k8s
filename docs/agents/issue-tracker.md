@@ -5,9 +5,9 @@ Issues and specs for this repo live as markdown files in `.issue-tracker/`.
 ## Conventions
 
 - One feature per directory: `.issue-tracker/<feature-slug>/` — in practice, one sprint per directory (`sprint-N`)
-- The spec is `.issue-tracker/<feature-slug>/spec.md`
+- A sprint has no spec file: its spec is what planning recorded in `CONTEXT.md` and `docs/adr/`, plus the issues themselves. Only a skill that writes a spec (`/to-spec`) creates `.issue-tracker/<feature-slug>/spec.md`
 - Implementation issues are one file per ticket at `.issue-tracker/<feature-slug>/issues/<NN>-<slug>.md`, numbered from `01` — never a single combined tickets file
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
+- A sprint issue records its state as a `Status:` line near the top: `todo` when planned, `in-progress` once started, `done` when the sprint closes. The triage roles in `triage-labels.md` apply only to incoming issues worked by `/triage`, never to sprint issues
 - Comments and conversation history append to the bottom of the file under a `## Comments` heading
 
 ## When a skill says "publish to the issue tracker"
