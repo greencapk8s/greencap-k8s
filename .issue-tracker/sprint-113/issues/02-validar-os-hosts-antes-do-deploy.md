@@ -17,10 +17,10 @@ Conflito com Ingress de outro Namespace não é validado aqui: chega como erro d
 
 ## Critérios de aceite
 
-- [ ] Host vazio, fora do formato DNS ou repetido entre serviços marcados bloqueia o Deploy, com a mensagem no campo
-- [ ] Um serviço desmarcado não participa da validação
-- [ ] Com hosts válidos e distintos, o Deploy segue para a execução
-- [ ] No browser: expor `api` e `nginx` do compose de demo com o mesmo host e ver o Deploy bloqueado nos dois campos
+- [x] Host vazio, fora do formato DNS ou repetido entre serviços marcados bloqueia o Deploy, com a mensagem no campo
+- [x] Um serviço desmarcado não participa da validação
+- [x] Com hosts válidos e distintos, o Deploy segue para a execução
+- [x] No browser: expor `api` e `nginx` do compose de demo com o mesmo host e ver o Deploy bloqueado nos dois campos
 
 ## Testes
 
