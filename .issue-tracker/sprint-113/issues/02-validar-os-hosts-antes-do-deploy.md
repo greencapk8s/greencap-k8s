@@ -1,6 +1,6 @@
 # 02 — Validar os hosts antes do Deploy
 
-Status: in-progress
+Status: done
 Blocked by: 01
 
 O Import Compose passa a ser o primeiro wizard com vários hosts na mesma tela, e isso cria um risco que o Deploy Application e o Deploy from Dockerfile não têm: dois serviços com o mesmo host. Nenhum wizard valida host hoje; esta issue valida no Import Compose.

@@ -8,7 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
-| 113 | Ingress no Deploy from Compose: cada serviço com `ports:` pode ser exposto por um Ingress próprio, com host sugerido por serviço e validado antes do Deploy | 🔄 Em andamento |
+| 113 | Ingress no Deploy from Compose: cada serviço com `ports:` pode ser exposto por um Ingress próprio, com host sugerido por serviço e validado antes do Deploy | ✅ Concluído |
 | 112 | Tour de primeiro acesso: introdução guiada com spotlight sobre header e menu, montada no servidor e ancorada por id explícito, com replay em Platform Settings | ✅ Concluído |
 | 111 | Topologia: nó com corpo neutro e ícone de tipo, cor codificando exclusivamente estado, e o status escrito no nó quando não está saudável | ✅ Concluído |
 | 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
@@ -18,7 +18,6 @@
 | 106 | Imagem da plataforma em registry público (GHCR): CI publica por tag `v*`; `setup.sh` puxa via `minikube image load` com fallback de build local | ✅ Concluído |
 | 105 | Topologia: setas de ServiceDependency (Workload→Service inferido via env/ConfigMap/Secret) + StatefulSet como nó (pré-requisito) | ✅ Concluído |
 | 104 | Username no header + Developer Experience como 1ª seção do menu (New Application incorporado) + fix de duplicação nos 4 wizards de deploy | ✅ Concluído |
-| 103 | Templates Catalog: ação "Uninstall Template" no card instalado (deleta o Namespace; estado transitório "Uninstalling" com auto-heal) | ✅ Concluído |
 
 ---
 
@@ -88,10 +87,6 @@
 #### 🟢 Diferencial — visão de cluster
 
 - **Overview multi-cluster** — tela de entrada com health de todos os clusters registrados (ConnectionStatus, namespace count) antes de entrar em um específico.
-
-#### 🐳 Deploy from Compose — follow-ups da Sprint 83
-
-- **Ingress no Deploy from Compose** — a Sprint 83 deixou Ingress fora do escopo v1 (decisão registrada no `/grill-with-docs`). Cada serviço com `ports:` expõe apenas um ClusterIP Service. Follow-up: na tela de revisão, adicionar toggle "Expor externamente (Ingress)" por serviço com porta exposta, com campos de host e IngressClass editáveis — mesmo padrão do Deploy from Image. Avaliar também a criação de um único Ingress com múltiplos path rules (um por serviço), o que permite agrupar todos os endpoints sob um único host.
 
 #### 🗂 Build Context local — follow-up da Sprint 107
 
@@ -178,6 +173,20 @@
 ## Sprints Concluídas
 
 > Mostra apenas as últimas 10 sprints. Histórico completo em `docs/sprints-archive.md` (ver `docs/agents/sprint-archiving.md`).
+
+### Sprint 113 ✅ — Ingress no Deploy from Compose: um Ingress por serviço, com host sugerido e validado antes do Deploy
+
+- Planejada com `/grill-with-docs`. Fecha o item "Ingress no Deploy from Compose" do backlog (follow-up da Sprint 83). O item também pedia para avaliar um único Ingress com path rules por serviço. Essa opção foi descartada e registrada no `CONTEXT.md`: um prefixo de path quebra aplicações que esperam rodar na raiz, e o rewrite que corrigiria isso é anotação específica de cada controller
+- **Exposição por serviço**: na tela de revisão, cada serviço com `ports:` ganha "Expose application externally (Ingress)", desmarcada. Ao marcar, aparecem o host sugerido como `<service>.<namespace>.greencap.local` e a primeira IngressClass do cluster. Os campos ficam num componente próprio, `ComposeServiceExposure`, fora da `ImportComposeView`, que já passava de 800 linhas. No provisionamento, o `ImportComposeService` cria `<service>-ingress` depois do Service, roteando `/` (`Prefix`) para a primeira porta, com os labels da Topologia. Uma falha aparece como "Ingress failed" no resultado do serviço, sem rollback
+- **Validação dos hosts no Deploy**: um host vazio, fora do formato DNS ou repetido entre serviços marcados bloqueia o avanço, com a mensagem no próprio campo (nos dois, quando o host se repete). Um serviço desmarcado não participa. Na revisão, a validação passou a limitar também cada parte do host a 63 caracteres, o limite de label do DNS, para que a API não recuse o host só no fim
+- **Revisão (`/code-review`)**: o `IngressConfig` do Compose repetia o do Deploy Application, e os dois viraram um DTO único, `dto/IngressConfig`. O domínio `.greencap.local`, escrito direto nas três views de deploy, virou `UiConstants.LOCAL_INGRESS_DOMAIN`. Ficaram como estão, com o motivo registrado: `createIngress` com 6 parâmetros, no padrão dos outros métodos do serviço que montam recursos, e o tamanho de classes que já passavam do limite antes da sprint
+- **Dois ajustes no aceite manual**: (a) o nó Ingress da Topologia ignorava os labels desde a Sprint 77 e nunca entrava nos grupos, e o `TopologyService.ingressNode` passou a ler `part-of` e `component` como os demais tipos; (b) o botão Reset positions da Topologia usava o mesmo ícone do Refresh das outras views e passou a usar `ARROWS_CROSS`
+- **Dois achados do aceite registrados no backlog**: a dica da linha de `/etc/hosts` não teria onde aparecer no fim dos wizards, porque o sucesso redireciona direto para a Topologia; e a Topologia não acompanha o status dos recursos depois do deploy, porque monta o grafo uma vez e fica fora do auto-refresh
+- **Experimento de fluxo, testes em red→green dentro da implementação**: cada comportamento teve o teste escrito e visto falhando antes do código, e o passo de testes não teve trabalho próprio. O teste do request teve os dentes conferidos: com a view mandando o Ingress sempre nulo, ele falha
+- Testes: 13 novos métodos, 19 casos contando o parametrizado. `ImportComposeServiceTest` (novo, mock do Fabric8): Ingress com host, classe, backend, porta e labels; serviço não marcado sem Ingress; e "Ingress failed" com a lista do que foi criado. `ImportComposeViewTest` (Karibu, com o `fetch` do `ComposeParser` num spy para chegar ao passo 2 sem rede): opção só nos serviços com `ports:`, host sugerido, IngressClass pré-selecionada, request só com os marcados, e cada caso de bloqueio da validação (host vazio, 7 formatos inválidos, host repetido, serviço desmarcado ignorado, hosts válidos chegando ao provisionamento). `TopologyServiceTest`: o Ingress entra no grupo dos seus labels. CI verde
+- Issues: `.issue-tracker/sprint-113/issues/` (2 issues, ambas `done`; a 01 registra o ajuste de agrupamento e a 02 o limite de 63 caracteres)
+
+---
 
 ### Sprint 112 ✅ — Tour de primeiro acesso: spotlight sobre header e menu, montado no servidor e ancorado por id
 
@@ -304,20 +313,6 @@
 - Testes: `MainLayoutTest` (novo) — username sempre visível, "DEVELOPER EXPERIENCE" como 1ª seção com "New Application" abaixo de "Templates Catalog"; `DeployModeSelectorTest` (novo) — ordem fixa dos botões e destaque correto por view. Registro de rotas do `MockVaadin` (necessário porque `SideNavItem` resolve a rota no construtor) feito localmente só em `MainLayoutTest` — fazê-lo na classe base `KaribuTest` quebrou 11 testes existentes, já que nenhuma view desta app tem construtor no-arg e o `MockVaadin` falha ao navegar automaticamente para `""` na configuração inicial
 - Planejamento via `/grill-with-docs` cobriu as entregas 01 e 02 (username e reorganização do menu); a entrega 03 (fix de duplicação + `DeployModeSelector`) foi causa e solução evidentes, descobertas durante o aceite manual
 - Issues: `.issue-tracker/sprint-104/issues/` (3 issues, todas `done`)
-
-### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
-
-- `SampleCatalogView`: card de Template instalado ganha um ícone de lixeira discreto no canto superior direito do título (botão terciário só-ícone, cor de erro sutil, tooltip "Uninstall Template"), separado do footer onde fica "Open Topology" — ação destrutiva não compete visualmente com navegação inócua
-- Dialog type-to-confirm: reusa o texto de aviso do Delete Namespace; pede o **nome do Namespace** do Template (não o título do card); botão "Uninstall" só habilita quando o texto digitado bate exatamente
-- Confirmar chama `NamespaceService.deleteNamespace(cluster, template.namespace())`, fecha o dialog, limpa o Namespace ativo se era o deletado, atualiza o combo de Namespaces do header (`MainLayout.refreshNamespaceSelector`) e mostra notification de sucesso — single-shot sem rollback, consistente com Deploy Template (ADR 0015)
-- Escopo da remoção — decisão registrada na **ADR 0017**: Uninstall Template deleta **apenas o Namespace**, cascateando os recursos namespaced; deliberadamente **não** remove as imagens que os Kaniko Builds do Deploy Template empurraram para o Registry interno, nem eventuais recursos cluster-scoped (hipotéticos hoje) — espelha Uninstall Operator (deixa CRDs) e Uninstall Helm (deixa PVCs)
-- Estado transitório "Uninstalling…" com auto-heal: como a deleção de Namespace é assíncrona e o `refresh()` da view é um no-op deliberado, o card específico vira um estado desabilitado (opacity reduzida, `pointer-events: none`, badge contrast, sem lixeira/Open Topology/Deploy) e um polling leve (`AsyncTasks.schedulePolling`) checa `isInstalled` até virar `false`, re-renderizando **apenas aquele card** como "Deploy" — suporta múltiplos uninstalls simultâneos, cancelado em `onDetach`. Conteúdo do card extraído para `renderCardContent` para permitir a troca de estado in-place sem recarregar o catálogo inteiro
-- `CONTEXT.md`: entrada **Uninstall Template** adicionada ao glossário
-- Testes (`SampleCatalogViewTest`): card instalado renderiza a lixeira (localizada pela `Tooltip`, botão só-ícone) e card não-instalado não a renderiza; guard do botão "Uninstall" — desabilitado ao abrir, continua desabilitado com texto errado, habilita só com o Namespace exato; confirmar dispara `deleteNamespace` e marca o card "Uninstalling…"
-- Sem gate de permissão (ADR 0013) — Kubernetes API autoriza (ou 403) a deleção via o service account do usuário
-- Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.issue-tracker/sprint-103/issues/`
-- Backlog: registrado follow-up para extrair a lógica de deploy+build da `SampleCatalogView` (construtor cresceu para 7 dependências com a chegada de `NamespaceService`)
-- Issues: `.issue-tracker/sprint-103/issues/` (1 issue, `done`)
 
 ---
 

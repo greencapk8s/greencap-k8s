@@ -1,6 +1,6 @@
 # 01 — Expor um serviço do Compose por Ingress
 
-Status: in-progress
+Status: done
 Blocked by: nenhuma — pode começar já
 
 Hoje o Import Compose traduz `ports:` num Service ClusterIP e para aí: um serviço importado só é alcançável de dentro do cluster. Esta issue leva o caminho inteiro, da tela de revisão ao recurso criado, para que o usuário exponha um serviço externamente por Ingress, no mesmo modelo que já conhece do Deploy Application.

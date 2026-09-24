@@ -987,3 +987,17 @@ Nota (Sprint 98): o menu **Operators** foi ocultado do sidebar (`OPERATORS_MENU_
 - `CONTEXT.md`: entrada **Templates Catalog** atualizada descrevendo a ação "Open Topology" no card instalado, explicitando que é distinta do botão "Go to resource" do painel de detalhe da própria Topologia
 - Testes: `SampleCatalogViewTest` (Karibu) estendido — card instalado renderiza "Open Topology" junto ao badge; card não-instalado não o mostra (só "Deploy"); clicar troca o Namespace ativo para o do Template (`clusterContext.setNamespace` + `userService.updateActiveNamespace` verificados, absorvendo o `NotFoundException` de `navigate` no ambiente de teste sem rotas)
 - Issues: `.issue-tracker/archive/sprint-102/issues/` (1 issue, `done`)
+
+### Sprint 103 ✅ — Templates Catalog: ação "Uninstall Template" no card instalado
+
+- `SampleCatalogView`: card de Template instalado ganha um ícone de lixeira discreto no canto superior direito do título (botão terciário só-ícone, cor de erro sutil, tooltip "Uninstall Template"), separado do footer onde fica "Open Topology" — ação destrutiva não compete visualmente com navegação inócua
+- Dialog type-to-confirm: reusa o texto de aviso do Delete Namespace; pede o **nome do Namespace** do Template (não o título do card); botão "Uninstall" só habilita quando o texto digitado bate exatamente
+- Confirmar chama `NamespaceService.deleteNamespace(cluster, template.namespace())`, fecha o dialog, limpa o Namespace ativo se era o deletado, atualiza o combo de Namespaces do header (`MainLayout.refreshNamespaceSelector`) e mostra notification de sucesso — single-shot sem rollback, consistente com Deploy Template (ADR 0015)
+- Escopo da remoção — decisão registrada na **ADR 0017**: Uninstall Template deleta **apenas o Namespace**, cascateando os recursos namespaced; deliberadamente **não** remove as imagens que os Kaniko Builds do Deploy Template empurraram para o Registry interno, nem eventuais recursos cluster-scoped (hipotéticos hoje) — espelha Uninstall Operator (deixa CRDs) e Uninstall Helm (deixa PVCs)
+- Estado transitório "Uninstalling…" com auto-heal: como a deleção de Namespace é assíncrona e o `refresh()` da view é um no-op deliberado, o card específico vira um estado desabilitado (opacity reduzida, `pointer-events: none`, badge contrast, sem lixeira/Open Topology/Deploy) e um polling leve (`AsyncTasks.schedulePolling`) checa `isInstalled` até virar `false`, re-renderizando **apenas aquele card** como "Deploy" — suporta múltiplos uninstalls simultâneos, cancelado em `onDetach`. Conteúdo do card extraído para `renderCardContent` para permitir a troca de estado in-place sem recarregar o catálogo inteiro
+- `CONTEXT.md`: entrada **Uninstall Template** adicionada ao glossário
+- Testes (`SampleCatalogViewTest`): card instalado renderiza a lixeira (localizada pela `Tooltip`, botão só-ícone) e card não-instalado não a renderiza; guard do botão "Uninstall" — desabilitado ao abrir, continua desabilitado com texto errado, habilita só com o Namespace exato; confirmar dispara `deleteNamespace` e marca o card "Uninstalling…"
+- Sem gate de permissão (ADR 0013) — Kubernetes API autoriza (ou 403) a deleção via o service account do usuário
+- Planejamento via `/grill-with-docs`: `CONTEXT.md`, ADR 0017 e issue em `.issue-tracker/archive/sprint-103/issues/`
+- Backlog: registrado follow-up para extrair a lógica de deploy+build da `SampleCatalogView` (construtor cresceu para 7 dependências com a chegada de `NamespaceService`)
+- Issues: `.issue-tracker/archive/sprint-103/issues/` (1 issue, `done`)
