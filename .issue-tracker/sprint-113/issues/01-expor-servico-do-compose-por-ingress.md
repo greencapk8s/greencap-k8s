@@ -1,6 +1,6 @@
 # 01 — Expor um serviço do Compose por Ingress
 
-Status: todo
+Status: in-progress
 Blocked by: nenhuma — pode começar já
 
 Hoje o Import Compose traduz `ports:` num Service ClusterIP e para aí: um serviço importado só é alcançável de dentro do cluster. Esta issue leva o caminho inteiro, da tela de revisão ao recurso criado, para que o usuário exponha um serviço externamente por Ingress, no mesmo modelo que já conhece do Deploy Application.
@@ -39,3 +39,18 @@ Esta sprint experimenta escrever os testes dentro da implementação, em red→g
 - Múltiplas portas no Service
 - Orientação sobre `/etc/hosts` no wizard — o item "Acesso local via `*.greencap.local`" do backlog trata isso para todos os wizards
 - Validação do host — issue 02
+
+## Comments
+
+**24/09/2026** — Implementada, com os testes escritos em red→green. O `ServiceConfig` do request
+ganhou um `IngressConfig` opcional (host e classe, no mesmo formato do Deploy Application), e o
+`ImportComposeService` cria `<service>-ingress` logo depois do Service, com "Ingress failed" no
+tratamento de falha. Na view, o checkbox, o host e a IngressClass de cada serviço com `ports:` ficam
+num componente próprio, `ComposeServiceExposure`, que devolve o `IngressConfig` só quando o
+serviço está marcado. As IngressClasses são carregadas em segundo plano no `beforeEnter`, como as
+StorageClasses.
+
+Os testes ficaram em `ImportComposeServiceTest` (novo, mock do Fabric8) e `ImportComposeViewTest`.
+Nesse último, o `fetch` do `ComposeParser` é um spy que devolve o YAML parseado. Conferi os dentes
+do teste do request: com a view mandando o Ingress sempre nulo, ele falha. Faltam a ponta a ponta e
+o aceite manual.

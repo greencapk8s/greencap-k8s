@@ -7,6 +7,7 @@ import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
 import io.fabric8.kubernetes.api.model.ServiceBuilder;
 import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import io.fabric8.kubernetes.api.model.networking.v1.IngressBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.greencap.k8s.domain.cluster.Cluster;
 import io.greencap.k8s.kubernetes.KubernetesClientFactory;
@@ -120,6 +121,18 @@ public class ImportComposeService {
             log.error("Failed to create Service for service {}: {}", serviceName, e.getMessage());
             return new ImportComposeResult.ServiceResult(serviceName, created,
                     "Service failed: " + e.getMessage());
+        }
+
+        try {
+            if (config.isExposed() && !service.containerPorts().isEmpty()) {
+                createIngress(client, namespace, serviceName, service.containerPorts().get(0),
+                        config.ingress(), labels);
+                created.add("Ingress: " + ingressName(serviceName));
+            }
+        } catch (Exception e) {
+            log.error("Failed to create Ingress for service {}: {}", serviceName, e.getMessage());
+            return new ImportComposeResult.ServiceResult(serviceName, created,
+                    "Ingress failed: " + e.getMessage());
         }
 
         return new ImportComposeResult.ServiceResult(serviceName, created, null);
@@ -283,6 +296,43 @@ public class ImportComposeService {
                         .endSpec()
                         .build()
         ).create();
+    }
+
+    private void createIngress(KubernetesClient client, String namespace,
+                                String serviceName, int port,
+                                ComposeImportRequest.IngressConfig ingress,
+                                Map<String, String> labels) {
+        client.network().v1().ingresses().inNamespace(namespace).resource(
+                new IngressBuilder()
+                        .withNewMetadata()
+                            .withName(ingressName(serviceName))
+                            .withNamespace(namespace)
+                            .withLabels(labels)
+                        .endMetadata()
+                        .withNewSpec()
+                            .withIngressClassName(ingress.ingressClassName())
+                            .addNewRule()
+                                .withHost(ingress.host())
+                                .withNewHttp()
+                                    .addNewPath()
+                                        .withPath("/")
+                                        .withPathType("Prefix")
+                                        .withNewBackend()
+                                            .withNewService()
+                                                .withName(serviceName)
+                                                .withNewPort().withNumber(port).endPort()
+                                            .endService()
+                                        .endBackend()
+                                    .endPath()
+                                .endHttp()
+                            .endRule()
+                        .endSpec()
+                        .build()
+        ).create();
+    }
+
+    private String ingressName(String serviceName) {
+        return serviceName + "-ingress";
     }
 
     private String sanitizeK8sName(String name) {
