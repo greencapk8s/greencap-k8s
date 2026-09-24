@@ -1,6 +1,6 @@
 # 02 — Validar os hosts antes do Deploy
 
-Status: todo
+Status: in-progress
 Blocked by: 01
 
 O Import Compose passa a ser o primeiro wizard com vários hosts na mesma tela, e isso cria um risco que o Deploy Application e o Deploy from Dockerfile não têm: dois serviços com o mesmo host. Nenhum wizard valida host hoje; esta issue valida no Import Compose.
@@ -29,3 +29,16 @@ Karibu no `ImportComposeViewTest`, na mesma seam da issue 01: cada caso de bloqu
 ## Fora de escopo
 
 - Validação de host no Deploy Application e no Deploy from Dockerfile — registrada no backlog
+
+## Comments
+
+**24/09/2026** — Implementada, com os testes escritos em red→green. A validação fica no
+`ComposeServiceExposure`, criado na issue 01, e roda quando o usuário clica em Deploy no passo 2.
+Antes de validar, ela limpa o erro de todos os serviços, então um serviço que foi desmarcado não
+guarda um erro antigo para quando voltar a ser marcado. O host é comparado já sem espaços nas
+pontas, o mesmo valor que vai no request. Um host só de espaços conta como vazio.
+
+Os testes estão em `ImportComposeViewTest`: host vazio, seis formatos inválidos (maiúscula,
+underscore, hífen na ponta, ponto duplo, ponto no fim e 254 caracteres), host repetido marcado nos
+dois campos, serviço desmarcado com host inválido e hosts válidos chegando ao provisionamento.
+Faltam a verificação no browser e o aceite manual.

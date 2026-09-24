@@ -23,6 +23,8 @@ import io.greencap.k8s.kubernetes.dto.ImportComposeResult;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -32,6 +34,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.function.BooleanSupplier;
+import java.util.stream.Stream;
 import java.util.stream.Collectors;
 
 import static com.github.mvysny.kaributesting.v10.LocatorJ._find;
@@ -41,6 +44,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
@@ -186,6 +190,83 @@ class ImportComposeViewTest extends KaribuTest {
                 .isEqualTo(new ComposeImportRequest.IngressConfig("shop-api.greencap.local", "nginx"));
         assertThat(configs.get("web").isExposed()).isFalse();
         assertThat(configs.get("worker").isExposed()).isFalse();
+    }
+
+    @Test
+    void anEmptyHostBlocksTheDeploy() {
+        reachReviewStep("shop");
+        exposeCheckbox("api").setValue(true);
+        hostField("api").setValue("  ");
+
+        clickNext();
+
+        assertDeployBlockedOn(hostField("api"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("hostsOutsideTheDnsFormat")
+    void aHostOutsideTheDnsFormatBlocksTheDeploy(String invalidHost) {
+        reachReviewStep("shop");
+        exposeCheckbox("api").setValue(true);
+        hostField("api").setValue(invalidHost);
+
+        clickNext();
+
+        assertDeployBlockedOn(hostField("api"));
+    }
+
+    static Stream<String> hostsOutsideTheDnsFormat() {
+        return Stream.of("Api.shop.local", "api_shop.local", "-api.shop.local",
+                "api..shop.local", "api.shop.local.", "a".repeat(254));
+    }
+
+    @Test
+    void aHostRepeatedBetweenExposedServicesBlocksTheDeployOnBothFields() {
+        reachReviewStep("shop");
+        exposeCheckbox("api").setValue(true);
+        exposeCheckbox("web").setValue(true);
+        hostField("api").setValue("shop.greencap.local");
+        hostField("web").setValue("shop.greencap.local");
+
+        clickNext();
+
+        assertDeployBlockedOn(hostField("api"));
+        assertThat(hostField("web").isInvalid()).isTrue();
+    }
+
+    @Test
+    void aServiceNoLongerExposedDoesNotTakePartInTheValidation() {
+        reachReviewStep("shop");
+        exposeCheckbox("web").setValue(true);
+        hostField("web").setValue("not a host");
+        exposeCheckbox("web").setValue(false);
+        exposeCheckbox("api").setValue(true);
+
+        clickNext();
+
+        assertThat(capturedRequest().serviceConfigs()).hasSize(3);
+    }
+
+    @Test
+    void validAndDistinctHostsReachTheProvisioning() {
+        reachReviewStep("shop");
+        exposeCheckbox("api").setValue(true);
+        exposeCheckbox("web").setValue(true);
+
+        clickNext();
+
+        assertThat(capturedRequest().serviceConfigs().stream()
+                .filter(ComposeImportRequest.ServiceConfig::isExposed)
+                .map(config -> config.ingress().host()))
+                .containsExactlyInAnyOrder("api.shop.greencap.local", "web.shop.greencap.local");
+    }
+
+    // The wizard stays on the review step and never provisions; nothing about the check is async.
+    private void assertDeployBlockedOn(TextField hostField) {
+        assertThat(hostField.isInvalid()).isTrue();
+        assertThat(hostField.getErrorMessage()).isNotBlank();
+        assertThat(_find(view, Button.class, spec -> spec.withText("Deploy"))).hasSize(1);
+        verify(importComposeService, never()).provision(any(), any(), any());
     }
 
     // The Git fetch is stubbed with the parsed Compose so the wizard reaches the review step without

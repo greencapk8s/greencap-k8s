@@ -668,7 +668,7 @@ public class ImportComposeView extends VerticalLayout implements BeforeEnterObse
 
     private void navigateNext() {
         if (currentStep == 1) parseComposeAndAdvance();
-        else if (currentStep == 2) renderStep(3);
+        else if (currentStep == 2 && ComposeServiceExposure.validateHosts(exposureByService.values())) renderStep(3);
     }
 
     private void navigateBack() {

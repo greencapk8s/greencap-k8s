@@ -7,10 +7,17 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.textfield.TextField;
 import io.greencap.k8s.kubernetes.dto.ComposeImportRequest;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 class ComposeServiceExposure extends VerticalLayout {
+
+    private static final String HOST_LABEL_PATTERN = "[a-z0-9]([a-z0-9-]*[a-z0-9])?";
+    private static final String HOST_PATTERN = HOST_LABEL_PATTERN + "(\\." + HOST_LABEL_PATTERN + ")*";
+    private static final int MAX_HOST_LENGTH = 253;
 
     private final Checkbox exposeCheckbox = new Checkbox("Expose application externally (Ingress)");
     private final TextField hostField = new TextField("Host");
@@ -34,9 +41,45 @@ class ComposeServiceExposure extends VerticalLayout {
         add(exposeCheckbox, ingressForm);
     }
 
+    // Hosts are checked across services because two Ingresses with the same host in one Namespace
+    // would compete for the same traffic; a service that is not exposed takes no part.
+    static boolean validateHosts(Collection<ComposeServiceExposure> exposures) {
+        exposures.forEach(exposure -> exposure.hostField.setInvalid(false));
+        List<ComposeServiceExposure> exposed = exposures.stream()
+                .filter(exposure -> exposure.exposeCheckbox.getValue()).toList();
+        Map<String, Long> servicesByHost = exposed.stream()
+                .collect(Collectors.groupingBy(ComposeServiceExposure::host, Collectors.counting()));
+
+        boolean isValid = true;
+        for (ComposeServiceExposure exposure : exposed) {
+            Optional<String> error = hostError(exposure.host(), servicesByHost);
+            error.ifPresent(exposure::showHostError);
+            isValid &= error.isEmpty();
+        }
+        return isValid;
+    }
+
+    private static Optional<String> hostError(String host, Map<String, Long> servicesByHost) {
+        if (host.isEmpty()) return Optional.of("Host is required");
+        if (host.length() > MAX_HOST_LENGTH || !host.matches(HOST_PATTERN)) {
+            return Optional.of("Lowercase letters, numbers, hyphens and dots only, "
+                    + "each part starting and ending with a letter or number, max 253 chars");
+        }
+        if (servicesByHost.get(host) > 1) return Optional.of("Another exposed service uses this host");
+        return Optional.empty();
+    }
+
     Optional<ComposeImportRequest.IngressConfig> ingressConfig() {
         if (!exposeCheckbox.getValue()) return Optional.empty();
-        return Optional.of(new ComposeImportRequest.IngressConfig(
-                hostField.getValue().trim(), ingressClassField.getValue()));
+        return Optional.of(new ComposeImportRequest.IngressConfig(host(), ingressClassField.getValue()));
+    }
+
+    private String host() {
+        return hostField.getValue().trim();
+    }
+
+    private void showHostError(String message) {
+        hostField.setErrorMessage(message);
+        hostField.setInvalid(true);
     }
 }
