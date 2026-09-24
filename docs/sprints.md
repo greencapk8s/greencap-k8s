@@ -47,6 +47,12 @@
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
 - **`/etc/hosts` não suporta curinga** — descoberto ao testar o Ingress do Sample Catalog (Sprint 98): a convenção `<namespace>.greencap.local`, usada também em Deploy Application e Deploy from Dockerfile, exige uma linha manual em `/etc/hosts` por aplicação implantada (`/etc/hosts` faz correspondência exata, sem expansão de glob — uma entrada `*.greencap.local` não resolve nada). Conforme o Sample Catalog cresce com mais Templates, essa fricção tende a aumentar. Solução: documentar (ou automatizar via script) um resolver DNS local com curinga real, ex. `dnsmasq` com `address=/.greencap.local/<ip-do-cluster>`, resolvendo qualquer subdomínio de uma vez — no Linux via NetworkManager/dnsmasq, no macOS via dnsmasq + `/etc/resolver/greencap.local`.
+- **Dica de `/etc/hosts` não teria onde aparecer** — observado no aceite da Sprint 113: com sucesso total, os wizards de deploy (Deploy Application, Deploy from Dockerfile, Import Compose) redirecionam direto para a Topologia, então uma orientação no fim do wizard nunca seria vista. Enquanto não houver resolver com curinga, a dica da linha `<ip-do-cluster> <host>` precisa morar no destino, por exemplo no painel do nó Ingress da Topologia, que já mostra os hosts.
+
+#### 🗺️ Topologia não acompanha o status dos recursos
+
+- **Observado no aceite da Sprint 113**: depois de um deploy, os wizards redirecionam para a Topologia enquanto os Pods ainda sobem, e os nós ficam no estado inicial indefinidamente. Deployments e Pods já mostravam tudo pronto, e a Topologia só refletiu isso ao ser aberta de novo. A causa é que a `TopologiaView` monta o grafo uma única vez, no `beforeEnter`, e não implementa `Refreshable`, então o auto-refresh do `MainLayout` nunca a alcança.
+- **Por que não é só implementar `Refreshable`**: reenviar o grafo pelo `setGraphData` refaz o layout (fcose) e faz os nós pularem de lugar a cada tick. O refresh precisa atualizar apenas status, alerta e severidade dos nós existentes no `topology-graph.ts`, e só refazer o layout quando nós entram ou saem. Isso é código TypeScript sem cobertura automatizada (ver o item sobre testes de frontend).
 
 #### 🌐 Ingress nos wizards de deploy — host sem validação e cluster sem IngressClass
 
