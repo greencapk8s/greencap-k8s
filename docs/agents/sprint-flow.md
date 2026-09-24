@@ -22,7 +22,7 @@ A commit carries only the sprint's work. When `git status` shows changes from be
 5. **Manual acceptance**: ask the user to validate the flows in the browser and confirm, then wait. Each adjustment that comes out of acceptance is its own commit. Done only when the user explicitly confirms acceptance; green automated tests are not acceptance.
 6. **Tests**: for each delivery, add coverage following the Testing section of `docs/agents/code-standards.md`, run `./gradlew compileTestJava` and commit; the push runs the suite in CI. This step may run while the user validates, and so may `./gradlew test` when a CI failure needs diagnosing locally: the suite is isolated (Testcontainers Postgres, Fabric8 mock client, `MOCK` web environment) and touches neither the dev database, minikube nor port 8080.
 7. **Closing**: starts only once the user has explicitly accepted and the PR's `test` check is green.
-   1. Mark the sprint's issues `done`.
+   1. Tick every acceptance criterion that a green test or the manual acceptance verified, and mark the sprint's issues `done`. A criterion without that evidence is reported to the user, and the reason it stays unticked is recorded under the issue's `## Comments`.
    2. Update `docs/sprints.md`: the sprint's row in "Status Geral" as ✅ Concluído, its entry in "Sprints Concluídas", and every backlog item it delivered deleted outright, not struck through (a still-open bullet under a deleted item moves to a heading of its own).
    3. If "Sprints Concluídas" now holds more than 10 entries, apply `docs/agents/sprint-archiving.md`.
    4. Commit these changes as the closing commit.
