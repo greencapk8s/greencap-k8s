@@ -54,3 +54,9 @@ Os testes ficaram em `ImportComposeServiceTest` (novo, mock do Fabric8) e `Impor
 Nesse último, o `fetch` do `ComposeParser` é um spy que devolve o YAML parseado. Conferi os dentes
 do teste do request: com a view mandando o Ingress sempre nulo, ele falha. Faltam a ponta a ponta e
 o aceite manual.
+
+**24/09/2026** — Ajuste do aceite. O Ingress era criado com os labels certos, mas aparecia fora do
+grupo na Topologia. A causa estava no `TopologyService.ingressNode`, que ignorava os labels e
+passava grupo vazio. Isso não foi uma decisão: o nó Ingress entrou na Sprint 77, depois do
+agrupamento da Sprint 47, e a issue 77-01 não fala de grupo. Agora o nó lê `part-of` e `component`
+como os demais. Isso também vale para qualquer Ingress com esses labels, como os dos Templates.

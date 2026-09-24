@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -201,6 +202,24 @@ class TopologyServiceTest {
         TopologyNode ingress = node(topologyService.buildGraph(cluster, NAMESPACE), "ingress/api-ingress");
 
         assertThat(ingress.severity()).isEqualTo(Severity.NEUTRAL);
+    }
+
+    @Test
+    void ingressNode_joinsTheGroupOfItsPartOfAndComponentLabels() {
+        client.network().v1().ingresses().inNamespace(NAMESPACE).resource(
+                new IngressBuilder()
+                        .withNewMetadata().withName("api-ingress").withNamespace(NAMESPACE)
+                            .withLabels(Map.of("app.kubernetes.io/part-of", "shop",
+                                    "app.kubernetes.io/component", "api"))
+                        .endMetadata()
+                        .withNewSpec().endSpec()
+                        .build()
+        ).create();
+
+        TopologyNode ingress = node(topologyService.buildGraph(cluster, NAMESPACE), "ingress/api-ingress");
+
+        assertThat(ingress.partOfGroup()).isEqualTo("shop");
+        assertThat(ingress.componentGroup()).isEqualTo("api");
     }
 
     /** A lost volume is lost data, and it used to draw the same grey as a healthy one. */

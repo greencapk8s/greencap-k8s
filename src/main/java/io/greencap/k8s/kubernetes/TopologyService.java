@@ -305,6 +305,7 @@ public class TopologyService {
                 .map(s -> s.getTls())
                 .map(tls -> !tls.isEmpty())
                 .orElse(false);
+        Map<String, String> labels = Optional.ofNullable(ing.getMetadata().getLabels()).orElse(Map.of());
         String name = ing.getMetadata().getName();
         return new TopologyNode(
                 nodeId("ingress", name),
@@ -315,7 +316,8 @@ public class TopologyService {
                 NO_ALERT,
                 Severity.NEUTRAL,
                 resourceViewUrl("ingress", name),
-                Map.of(), 0, 0, ingressClass, hosts, hasTls ? "Secure" : "Plain", "", "");
+                labels, 0, 0, ingressClass, hosts, hasTls ? "Secure" : "Plain",
+                partOfGroup(labels), componentGroup(labels));
     }
 
     private Set<String> extractBackendServiceNames(Ingress ing) {
