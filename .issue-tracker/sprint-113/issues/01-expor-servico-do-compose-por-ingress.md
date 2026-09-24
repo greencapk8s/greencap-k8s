@@ -20,11 +20,11 @@ Ao desmarcar, os campos somem e o serviço não é exposto. Como os outros campo
 
 ## Critérios de aceite
 
-- [ ] Serviços com `ports:` mostram a opção desmarcada; serviços sem `ports:` não a mostram
-- [ ] Marcar mostra o host sugerido `<service>.<namespace>.greencap.local` e a IngressClass com a primeira classe do cluster pré-selecionada; desmarcar esconde os dois
-- [ ] O deploy cria `<service>-ingress` só para os serviços marcados, com host, classe, path `/` do tipo `Prefix`, backend no Service na primeira porta e os labels da Topologia
-- [ ] Uma falha na criação do Ingress aparece como "Ingress failed" no resultado do serviço, com os recursos já criados listados
-- [ ] Ponta a ponta: importar o compose de `.dev/greencap-demo`, expor a `api`, ver o Ingress agrupado na Topologia e abrir `api.<namespace>.greencap.local` com a linha correspondente no `/etc/hosts`
+- [x] Serviços com `ports:` mostram a opção desmarcada; serviços sem `ports:` não a mostram
+- [x] Marcar mostra o host sugerido `<service>.<namespace>.greencap.local` e a IngressClass com a primeira classe do cluster pré-selecionada; desmarcar esconde os dois
+- [x] O deploy cria `<service>-ingress` só para os serviços marcados, com host, classe, path `/` do tipo `Prefix`, backend no Service na primeira porta e os labels da Topologia
+- [x] Uma falha na criação do Ingress aparece como "Ingress failed" no resultado do serviço, com os recursos já criados listados
+- [x] Ponta a ponta: importar o compose de `.dev/greencap-demo`, expor a `api`, ver o Ingress agrupado na Topologia e abrir `api.<namespace>.greencap.local` com a linha correspondente no `/etc/hosts`
 
 ## Testes
 
