@@ -8,6 +8,7 @@
 
 | Sprint | Tema | Status |
 |--------|------|--------|
+| 113 | Ingress no Deploy from Compose: cada serviço com `ports:` pode ser exposto por um Ingress próprio, com host sugerido por serviço e validado antes do Deploy | 🔄 Em andamento |
 | 112 | Tour de primeiro acesso: introdução guiada com spotlight sobre header e menu, montada no servidor e ancorada por id explícito, com replay em Platform Settings | ✅ Concluído |
 | 111 | Topologia: nó com corpo neutro e ícone de tipo, cor codificando exclusivamente estado, e o status escrito no nó quando não está saudável | ✅ Concluído |
 | 110 | `UI.navigate(String)` com query string embutida em `CronJobsView` e `JobsView`: os três call sites remanescentes passam a usar o overload de 2 argumentos | ✅ Concluído |
@@ -46,6 +47,12 @@
 #### 🌐 Acesso local via `*.greencap.local` — follow-up dos fluxos de Deploy
 
 - **`/etc/hosts` não suporta curinga** — descoberto ao testar o Ingress do Sample Catalog (Sprint 98): a convenção `<namespace>.greencap.local`, usada também em Deploy Application e Deploy from Dockerfile, exige uma linha manual em `/etc/hosts` por aplicação implantada (`/etc/hosts` faz correspondência exata, sem expansão de glob — uma entrada `*.greencap.local` não resolve nada). Conforme o Sample Catalog cresce com mais Templates, essa fricção tende a aumentar. Solução: documentar (ou automatizar via script) um resolver DNS local com curinga real, ex. `dnsmasq` com `address=/.greencap.local/<ip-do-cluster>`, resolvendo qualquer subdomínio de uma vez — no Linux via NetworkManager/dnsmasq, no macOS via dnsmasq + `/etc/resolver/greencap.local`.
+
+#### 🌐 Ingress nos wizards de deploy — host sem validação e cluster sem IngressClass
+
+- **Levantado no planejamento da Sprint 113**, ao levar Ingress para o Import Compose. O Deploy Application e o Deploy from Dockerfile aceitam o host como texto livre, sem checar se está vazio nem o formato DNS. Um host vazio não é barrado pela API: vira uma regra sem host, que atende qualquer requisição que chega ao controller. Um host fora do formato só aparece como erro da API no fim do deploy, com Namespace, Deployment e Service já criados e sem rollback. A Sprint 113 valida o host apenas no Import Compose, o que deixa os três wizards inconsistentes entre si.
+- **Cluster sem IngressClass**: nos três wizards a combo de IngressClass fica vazia e o Ingress é criado sem classe. Num cluster sem classe padrão nenhum controller atende esse Ingress, e o usuário não recebe aviso: a aplicação simplesmente não responde no host. O cluster do `setup.sh` sempre tem a classe `nginx` (addon `ingress`), então o caso só aparece com Cluster registrado de outra origem.
+- **Direção de solução**: levar a validação de host do Import Compose para os outros dois wizards, compartilhando a mesma regra; e, sem IngressClass disponível, desabilitar a opção de expor com um texto explicando o motivo, nos três wizards.
 
 #### 🔗 Registro de Cluster — método alternativo ao kubeconfig
 
