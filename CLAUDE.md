@@ -2,7 +2,7 @@
 
 Plataforma web para gerenciar clusters Kubernetes voltada a iniciantes: monolito Spring Boot + Vaadin Flow (Java 21), dockerizado e plug and play, inspirado em OKD, OpenShift e Rancher.
 
-- Após cada mudança: `./gradlew compileJava` (e `./gradlew compileTestJava` nos testes). A suíte `./gradlew test` é lenta (Testcontainers) e roda uma vez, antes do commit de entrega
+- Após cada mudança: `./gradlew compileJava` (e `./gradlew compileTestJava` nos testes). A suíte `./gradlew test` é lenta (Testcontainers) e quem a roda é o CI, a cada push do PR (check `test`, obrigatório no merge); localmente, só para diagnosticar uma falha
 - Código, identificadores e comentários em inglês; comentário só explica o porquê
 - Commit no formato `tipo: descrição em português`, com tipo `feat`, `fix`, `docs`, `refactor`, `test` ou `chore`
 - Atribuição: a mensagem de commit termina com `Programado em par com: Claude IA` e a descrição de PR com `Programado em par com Claude.`, no lugar do rodapé padrão do Claude Code
